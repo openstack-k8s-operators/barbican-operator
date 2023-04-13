@@ -1,0 +1,12 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: BarbicanAPI
+metadata:
+  labels:
+    app.kubernetes.io/name: barbicanapi
+    app.kubernetes.io/instance: barbicanapi-sample
+    app.kubernetes.io/part-of: barbican-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: barbican-operator
+  name: barbicanapi-sample
+spec:
+  # TODO(user): Add fields here

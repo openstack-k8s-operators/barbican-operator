@@ -10,4 +10,14 @@ plugins:
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: barbican-operator
 repo: github.com/openstack-k8s-operators/barbican-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: barbican
+  kind: BarbicanAPI
+  path: github.com/openstack-k8s-operators/barbican-operator/api/v1beta1
+  version: v1beta1
 version: "3"
