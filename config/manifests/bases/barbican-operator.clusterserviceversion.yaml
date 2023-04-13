@@ -17,6 +17,11 @@ spec:
       kind: BarbicanAPI
       name: barbicanapis.barbican.openstack.org
       version: v1beta1
+    - description: Barbican is the Schema for the barbicans API
+      displayName: Babican
+      kind: Barbican
+      name: barbicans.barbican.openstack.org
+      version: v1beta1
   description: Barbican Operator
   displayName: Barbican Operator
   icon:
