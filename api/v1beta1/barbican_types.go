@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -56,8 +57,25 @@ type BarbicanSpec struct {
 
 // BarbicanStatus defines the observed state of Barbican
 type BarbicanStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Map of hashes to track e.g. job status
+	Hash map[string]string `json:"hash,omitempty"`
+
+	// Conditions
+	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
+
+	// API endpoints
+	// TODO(dmendiza): This thing is hideous.  Why do we need it?
+	APIEndpoints map[string]map[string]string `json:"apiEndpoints,omitempty"`
+
+	// ServiceIDs
+	// TODO(dmendiza): This thing is hideous.  Why do we need it?
+	ServiceIDs map[string]string `json:"serviceIDs,omitempty"`
+
+	// ReadyCount of Barbican API instances
+	BarbicanAPIReadyCount int32 `json:"barbicanAPIReadyCount,omitempty"`
+
+	// ReadyCount of Barbican Worker instances
+	BarbicanWorkerReadyCount int32 `json:"barbicanWorkerReadyCount,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -70,6 +88,11 @@ type Barbican struct {
 
 	Spec   BarbicanSpec   `json:"spec,omitempty"`
 	Status BarbicanStatus `json:"status,omitempty"`
+}
+
+func (instance Barbican) IsReady() bool {
+	return instance.Status.Conditions.IsTrue(BarbicanAPIReadyCondition) &&
+		instance.Status.Conditions.IsTrue(BarbicanWorkerReadyCondition)
 }
 
 //+kubebuilder:object:root=true
