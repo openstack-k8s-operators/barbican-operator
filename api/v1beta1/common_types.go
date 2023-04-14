@@ -21,6 +21,12 @@ type BarbicanTemplate struct {
 	// DatabaseUser - optional username used for barbican DB, defaults to barbican
 	DatabaseUser string `json:"databaseUser"`
 
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default=rabbitmq
+	// RabbitMQ instance name
+	// Needed to request a transportURL that is created and used in Barbican
+	RabbitMqClusterName string `json:"rabbitMqClusterName"`
+
 	// +kubebuilder:validation:Optional
 	// Secret containing all passwords / keys needed
 	Secret string `json:"secret"`
@@ -73,12 +79,6 @@ type BarbicanComponentTemplate struct {
 	// +kubebuilder:validation:Optional
 	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:default=rabbitmq
-	// RabbitMQ instance name
-	// Needed to request a transportURL that is created and used in Barbican
-	RabbitMqClusterName string `json:"rabbitMqClusterName"`
 }
 
 // PasswordSelector to identify the DB and AdminUser password from the Secret

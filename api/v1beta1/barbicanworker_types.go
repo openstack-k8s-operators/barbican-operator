@@ -20,20 +20,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type BarbicanWorkerTemplate struct {
+	BarbicanComponentTemplate `json:",inline"`
+
+	// TODO(dmendiza): Do we need a setting for number of worker processes
+	// or is replica scaling good enough?
+}
+
 // BarbicanWorkerSpec defines the desired state of BarbicanWorker
 type BarbicanWorkerSpec struct {
 	BarbicanTemplate `json:",inline"`
 
-	// +kubebuilder:validation:Required
-	// BarbicanAPI Container Image URL
-	ContainerImage string `json:"containerImage"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=1
-	// +kubebuilder:validation:Maximum=32
-	// +kubebuilder:validation:Minimum=0
-	// Replicas of Barbican Worker to run
-	Replicas int32 `json:"replicas"`
+	BarbicanWorkerTemplate `json:",inline"`
 }
 
 // BarbicanWorkerStatus defines the observed state of BarbicanWorker

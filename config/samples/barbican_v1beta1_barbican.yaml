@@ -12,10 +12,16 @@ spec:
   serviceUser: barbican
   databaseInstance: some_string
   databaseUser: barbican
+  rabbitMqCusterName: barbican_rabbit
   secret: barbican-secret
   passwordSelectors:
     database: BarbicanDatabasePassword
     service: BarbicanServiceUserPassword
+  debug:
+    dbInitContainer: true
+    dbSync: true
+    initContainer: true
+    service: true
   preserveJobs: true
   nodeSelector:
     node: controller
@@ -25,14 +31,11 @@ spec:
   defaultConfigOverwrite:
     policy.json: |
       {"some": "custom policy"}
-  barbicanAPIInternal:
-    apiType: internal
-    replicas: 10
+  barbicanAPI:
     containerImage: some_image
     nodeSelector:
       optional_override: here
-    debug:
-      service: true
+    replicas: 10
     customServiceConfig: |
       [optional]
       overrides = True
@@ -41,29 +44,6 @@ spec:
         {"some": "custom policy"}
     networkAttachments:
       - internal
-    externalEndpoints: # TODO(dmendiza) is this necessary here?
-      - endpoint:
-        ipAddressPool: some_ip_string
-        sharedIP: true
-        sharedIPKey: some_key_string
-        loadBalancerIPs:
-          - some_ip_string
-  barbicanAPIExternal:
-    apiType: external
-    replicas: 10
-    containerImage: some_image
-    nodeSelector:
-      optional_override: here
-    debug:
-      service: true
-    customServiceConfig: |
-      [optional]
-      overrides = True
-    defautlConfigOverwrite:
-      optional_policy.json: |
-        {"some": "custom policy"}
-    networkAttachments:
-      - external
     externalEndpoints:
       - endpoint:
         ipAddressPool: some_ip_string
@@ -71,3 +51,16 @@ spec:
         sharedIPKey: some_key_string
         loadBalancerIPs:
           - some_ip_string
+  barbicanWorker:
+    containerImage: some_image
+    nodeSelector:
+      optional_override: here
+    replicas: 10
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
+    networkAttachments:
+      - internal

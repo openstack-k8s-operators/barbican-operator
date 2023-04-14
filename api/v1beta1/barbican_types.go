@@ -49,11 +49,9 @@ type BarbicanSpec struct {
 	// +kubebuilder:validation:Required
 	// BarbicanAPIInternal - Spec definition for the internal and admin API service of this Barbican deployment
 
-	BarbicanAPIInternal BarbicanAPITemplate `json:"barbicanAPIInternal"`
+	BarbicanAPI BarbicanAPITemplate `json:"barbicanAPI"`
 
-	// +kubebuilder:validation:Required
-	// BarbicanAPIExternal - Spec definition for the external API service of this Barbican deployment
-	BarbicanAPIExternal BarbicanAPITemplate `json:"barbicanAPIExternal"`
+	BarbicanWorker BarbicanWorkerTemplate `json:"barbicanWorker"`
 }
 
 // BarbicanStatus defines the observed state of Barbican
