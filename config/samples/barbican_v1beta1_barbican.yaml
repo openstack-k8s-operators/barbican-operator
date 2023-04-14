@@ -9,4 +9,65 @@ metadata:
     app.kubernetes.io/created-by: barbican-operator
   name: barbican-sample
 spec:
-  # TODO(user): Add fields here
+  serviceUser: barbican
+  databaseInstance: some_string
+  databaseUser: barbican
+  secret: barbican-secret
+  passwordSelectors:
+    database: BarbicanDatabasePassword
+    service: BarbicanServiceUserPassword
+  preserveJobs: true
+  nodeSelector:
+    node: controller
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+  defaultConfigOverwrite:
+    policy.json: |
+      {"some": "custom policy"}
+  barbicanAPIInternal:
+    apiType: internal
+    replicas: 10
+    containerImage: some_image
+    nodeSelector:
+      optional_override: here
+    debug:
+      service: true
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
+    networkAttachments:
+      - internal
+    externalEndpoints: # TODO(dmendiza) is this necessary here?
+      - endpoint:
+        ipAddressPool: some_ip_string
+        sharedIP: true
+        sharedIPKey: some_key_string
+        loadBalancerIPs:
+          - some_ip_string
+  barbicanAPIExternal:
+    apiType: external
+    replicas: 10
+    containerImage: some_image
+    nodeSelector:
+      optional_override: here
+    debug:
+      service: true
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
+    networkAttachments:
+      - external
+    externalEndpoints:
+      - endpoint:
+        ipAddressPool: some_ip_string
+        sharedIP: true
+        sharedIPKey: some_key_string
+        loadBalancerIPs:
+          - some_ip_string

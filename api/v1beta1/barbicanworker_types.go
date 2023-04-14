@@ -20,25 +20,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BarbicanAPITemplate defines the input parameters for the Barbican API service
-type BarbicanAPITemplate struct {
-	// Common input parameters for the Barbican API service
-	BarbicanComponentTemplate `json:",inline"`
-
-	// +kubebuilder:validation:Optional
-	// ExternalEndpoints, expose a VIP via MetalLB on the pre-created address pool
-	ExternalEndpoints []MetalLBConfig `json:"externalEndpoints,omitempty"`
-}
-
-// BarbicanAPISpec defines the desired state of BarbicanAPI
-type BarbicanAPISpec struct {
+// BarbicanWorkerSpec defines the desired state of BarbicanWorker
+type BarbicanWorkerSpec struct {
 	BarbicanTemplate `json:",inline"`
 
-	BarbicanAPITemplate `json:",inline"`
+	// +kubebuilder:validation:Required
+	// BarbicanAPI Container Image URL
+	ContainerImage string `json:"containerImage"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Maximum=32
+	// +kubebuilder:validation:Minimum=0
+	// Replicas of Barbican Worker to run
+	Replicas int32 `json:"replicas"`
 }
 
-// BarbicanAPIStatus defines the observed state of BarbicanAPI
-type BarbicanAPIStatus struct {
+// BarbicanWorkerStatus defines the observed state of BarbicanWorker
+type BarbicanWorkerStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -46,24 +45,24 @@ type BarbicanAPIStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// BarbicanAPI is the Schema for the barbicanapis API
-type BarbicanAPI struct {
+// BarbicanWorker is the Schema for the barbicanworkers API
+type BarbicanWorker struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BarbicanAPISpec   `json:"spec,omitempty"`
-	Status BarbicanAPIStatus `json:"status,omitempty"`
+	Spec   BarbicanWorkerSpec   `json:"spec,omitempty"`
+	Status BarbicanWorkerStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BarbicanAPIList contains a list of BarbicanAPI
-type BarbicanAPIList struct {
+// BarbicanWorkerList contains a list of BarbicanWorker
+type BarbicanWorkerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BarbicanAPI `json:"items"`
+	Items           []BarbicanWorker `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BarbicanAPI{}, &BarbicanAPIList{})
+	SchemeBuilder.Register(&BarbicanWorker{}, &BarbicanWorkerList{})
 }

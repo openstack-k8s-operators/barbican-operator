@@ -1,0 +1,31 @@
+# permissions for end users to edit barbicanworkers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: barbicanworker-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: barbican-operator
+    app.kubernetes.io/part-of: barbican-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: barbicanworker-editor-role
+rules:
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers/status
+  verbs:
+  - get
