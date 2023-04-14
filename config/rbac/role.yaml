@@ -1,0 +1,85 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanapis
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanapis/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanapis/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicans
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicans/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicans/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers/status
+  verbs:
+  - get
+  - patch
+  - update

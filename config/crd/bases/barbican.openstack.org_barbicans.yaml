@@ -1,0 +1,334 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: barbicans.barbican.openstack.org
+spec:
+  group: barbican.openstack.org
+  names:
+    kind: Barbican
+    listKind: BarbicanList
+    plural: barbicans
+    singular: barbican
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Barbican is the Schema for the barbicans API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BarbicanSpec defines the desired state of Barbican
+            properties:
+              barbicanAPIExternal:
+                description: BarbicanAPIExternal - Spec definition for the external
+                  API service of this Barbican deployment
+                properties:
+                  containerImage:
+                    description: ContainerImage - Barbican Container Image URL (will
+                      be set to environmental default if empty)
+                    type: string
+                  customServiceConfig:
+                    description: CustomServiceConfig - customize the service config
+                      using this parameter to change service defaults, or overwrite
+                      rendered information using raw OpenStack config format. The
+                      content gets added to to /etc/<service>/<service>.conf.d directory
+                      as a custom config file.
+                    type: string
+                  defaultConfigOverwrite:
+                    additionalProperties:
+                      type: string
+                    description: 'ConfigOverwrite - interface to overwrite default
+                      config files like e.g. policy.json. But can also be used to
+                      add additional files. Those get added to the service config
+                      dir in /etc/<service> . TODO: -> implement'
+                    type: object
+                  externalEndpoints:
+                    description: ExternalEndpoints, expose a VIP via MetalLB on the
+                      pre-created address pool
+                    items:
+                      description: MetalLBConfig to configure the MetalLB loadbalancer
+                        service
+                      properties:
+                        endpoint:
+                          description: Endpoint, OpenStack endpoint this service maps
+                            to
+                          enum:
+                          - internal
+                          - public
+                          type: string
+                        ipAddressPool:
+                          description: IPAddressPool expose VIP via MetalLB on the
+                            IPAddressPool
+                          minLength: 1
+                          type: string
+                        loadBalancerIPs:
+                          description: LoadBalancerIPs, request given IPs from the
+                            pool if available. Using a list to allow dual stack (IPv4/IPv6)
+                            support
+                          items:
+                            type: string
+                          type: array
+                        sharedIP:
+                          default: true
+                          description: SharedIP if true, VIP/VIPs get shared with
+                            multiple services
+                          type: boolean
+                        sharedIPKey:
+                          default: ""
+                          description: SharedIPKey specifies the sharing key which
+                            gets set as the annotation on the LoadBalancer service.
+                            Services which share the same VIP must have the same SharedIPKey.
+                            Defaults to the IPAddressPool if SharedIP is true, but
+                            no SharedIPKey specified.
+                          type: string
+                      required:
+                      - endpoint
+                      - ipAddressPool
+                      type: object
+                    type: array
+                  networkAttachments:
+                    description: NetworkAttachments is a list of NetworkAttachment
+                      resource names to expose the services to the given network
+                    items:
+                      type: string
+                    type: array
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector to target subset of worker nodes running
+                      this component. Setting here overrides any global NodeSelector
+                      settings within the Barbican CR.
+                    type: object
+                  rabbitMqClusterName:
+                    default: rabbitmq
+                    description: RabbitMQ instance name Needed to request a transportURL
+                      that is created and used in Barbican
+                    type: string
+                  replicas:
+                    default: 1
+                    description: Replicas of Barbican API to run
+                    format: int32
+                    maximum: 32
+                    minimum: 0
+                    type: integer
+                required:
+                - containerImage
+                - rabbitMqClusterName
+                type: object
+              barbicanAPIInternal:
+                description: BarbicanAPITemplate defines the input parameters for
+                  the Barbican API service
+                properties:
+                  containerImage:
+                    description: ContainerImage - Barbican Container Image URL (will
+                      be set to environmental default if empty)
+                    type: string
+                  customServiceConfig:
+                    description: CustomServiceConfig - customize the service config
+                      using this parameter to change service defaults, or overwrite
+                      rendered information using raw OpenStack config format. The
+                      content gets added to to /etc/<service>/<service>.conf.d directory
+                      as a custom config file.
+                    type: string
+                  defaultConfigOverwrite:
+                    additionalProperties:
+                      type: string
+                    description: 'ConfigOverwrite - interface to overwrite default
+                      config files like e.g. policy.json. But can also be used to
+                      add additional files. Those get added to the service config
+                      dir in /etc/<service> . TODO: -> implement'
+                    type: object
+                  externalEndpoints:
+                    description: ExternalEndpoints, expose a VIP via MetalLB on the
+                      pre-created address pool
+                    items:
+                      description: MetalLBConfig to configure the MetalLB loadbalancer
+                        service
+                      properties:
+                        endpoint:
+                          description: Endpoint, OpenStack endpoint this service maps
+                            to
+                          enum:
+                          - internal
+                          - public
+                          type: string
+                        ipAddressPool:
+                          description: IPAddressPool expose VIP via MetalLB on the
+                            IPAddressPool
+                          minLength: 1
+                          type: string
+                        loadBalancerIPs:
+                          description: LoadBalancerIPs, request given IPs from the
+                            pool if available. Using a list to allow dual stack (IPv4/IPv6)
+                            support
+                          items:
+                            type: string
+                          type: array
+                        sharedIP:
+                          default: true
+                          description: SharedIP if true, VIP/VIPs get shared with
+                            multiple services
+                          type: boolean
+                        sharedIPKey:
+                          default: ""
+                          description: SharedIPKey specifies the sharing key which
+                            gets set as the annotation on the LoadBalancer service.
+                            Services which share the same VIP must have the same SharedIPKey.
+                            Defaults to the IPAddressPool if SharedIP is true, but
+                            no SharedIPKey specified.
+                          type: string
+                      required:
+                      - endpoint
+                      - ipAddressPool
+                      type: object
+                    type: array
+                  networkAttachments:
+                    description: NetworkAttachments is a list of NetworkAttachment
+                      resource names to expose the services to the given network
+                    items:
+                      type: string
+                    type: array
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector to target subset of worker nodes running
+                      this component. Setting here overrides any global NodeSelector
+                      settings within the Barbican CR.
+                    type: object
+                  rabbitMqClusterName:
+                    default: rabbitmq
+                    description: RabbitMQ instance name Needed to request a transportURL
+                      that is created and used in Barbican
+                    type: string
+                  replicas:
+                    default: 1
+                    description: Replicas of Barbican API to run
+                    format: int32
+                    maximum: 32
+                    minimum: 0
+                    type: integer
+                required:
+                - containerImage
+                - rabbitMqClusterName
+                type: object
+              customServiceConfig:
+                description: CustomServiceConfig - customize the service config using
+                  this parameter to change service defaults, or overwrite rendered
+                  information using raw OpenStack config format. The content gets
+                  added to to /etc/<service>/<service>.conf.d directory as custom.conf
+                  file.
+                type: string
+              databaseInstance:
+                description: 'MariaDB instance name TODO(dmendiza): Is this comment
+                  right? Right now required by the maridb-operator to get the credentials
+                  from the instance to create the DB Might not be required in future'
+                type: string
+              databaseUser:
+                default: barbican
+                description: DatabaseUser - optional username used for barbican DB,
+                  defaults to barbican
+                type: string
+              debug:
+                description: 'Debug - enable debug for different deploy stages. If
+                  an init container is used, it runs and the actual action pod gets
+                  started with sleep infinity TODO(dmendiza): Do we need this?'
+                properties:
+                  dbInitContainer:
+                    default: false
+                    description: dbInitContainer enable debug (waits until /tmp/stop-init-container
+                      disappears)
+                    type: boolean
+                  dbSync:
+                    default: false
+                    description: dbSync enable debug
+                    type: boolean
+                  initContainer:
+                    default: false
+                    description: initContainer enable debug (waits until /tmp/stop-init-container
+                      disappears)
+                    type: boolean
+                  service:
+                    default: false
+                    description: Service enable debug
+                    type: boolean
+                type: object
+              defaultConfigOverwrite:
+                additionalProperties:
+                  type: string
+                description: 'ConfigOverwrite - interface to overwrite default config
+                  files like e.g. logging.conf or policy.json. But can also be used
+                  to add additional files. Those get added to the service config dir
+                  in /etc/<service> . TODO(dmendiza): -> implement'
+                type: object
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: NodeSelector to target subset of worker nodes running
+                  this component. Setting here overrides any global NodeSelector settings
+                  within the Barbican CR.
+                type: object
+              passwordSelectors:
+                default:
+                  database: BarbicanDatabasePassword
+                  service: BarbicanServiceUserPassword
+                description: 'TODO(dmendiza): Maybe we''ll add SimpleCrypto key here?
+                  PasswordSelectors - Selectors to identify the DB and ServiceUser
+                  password from the Secret'
+                properties:
+                  database:
+                    default: BarbicanDatabasePassword
+                    description: Database - Selector to get the barbican database
+                      user password from the Secret
+                    type: string
+                  service:
+                    default: BarbicanServiceUserPassword
+                    description: Service - Selector to get the barbican service user
+                      password from the Secret
+                    type: string
+                  simpleCryptoKEK:
+                    description: SimpleCryptoKEK - base64 encoded KEK for SimpleCrypto
+                      backend
+                    type: string
+                type: object
+              preserveJobs:
+                default: false
+                description: PreserveJobs - do not delete jobs after they finished
+                  e.g. to check logs
+                type: boolean
+              secret:
+                description: Secret containing all passwords / keys needed
+                type: string
+              serviceUser:
+                default: barbican
+                description: ServiceUser - optional username used for this service
+                  to register in keystone
+                type: string
+            required:
+            - barbicanAPIExternal
+            - barbicanAPIInternal
+            - databaseInstance
+            type: object
+          status:
+            description: BarbicanStatus defines the observed state of Barbican
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
