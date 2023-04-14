@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -191,7 +192,7 @@ type MetalLBConfig struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=internal;public
 	// Endpoint, OpenStack endpoint this service maps to
-	//Endpoint endpoint.Endpoint `json:"endpoint"`
+	Endpoint endpoint.Endpoint `json:"endpoint"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
