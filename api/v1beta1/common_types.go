@@ -2,6 +2,7 @@ package v1beta1
 
 import "github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 
+// BarbicanTemplate defines common Spec elements for all Barbican components
 type BarbicanTemplate struct {
 
 	// +kubebuilder:validation:Optional

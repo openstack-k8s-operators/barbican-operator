@@ -93,6 +93,7 @@ type Barbican struct {
 	Status BarbicanStatus `json:"status,omitempty"`
 }
 
+// IsReady returns true when both API and Worker are ready
 func (instance Barbican) IsReady() bool {
 	return instance.Status.Conditions.IsTrue(BarbicanAPIReadyCondition) &&
 		instance.Status.Conditions.IsTrue(BarbicanWorkerReadyCondition)

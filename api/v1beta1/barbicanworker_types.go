@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// BarbicanWorkerTemplate defines common Spec elements for the Worker process
 type BarbicanWorkerTemplate struct {
 	BarbicanComponentTemplate `json:",inline"`
 
