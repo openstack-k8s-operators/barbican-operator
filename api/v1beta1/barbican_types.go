@@ -76,6 +76,9 @@ type BarbicanStatus struct {
 
 	// ReadyCount of Barbican Worker instances
 	BarbicanWorkerReadyCount int32 `json:"barbicanWorkerReadyCount,omitempty"`
+
+	// TransportURLSecret - Secret containing RabbitMQ transportURL
+	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 }
 
 //+kubebuilder:object:root=true
