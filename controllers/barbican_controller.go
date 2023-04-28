@@ -37,6 +37,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/job"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
@@ -249,11 +250,20 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	}
 
 	// TODO: _ should be serviceAnnotations
-	_, err = nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.BarbicanAPI.NetworkAttachments)
+	serviceAnnotations, err = nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.BarbicanAPI.NetworkAttachments)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.BarbicanAPI.NetworkAttachments, err)
 	}
+
+	// Handle service init
+	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels, serviceAnnotations)
+	if err != nil {
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -336,4 +346,119 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 	})
 
 	return transportURL, op, err
+}
+
+func (r *BarbicanReconciler) reconcileInit(
+	ctx context.Context,
+	instance *barbicanv1beta1.Barbican,
+	helper *helper.Helper,
+	serviceLabels map[string]string,
+	serviceAnnotations map[string]string,
+) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+
+	//
+	// create service DB instance
+	//
+	db := database.NewDatabase(
+		instance.Name,
+		instance.Spec.DatabaseUser,
+		instance.Spec.Secret,
+		map[string]string{
+			"dbName": instance.Spec.DatabaseInstance,
+		},
+	)
+	// create or patch the DB
+	ctrlResult, err := db.CreateOrPatchDB(
+		ctx,
+		helper,
+	)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBReadyRunningMessage))
+		return ctrlResult, nil
+	}
+	// wait for the DB to be setup
+	ctrlResult, err = db.WaitForDBCreated(ctx, helper)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBReadyErrorMessage,
+			err.Error()))
+		return ctrlResult, err
+	}
+	if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBReadyRunningMessage))
+		return ctrlResult, nil
+	}
+	// update Status.DatabaseHostname, used to config the service
+	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
+	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
+	// create service DB - end
+
+	//
+	// run Barbican db sync
+	//
+	dbSyncHash := instance.Status.Hash[barbicanv1beta1.DbSyncHash]
+	jobDef := barbican.DbSyncJob(instance, serviceLabels, serviceAnnotations)
+
+	dbSyncjob := job.NewJob(
+		jobDef,
+		barbicanv1beta1.DbSyncHash,
+		instance.Spec.PreserveJobs,
+		time.Duration(5)*time.Second,
+		dbSyncHash,
+	)
+	ctrlResult, err = dbSyncjob.DoJob(
+		ctx,
+		helper,
+	)
+	if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBSyncReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBSyncReadyRunningMessage))
+		return ctrlResult, nil
+	}
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBSyncReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBSyncReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if dbSyncjob.HasChanged() {
+		instance.Status.Hash[barbicanv1beta1.DbSyncHash] = dbSyncjob.GetHash()
+		r.Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[barbicanv1beta1.DbSyncHash]))
+	}
+	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
+
+	// when job passed, mark NetworkAttachmentsReadyCondition ready
+	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
+
+	// run Barbican db sync - end
+
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	return ctrl.Result{}, nil
 }

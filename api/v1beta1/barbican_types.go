@@ -21,6 +21,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// DbSyncHash hash
+	DbSyncHash = "dbsync"
+)
+
 // BarbicanSpec defines the desired state of Barbican
 type BarbicanSpec struct {
 	BarbicanTemplate `json:",inline"`
