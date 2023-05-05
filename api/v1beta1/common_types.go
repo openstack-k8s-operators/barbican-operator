@@ -43,6 +43,10 @@ type BarbicanTemplate struct {
 	// actual action pod gets started with sleep infinity
 	// TODO(dmendiza): Do we need this?
 	Debug BarbicanDebug `json:"debug,omitempty"`
+
+	// +kubebuilder:validation:Required
+	// ServiceAccount - service account name used internally to provide Barbican services the default SA name
+	ServiceAccount string `json:"serviceAccount"`
 }
 
 // BarbicanComponentTemplate - Variables used by every component of Barbican

@@ -3,14 +3,12 @@ package barbican
 import (
 	"strconv"
 
-	barbicanv1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
-
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // GetVolumes - service volumes
-func GetVolumes(name string, pvcName string, secretNames []string, extraVol []barbicanv1.BarbicanExtraVolMounts, svc []storage.PropagationType) []corev1.Volume {
+func GetVolumes(name string, pvcName string, secretNames []string, svc []storage.PropagationType) []corev1.Volume {
 	var scriptsVolumeDefaultMode int32 = 0755
 	var config0640AccessMode int32 = 0640
 
@@ -53,18 +51,13 @@ func GetVolumes(name string, pvcName string, secretNames []string, extraVol []ba
 		},
 	}
 
-	for _, exv := range extraVol {
-		for _, vol := range exv.Propagate(svc) {
-			vm = append(vm, vol.Volumes...)
-		}
-	}
 	secretConfig, _ := GetConfigSecretVolumes(secretNames)
 	vm = append(vm, secretConfig...)
 	return vm
 }
 
-// getInitVolumeMounts - general init task VolumeMounts
-func getInitVolumeMounts(secretNames []string, extraVol []barbicanv1.BarbicanExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
+// GetInitVolumeMounts - general init task VolumeMounts
+func GetInitVolumeMounts(secretNames []string, svc []storage.PropagationType) []corev1.VolumeMount {
 	vm := []corev1.VolumeMount{
 		{
 			Name:      "scripts",
@@ -83,18 +76,13 @@ func getInitVolumeMounts(secretNames []string, extraVol []barbicanv1.BarbicanExt
 		},
 	}
 
-	for _, exv := range extraVol {
-		for _, vol := range exv.Propagate(svc) {
-			vm = append(vm, vol.Mounts...)
-		}
-	}
 	_, secretConfig := GetConfigSecretVolumes(secretNames)
 	vm = append(vm, secretConfig...)
 	return vm
 }
 
 // GetVolumeMounts - general VolumeMounts
-func GetVolumeMounts(secretNames []string, extraVol []barbicanv1.BarbicanExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
+func GetVolumeMounts(secretNames []string, svc []storage.PropagationType) []corev1.VolumeMount {
 
 	vm := []corev1.VolumeMount{
 		{
@@ -114,11 +102,6 @@ func GetVolumeMounts(secretNames []string, extraVol []barbicanv1.BarbicanExtraVo
 		},
 	}
 
-	for _, exv := range extraVol {
-		for _, vol := range exv.Propagate(svc) {
-			vm = append(vm, vol.Mounts...)
-		}
-	}
 	_, secretConfig := GetConfigSecretVolumes(secretNames)
 	vm = append(vm, secretConfig...)
 	return vm

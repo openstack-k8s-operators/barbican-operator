@@ -84,6 +84,9 @@ type BarbicanStatus struct {
 
 	// TransportURLSecret - Secret containing RabbitMQ transportURL
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
+
+	// Barbican Database Hostname
+	DatabaseHostname string `json:"databaseHostname,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -111,6 +114,21 @@ type BarbicanList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Barbican `json:"items"`
+}
+
+// RbacConditionsSet - set the conditions for the rbac object
+func (instance Barbican) RbacConditionsSet(c *condition.Condition) {
+	instance.Status.Conditions.Set(c)
+}
+
+// RbacNamespace - return the namespace
+func (instance Barbican) RbacNamespace() string {
+	return instance.Namespace
+}
+
+// RbacResourceName - return the name to be used for rbac objects (serviceaccount, role, rolebinding)
+func (instance Barbican) RbacResourceName() string {
+	return "barbican-" + instance.Name
 }
 
 func init() {

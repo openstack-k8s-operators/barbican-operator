@@ -5,6 +5,7 @@ import (
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,11 +16,13 @@ const (
 	DBSyncCommand = "/usr/local/bin/kolla_set_configs && su -s /bin/sh -c \"barbican-manage db upgrade\""
 )
 
+// DbsyncPropagation keeps track of the DBSync Service Propagation Type
+var DbsyncPropagation = []storage.PropagationType{storage.DBSync}
+
 // DbSyncJob func
 func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
 
-	dbSyncExtraMounts := []barbicanv1beta1.BarbicanExtraVolMounts{}
-
+	secretNames := []string{}
 	args := []string{"-c"}
 	if instance.Spec.Debug.DBSync {
 		args = append(args, common.DebugCommand)
@@ -46,7 +49,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyOnFailure,
-					ServiceAccountName: ServiceAccount,
+					ServiceAccountName: instance.RbacResourceName(),
 					Containers: []corev1.Container{
 						{
 							Name: instance.Name + "-db-sync",
@@ -59,14 +62,20 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 								RunAsUser: &runAsUser,
 							},
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: GetVolumeMounts(false, dbSyncExtraMounts, DbsyncPropagation),
+							VolumeMounts: GetVolumeMounts(secretNames, DbsyncPropagation),
 						},
 					},
-					Volumes: GetVolumes(instance.Name, false, dbSyncExtraMounts, DbsyncPropagation),
 				},
 			},
 		},
 	}
+
+	job.Spec.Template.Spec.Volumes = GetVolumes(
+		instance.Name,
+		ServiceName,
+		secretNames,
+		DbsyncPropagation,
+	)
 
 	initContainerDetails := APIDetails{
 		ContainerImage:       instance.Spec.BarbicanAPI.ContainerImage,
@@ -76,8 +85,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 		OSPSecret:            instance.Spec.Secret,
 		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
 		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
-		VolumeMounts:         GetInitVolumeMounts(dbSyncExtraMounts, DbsyncPropagation),
-		Debug:                instance.Spec.Debug.DBInitContainer,
+		VolumeMounts:         GetInitVolumeMounts(secretNames, DbsyncPropagation),
 	}
 	job.Spec.Template.Spec.InitContainers = InitContainer(initContainerDetails)
 
