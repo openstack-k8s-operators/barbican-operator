@@ -18,6 +18,7 @@ type APIDetails struct {
 }
 
 const (
+	// InitContainerCommand -
 	InitContainerCommand = "/usr/local/bin/container-scripts/init.sh"
 )
 

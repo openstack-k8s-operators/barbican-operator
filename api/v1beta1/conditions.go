@@ -3,24 +3,24 @@ package v1beta1
 import "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 
 const (
-	// BarbicanAPIReadyCondition
+	// BarbicanAPIReadyCondition -
 	BarbicanAPIReadyCondition condition.Type = "BarbicanAPIReady"
-	// BarbicanWorkerReadyCondition
+	// BarbicanWorkerReadyCondition -
 	BarbicanWorkerReadyCondition condition.Type = "BarbicanWorkerReady"
-	// BarbicanRabbitMQTransportURLReadyCondition
+	// BarbicanRabbitMQTransportURLReadyCondition -
 	BarbicanRabbitMQTransportURLReadyCondition condition.Type = "BarbicanRabbitMQTransportURLReady"
 )
 
 const (
-	// BarbicanAPIReadyInitMessage
+	// BarbicanAPIReadyInitMessage -
 	BarbicanAPIReadyInitMessage = "BarbicanAPI not started"
-	// BarbicanWorkerReadyInitMessage
+	// BarbicanWorkerReadyInitMessage -
 	BarbicanWorkerReadyInitMessage = "BarbicanWorker not started"
 
-	// BarbicanRabbitMQTransportURLReadyRunningMessage
+	// BarbicanRabbitMQTransportURLReadyRunningMessage -
 	BarbicanRabbitMQTransportURLReadyRunningMessage = "BarbicanRabbitMQTransportURL creation in progress"
-	// BarbicanRabbitMQTransportURLReadyMessage
+	// BarbicanRabbitMQTransportURLReadyMessage -
 	BarbicanRabbitMQTransportURLReadyMessage = "BarbicanRabbitMQTransportURL successfully created"
-	// BarbicanRabbitMQTransportURLReadyErrorMessage
+	// BarbicanRabbitMQTransportURLReadyErrorMessage -
 	BarbicanRabbitMQTransportURLReadyErrorMessage = "BarbicanRabbitMQTransportURL error occured %s"
 )
