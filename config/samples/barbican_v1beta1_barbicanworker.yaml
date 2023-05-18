@@ -1,0 +1,6 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: BarbicanWorker
+metadata:
+  labels:
+  name: barbicanworker-sample
+spec: {}

@@ -182,6 +182,10 @@ spec:
               secret:
                 description: Secret containing all passwords / keys needed
                 type: string
+              serviceAccount:
+                description: ServiceAccount - service account name used internally
+                  to provide Barbican services the default SA name
+                type: string
               serviceUser:
                 default: barbican
                 description: ServiceUser - optional username used for this service
@@ -191,6 +195,7 @@ spec:
             - containerImage
             - databaseInstance
             - rabbitMqClusterName
+            - serviceAccount
             type: object
           status:
             description: BarbicanAPIStatus defines the observed state of BarbicanAPI

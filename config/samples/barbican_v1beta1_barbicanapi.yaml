@@ -1,0 +1,6 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: BarbicanAPI
+metadata:
+  labels:
+  name: barbicanapi-sample
+spec: {}

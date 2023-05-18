@@ -263,6 +263,10 @@ spec:
               secret:
                 description: Secret containing all passwords / keys needed
                 type: string
+              serviceAccount:
+                description: ServiceAccount - service account name used internally
+                  to provide Barbican services the default SA name
+                type: string
               serviceUser:
                 default: barbican
                 description: ServiceUser - optional username used for this service
@@ -273,6 +277,7 @@ spec:
             - barbicanWorker
             - databaseInstance
             - rabbitMqClusterName
+            - serviceAccount
             type: object
           status:
             description: BarbicanStatus defines the observed state of Barbican
@@ -336,6 +341,9 @@ spec:
                   - type
                   type: object
                 type: array
+              databaseHostname:
+                description: Barbican Database Hostname
+                type: string
               hash:
                 additionalProperties:
                   type: string
