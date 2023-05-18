@@ -19,9 +19,6 @@ WORKDIR $REMOTE_SOURCE_DIR/$REMOTE_SOURCE_SUBDIR
 
 RUN mkdir -p ${DEST_ROOT}/usr/local/bin/
 
-ARG TARGETOS
-ARG TARGETARCH
-
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 RUN if [ ! -f $CACHITO_ENV_FILE ]; then go mod download ; fi
