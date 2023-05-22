@@ -23,4 +23,4 @@ spec:
         insecureSkipVerify: true
   selector:
     matchLabels:
-      control-plane: controller-manager
+      openstack.org/operator-name: barbican
