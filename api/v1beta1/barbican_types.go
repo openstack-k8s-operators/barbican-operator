@@ -68,14 +68,6 @@ type BarbicanStatus struct {
 	// Conditions
 	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
-	// API endpoints
-	// TODO(dmendiza): This thing is hideous.  Why do we need it?
-	APIEndpoints map[string]map[string]string `json:"apiEndpoints,omitempty"`
-
-	// ServiceIDs
-	// TODO(dmendiza): This thing is hideous.  Why do we need it?
-	ServiceIDs map[string]string `json:"serviceIDs,omitempty"`
-
 	// ReadyCount of Barbican API instances
 	BarbicanAPIReadyCount int32 `json:"barbicanAPIReadyCount,omitempty"`
 
