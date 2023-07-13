@@ -32,7 +32,6 @@ spec:
     policy.json: |
       {"some": "custom policy"}
   barbicanAPI:
-    containerImage: some_image
     nodeSelector:
       optional_override: here
     customServiceConfig: |
@@ -51,7 +50,6 @@ spec:
         loadBalancerIPs:
           - some_ip_string
   barbicanWorker:
-    containerImage: some_image
     nodeSelector:
       optional_override: here
     customServiceConfig: |
