@@ -33,7 +33,7 @@ type BarbicanTemplate struct {
 	Secret string `json:"secret"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={database: BarbicanDatabasePassword, service: BarbicanServiceUserPassword}
+	// +kubebuilder:default={database: BarbicanDatabasePassword, service: BarbicanPassword}
 	// TODO(dmendiza): Maybe we'll add SimpleCrypto key here?
 	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
@@ -93,7 +93,7 @@ type PasswordSelector struct {
 	// Database - Selector to get the barbican database user password from the Secret
 	Database string `json:"database"`
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="BarbicanServiceUserPassword"
+	// +kubebuilder:default="BarbicanPassword"
 	// Service - Selector to get the barbican service user password from the Secret
 	Service string `json:"service"`
 
