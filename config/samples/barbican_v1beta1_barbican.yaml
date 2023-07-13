@@ -35,7 +35,6 @@ spec:
     containerImage: some_image
     nodeSelector:
       optional_override: here
-    replicas: 10
     customServiceConfig: |
       [optional]
       overrides = True
@@ -55,7 +54,6 @@ spec:
     containerImage: some_image
     nodeSelector:
       optional_override: here
-    replicas: 10
     customServiceConfig: |
       [optional]
       overrides = True

@@ -67,7 +67,7 @@ type BarbicanComponentTemplate struct {
 	// +kubebuilder:validation:Maximum=32
 	// +kubebuilder:validation:Minimum=0
 	// Replicas of Barbican API to run
-	Replicas int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas"`
 
 	// +kubebuilder:validation:Optional
 	// CustomServiceConfig - customize the service config using this parameter to change service defaults,

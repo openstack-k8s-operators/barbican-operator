@@ -177,6 +177,11 @@ func (in *BarbicanComponentTemplate) DeepCopyInto(out *BarbicanComponentTemplate
 			(*out)[key] = val
 		}
 	}
+	if in.Replicas != nil {
+		in, out := &in.Replicas, &out.Replicas
+		*out = new(int32)
+		**out = **in
+	}
 	if in.DefaultConfigOverwrite != nil {
 		in, out := &in.DefaultConfigOverwrite, &out.DefaultConfigOverwrite
 		*out = make(map[string]string, len(*in))
