@@ -20,17 +20,21 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 )
 
 // BarbicanAPIReconciler reconciles a BarbicanAPI object
 type BarbicanAPIReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Kclient kubernetes.Interface
+	Log     logr.Logger
+	Scheme  *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete

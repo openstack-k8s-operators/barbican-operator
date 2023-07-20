@@ -22,12 +22,14 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -91,23 +93,40 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfg, err := config.GetConfig()
+	if err != nil {
+		setupLog.Error(err, "")
+		os.Exit(1)
+	}
+	kclient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		setupLog.Error(err, "")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.BarbicanAPIReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Kclient: kclient,
+		Log:     ctrl.Log.WithName("controllers").WithName("BarbicanAPI"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BarbicanAPI")
 		os.Exit(1)
 	}
 	if err = (&controllers.BarbicanReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Kclient: kclient,
+		Log:     ctrl.Log.WithName("controllers").WithName("Barbican"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Barbican")
 		os.Exit(1)
 	}
 	if err = (&controllers.BarbicanWorkerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Kclient: kclient,
+		Log:     ctrl.Log.WithName("controllers").WithName("BarbicanWorker"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BarbicanWorker")
 		os.Exit(1)
