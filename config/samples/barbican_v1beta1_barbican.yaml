@@ -3,11 +3,11 @@ kind: Barbican
 metadata:
   labels:
     app.kubernetes.io/name: barbican
-    app.kubernetes.io/instance: barbican-sample
+    app.kubernetes.io/instance: barbican
     app.kubernetes.io/part-of: barbican-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: barbican-operator
-  name: barbican-sample
+  name: barbican
 spec:
   serviceAccount: barbican
   serviceUser: barbican
