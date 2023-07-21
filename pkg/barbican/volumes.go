@@ -41,14 +41,6 @@ func GetVolumes(name string, pvcName string, secretNames []string, svc []storage
 				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
 			},
 		},
-		{
-			Name: "lib-data",
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvcName,
-				},
-			},
-		},
 	}
 
 	secretConfig, _ := GetConfigSecretVolumes(secretNames)
@@ -93,11 +85,6 @@ func GetVolumeMounts(secretNames []string, svc []storage.PropagationType) []core
 		{
 			Name:      "config-data-merged",
 			MountPath: "/var/lib/config-data/merged",
-			ReadOnly:  false,
-		},
-		{
-			Name:      "lib-data",
-			MountPath: "/var/lib/barbican",
 			ReadOnly:  false,
 		},
 	}
