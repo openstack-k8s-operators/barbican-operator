@@ -171,6 +171,10 @@ spec:
                 required:
                 - containerImage
                 type: object
+              containerImage:
+                description: Barbican Container Image URL (will be set to environmental
+                  default if empty)
+                type: string
               customServiceConfig:
                 description: CustomServiceConfig - customize the service config using
                   this parameter to change service defaults, or overwrite rendered
@@ -230,7 +234,7 @@ spec:
               passwordSelectors:
                 default:
                   database: BarbicanDatabasePassword
-                  service: BarbicanServiceUserPassword
+                  service: BarbicanPassword
                 description: 'TODO(dmendiza): Maybe we''ll add SimpleCrypto key here?
                   PasswordSelectors - Selectors to identify the DB and ServiceUser
                   password from the Secret'
@@ -241,7 +245,7 @@ spec:
                       user password from the Secret
                     type: string
                   service:
-                    default: BarbicanServiceUserPassword
+                    default: BarbicanPassword
                     description: Service - Selector to get the barbican service user
                       password from the Secret
                     type: string
@@ -275,6 +279,7 @@ spec:
             required:
             - barbicanAPI
             - barbicanWorker
+            - containerImage
             - databaseInstance
             - rabbitMqClusterName
             - serviceAccount

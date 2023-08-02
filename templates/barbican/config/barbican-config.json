@@ -1,0 +1,23 @@
+{
+    "command": "/usr/bin/barbican-api --config-dir /etc/barbican/barbican.conf.d",
+    "config_files": [
+      {
+        "source": "/var/lib/config-data/merged/barbican.conf.d",
+        "dest": "/etc/barbican/barbican.conf.d",
+        "owner": "barbican",
+        "perm": "0750"
+      },
+      {
+        "source": "/var/lib/config-data/merged/policy.yaml",
+        "dest": "/etc/barbican/barbican.conf.d/policy.yaml",
+        "owner": "barbican",
+        "perm": "0600"
+      },
+      {
+        "source": "/var/lib/config-data/merged/logging.conf",
+        "dest": "/etc/barbican/logging.conf",
+        "owner": "barbican",
+        "perm": "0600"
+      }
+    ]
+}

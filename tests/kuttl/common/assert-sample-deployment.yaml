@@ -16,7 +16,7 @@ spec:
   secret: barbican-secret
   passwordSelectors:
     database: BarbicanDatabasePassword
-    service: BarbicanServiceUserPassword
+    service: BarbicanPassword
   debug:
     dbInitContainer: true
     dbSync: true
