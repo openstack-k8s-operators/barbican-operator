@@ -19,8 +19,8 @@ spec:
     database: BarbicanDatabasePassword
     service: BarbicanPassword
   debug:
-    dbInitContainer: true
-    dbSync: true
+    dbInitContainer: false
+    dbSync: false
     initContainer: true
     service: true
   preserveJobs: true
