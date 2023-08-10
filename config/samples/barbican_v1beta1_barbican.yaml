@@ -36,7 +36,6 @@ spec:
     containerImage: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
     nodeSelector:
       optional_override: here
-    replicas: 1
     customServiceConfig: |
       [optional]
       overrides = True
@@ -47,7 +46,6 @@ spec:
     containerImage: quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified
     nodeSelector:
       optional_override: here
-    replicas: 1
     customServiceConfig: |
       [optional]
       overrides = True

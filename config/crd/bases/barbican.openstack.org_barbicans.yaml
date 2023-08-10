@@ -287,14 +287,6 @@ spec:
           status:
             description: BarbicanStatus defines the observed state of Barbican
             properties:
-              apiEndpoints:
-                additionalProperties:
-                  additionalProperties:
-                    type: string
-                  type: object
-                description: 'API endpoints TODO(dmendiza): This thing is hideous.  Why
-                  do we need it?'
-                type: object
               barbicanAPIReadyCount:
                 description: ReadyCount of Barbican API instances
                 format: int32
@@ -353,12 +345,6 @@ spec:
                 additionalProperties:
                   type: string
                 description: Map of hashes to track e.g. job status
-                type: object
-              serviceIDs:
-                additionalProperties:
-                  type: string
-                description: 'ServiceIDs TODO(dmendiza): This thing is hideous.  Why
-                  do we need it?'
                 type: object
               transportURLSecret:
                 description: TransportURLSecret - Secret containing RabbitMQ transportURL
