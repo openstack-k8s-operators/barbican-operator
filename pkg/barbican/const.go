@@ -6,5 +6,5 @@ const (
 	// DatabaseName -
 	DatabaseName = "barbican"
 	// KollaConfigDbSync -
-	KollaConfigDbSync = "/var/lib/config-data/merged/db-sync-config.json"
+	KollaConfigDbSync = "/var/lib/config-data/merged/barbican-config.json"
 )

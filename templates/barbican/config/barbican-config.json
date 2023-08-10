@@ -8,12 +8,6 @@
         "perm": "0750"
       },
       {
-        "source": "/var/lib/config-data/merged/policy.yaml",
-        "dest": "/etc/barbican/barbican.conf.d/policy.yaml",
-        "owner": "barbican",
-        "perm": "0600"
-      },
-      {
         "source": "/var/lib/config-data/merged/logging.conf",
         "dest": "/etc/barbican/logging.conf",
         "owner": "barbican",
