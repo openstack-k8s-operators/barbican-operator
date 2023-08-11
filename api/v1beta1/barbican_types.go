@@ -93,10 +93,9 @@ type Barbican struct {
 	Status BarbicanStatus `json:"status,omitempty"`
 }
 
-// IsReady returns true when both API and Worker are ready
+// IsReady - returns true if Barbican is reconciled successfully
 func (instance Barbican) IsReady() bool {
-	return instance.Status.Conditions.IsTrue(BarbicanAPIReadyCondition) &&
-		instance.Status.Conditions.IsTrue(BarbicanWorkerReadyCondition)
+	return instance.Status.Conditions.IsTrue(condition.ReadyCondition)
 }
 
 //+kubebuilder:object:root=true
