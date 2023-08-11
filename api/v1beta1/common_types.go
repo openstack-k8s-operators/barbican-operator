@@ -11,6 +11,10 @@ type BarbicanTemplate struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Required
+	// Barbican Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+
+	// +kubebuilder:validation:Required
 	// MariaDB instance name
 	// TODO(dmendiza): Is this comment right?
 	// Right now required by the maridb-operator to get the credentials from the instance to create the DB
@@ -43,6 +47,12 @@ type BarbicanTemplate struct {
 	// actual action pod gets started with sleep infinity
 	// TODO(dmendiza): Do we need this?
 	Debug BarbicanDebug `json:"debug,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
+	// or overwrite rendered information using raw OpenStack config format. The content gets added to
+	// to /etc/<service>/<service>.conf.d directory as custom.conf file.
+	CustomServiceConfig string `json:"customServiceConfig,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// ServiceAccount - service account name used internally to provide Barbican services the default SA name

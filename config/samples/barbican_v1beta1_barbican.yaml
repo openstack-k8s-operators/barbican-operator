@@ -3,23 +3,24 @@ kind: Barbican
 metadata:
   labels:
     app.kubernetes.io/name: barbican
-    app.kubernetes.io/instance: barbican-sample
+    app.kubernetes.io/instance: barbican
     app.kubernetes.io/part-of: barbican-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: barbican-operator
-  name: barbican-sample
+  name: barbican
 spec:
+  serviceAccount: barbican
   serviceUser: barbican
-  databaseInstance: some_string
+  databaseInstance: openstack
   databaseUser: barbican
   rabbitMqCusterName: barbican_rabbit
-  secret: barbican-secret
+  secret: osp-secret
   passwordSelectors:
     database: BarbicanDatabasePassword
-    service: BarbicanServiceUserPassword
+    service: BarbicanPassword
   debug:
-    dbInitContainer: true
-    dbSync: true
+    dbInitContainer: false
+    dbSync: false
     initContainer: true
     service: true
   preserveJobs: true
@@ -32,6 +33,7 @@ spec:
     policy.json: |
       {"some": "custom policy"}
   barbicanAPI:
+    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
     nodeSelector:
       optional_override: here
     customServiceConfig: |
@@ -40,16 +42,8 @@ spec:
     defautlConfigOverwrite:
       optional_policy.json: |
         {"some": "custom policy"}
-    networkAttachments:
-      - internal
-    externalEndpoints:
-      - endpoint:
-        ipAddressPool: some_ip_string
-        sharedIP: true
-        sharedIPKey: some_key_string
-        loadBalancerIPs:
-          - some_ip_string
   barbicanWorker:
+    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified
     nodeSelector:
       optional_override: here
     customServiceConfig: |

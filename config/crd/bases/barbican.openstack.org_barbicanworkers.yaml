@@ -36,15 +36,15 @@ spec:
             description: BarbicanWorkerSpec defines the desired state of BarbicanWorker
             properties:
               containerImage:
-                description: ContainerImage - Barbican Container Image URL (will be
-                  set to environmental default if empty)
+                description: Barbican Container Image URL (will be set to environmental
+                  default if empty)
                 type: string
               customServiceConfig:
                 description: CustomServiceConfig - customize the service config using
                   this parameter to change service defaults, or overwrite rendered
                   information using raw OpenStack config format. The content gets
-                  added to to /etc/<service>/<service>.conf.d directory as a custom
-                  config file.
+                  added to to /etc/<service>/<service>.conf.d directory as custom.conf
+                  file.
                 type: string
               databaseInstance:
                 description: 'MariaDB instance name TODO(dmendiza): Is this comment

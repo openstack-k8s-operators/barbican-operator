@@ -171,6 +171,10 @@ spec:
                 required:
                 - containerImage
                 type: object
+              containerImage:
+                description: Barbican Container Image URL (will be set to environmental
+                  default if empty)
+                type: string
               customServiceConfig:
                 description: CustomServiceConfig - customize the service config using
                   this parameter to change service defaults, or overwrite rendered
@@ -275,6 +279,7 @@ spec:
             required:
             - barbicanAPI
             - barbicanWorker
+            - containerImage
             - databaseInstance
             - rabbitMqClusterName
             - serviceAccount
