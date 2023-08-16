@@ -11,6 +11,7 @@ metadata:
 spec:
   serviceAccount: barbican
   serviceUser: barbican
+  containerImage: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
   databaseInstance: openstack
   databaseUser: barbican
   rabbitMqCusterName: barbican_rabbit

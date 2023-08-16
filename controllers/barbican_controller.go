@@ -272,6 +272,29 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrlResult, nil
 	}
 
+	// TODO(dmendiza): Handle service update
+
+	// TODO(dmendiza): Handle service upgrade
+
+	// create or update Barbican API deployment
+	_, op, err = r.apiDeploymentCreateOrUpdate(ctx, instance)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			barbicanv1beta1.BarbicanAPIReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			barbicanv1beta1.BarbicanAPIReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if op != controllerutil.OperationResultNone {
+		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+	}
+
+	// TODO(dmendiza): Handle API endpoints
+
+	// TODO(dmendiza): Understand what Glance is doing with the API conditions and maybe do it here too
+
 	return ctrl.Result{}, nil
 }
 
@@ -346,6 +369,35 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 	})
 
 	return transportURL, op, err
+}
+
+func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican) (*barbicanv1beta1.BarbicanAPI, controllerutil.OperationResult, error) {
+
+	apiSpec := barbicanv1beta1.BarbicanAPISpec{
+		BarbicanTemplate:    instance.Spec.BarbicanTemplate,
+		BarbicanAPITemplate: instance.Spec.BarbicanAPI,
+	}
+
+	deployment := &barbicanv1beta1.BarbicanAPI{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-api", instance.Name),
+			Namespace: instance.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+		deployment.Spec = apiSpec
+
+		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
+		if err != nil {
+			return err
+		}
+
+		// TODO(dmendiza): Do we want a finalizer here?  Glance has one.
+		return nil
+	})
+
+	return deployment, op, err
 }
 
 func (r *BarbicanReconciler) reconcileInit(

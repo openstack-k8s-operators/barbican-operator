@@ -5,6 +5,7 @@ import "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 const (
 	// BarbicanAPIReadyCondition -
 	BarbicanAPIReadyCondition condition.Type = "BarbicanAPIReady"
+
 	// BarbicanWorkerReadyCondition -
 	BarbicanWorkerReadyCondition condition.Type = "BarbicanWorkerReady"
 	// BarbicanRabbitMQTransportURLReadyCondition -
@@ -14,6 +15,8 @@ const (
 const (
 	// BarbicanAPIReadyInitMessage -
 	BarbicanAPIReadyInitMessage = "BarbicanAPI not started"
+	// BarbicanAPIReadyErrorMessage -
+	BarbicanAPIReadyErrorMessage = "BarbicanAPI error occured %s"
 	// BarbicanWorkerReadyInitMessage -
 	BarbicanWorkerReadyInitMessage = "BarbicanWorker not started"
 
