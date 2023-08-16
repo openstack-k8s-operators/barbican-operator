@@ -36,11 +36,11 @@ ARG DEST_ROOT=/dest-root
 # NONROOT default id https://github.com/GoogleContainerTools/distroless/blob/main/base/base.bzl#L8=
 ARG USER_ID=65532
 
-ARG IMAGE_COMPONENT="placement-operator-container"
-ARG IMAGE_NAME="placement-operator"
+ARG IMAGE_COMPONENT="barbican-operator-container"
+ARG IMAGE_NAME="barbican-operator"
 ARG IMAGE_VERSION="1.0.0"
-ARG IMAGE_SUMMARY="Placement Operator"
-ARG IMAGE_DESC="This image includes the placement-operator"
+ARG IMAGE_SUMMARY="Barbican Operator"
+ARG IMAGE_DESC="This image includes the barbican-operator"
 ARG IMAGE_TAGS="cn-openstack openstack"
 
 ### DO NOT EDIT LINES BELOW
@@ -58,7 +58,7 @@ LABEL com.redhat.component="${IMAGE_COMPONENT}" \
 ### DO NOT EDIT LINES ABOVE
 
 ENV USER_UID=$USER_ID \
-    OPERATOR_TEMPLATES=/usr/share/placement-operator/templates/
+    OPERATOR_TEMPLATES=/usr/share/barbican-operator/templates/
 
 WORKDIR /
 
