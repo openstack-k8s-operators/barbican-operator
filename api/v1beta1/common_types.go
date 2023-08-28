@@ -33,6 +33,14 @@ type BarbicanTemplate struct {
 	RabbitMqClusterName string `json:"rabbitMqClusterName"`
 
 	// +kubebuilder:validation:Optional
+	// Secret containing RabbitMq transport URL
+	TransportURLSecret string `json:"transportURLSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Secret containing SimpleCrypto KEK
+	SimpleCryptoBackendKEKSecret string `json:"simpleCryptoBackendKEKSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// Secret containing all passwords / keys needed
 	Secret string `json:"secret"`
 
@@ -106,10 +114,6 @@ type PasswordSelector struct {
 	// +kubebuilder:default="BarbicanPassword"
 	// Service - Selector to get the barbican service user password from the Secret
 	Service string `json:"service"`
-
-	// +kubebuilder:validation:Optional
-	// SimpleCryptoKEK - base64 encoded KEK for SimpleCrypto backend
-	SimpleCryptoKEK string `json:"simpleCryptoKEK,omitempty"`
 }
 
 // BarbicanDebug indicates whether certain stages of deployment should be paused

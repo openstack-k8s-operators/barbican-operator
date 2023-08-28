@@ -119,10 +119,6 @@ spec:
                     description: Service - Selector to get the barbican service user
                       password from the Secret
                     type: string
-                  simpleCryptoKEK:
-                    description: SimpleCryptoKEK - base64 encoded KEK for SimpleCrypto
-                      backend
-                    type: string
                 type: object
               rabbitMqClusterName:
                 default: rabbitmq
@@ -147,6 +143,12 @@ spec:
                 default: barbican
                 description: ServiceUser - optional username used for this service
                   to register in keystone
+                type: string
+              simpleCryptoBackendKEKSecret:
+                description: Secret containing SimpleCrypto KEK
+                type: string
+              transportURLSecret:
+                description: Secret containing RabbitMq transport URL
                 type: string
             required:
             - containerImage

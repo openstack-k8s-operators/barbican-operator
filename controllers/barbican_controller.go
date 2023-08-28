@@ -32,8 +32,10 @@ import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/job"
@@ -319,9 +321,9 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	envVars *map[string]env.Setter,
 	serviceLabels map[string]string,
 ) error {
-	//
-	// create Secret required for barbican input
+	r.Log.Info("generateServiceConfigMaps - Barbican controller")
 
+	// create Secret required for barbican input
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), serviceLabels)
 
 	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
@@ -343,6 +345,34 @@ func (r *BarbicanReconciler) generateServiceConfig(
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
+	}
+	keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
+	// KeystoneAPI not available we should not aggregate the error and continue
+	if err != nil {
+		return err
+	}
+	keystoneInternalURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointInternal)
+	if err != nil {
+		return err
+	}
+
+	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
+	templateParameters := map[string]interface{}{
+		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
+			instance.Spec.DatabaseUser,
+			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+			instance.Status.DatabaseHostname,
+			barbican.DatabaseName,
+		),
+		"KeystoneAuthURL": keystoneInternalURL,
+		"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
+		"ServiceUser":     instance.Spec.ServiceUser,
+		"ServiceURL":      "TODO",
+		"TransportURL":    instance.Spec.TransportURLSecret,
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
