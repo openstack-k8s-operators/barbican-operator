@@ -261,40 +261,6 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }
 
-func GenerateConfigsGeneric(
-	ctx context.Context, h *helper.Helper,
-	instance client.Object,
-	envVars *map[string]env.Setter,
-	templateParameters map[string]interface{},
-	customData map[string]string,
-	cmLabels map[string]string,
-	scripts bool,
-) error {
-
-	cms := []util.Template{
-		// Templates where the BarbicanAPI config is stored
-		{
-			Name:          fmt.Sprintf("%s-config-data", instance.GetName()),
-			Namespace:     instance.GetNamespace(),
-			Type:          util.TemplateTypeConfig,
-			InstanceType:  instance.GetObjectKind().GroupVersionKind().Kind,
-			ConfigOptions: templateParameters,
-			CustomData:    customData,
-			Labels:        cmLabels,
-		},
-	}
-	if scripts {
-		cms = append(cms, util.Template{
-			Name:         fmt.Sprintf("%s-scripts", instance.GetName()),
-			Namespace:    instance.GetNamespace(),
-			Type:         util.TemplateTypeScripts,
-			InstanceType: instance.GetObjectKind().GroupVersionKind().Kind,
-			Labels:       cmLabels,
-		})
-	}
-	return secret.EnsureSecrets(ctx, h, instance, cms, envVars)
-}
-
 func (r *BarbicanAPIReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 	return ctrl.Result{}, nil

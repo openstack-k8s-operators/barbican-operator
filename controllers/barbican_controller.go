@@ -331,16 +331,6 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		return err
 	}
 
-	// We only need a minimal 00-config.conf that is only used by db-sync job,
-	// hence only passing the database related parameters
-	templateParameters := map[string]interface{}{
-		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
-			instance.Spec.DatabaseUser,
-			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
-			instance.Status.DatabaseHostname,
-			barbican.DatabaseName,
-		),
-	}
 	customData := map[string]string{barbican.CustomConfigFileName: instance.Spec.CustomServiceConfig}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
@@ -352,11 +342,6 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		return err
 	}
 	keystoneInternalURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointInternal)
-	if err != nil {
-		return err
-	}
-
-	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
 		return err
 	}
