@@ -1,6 +1,9 @@
 package v1beta1
 
-import "github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
+import (
+	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
+	corev1 "k8s.io/api/core/v1"
+)
 
 // BarbicanTemplate defines common Spec elements for all Barbican components
 type BarbicanTemplate struct {
@@ -98,6 +101,17 @@ type BarbicanComponentTemplate struct {
 	// But can also be used to add additional files. Those get added to the service config dir in /etc/<service> .
 	// TODO: -> implement
 	DefaultConfigOverwrite map[string]string `json:"defaultConfigOverwrite,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// CustomServiceConfigSecrets - customize the service config using this parameter to specify Secrets
+	// that contain sensitive service config data. The content of each Secret gets added to the
+	// /etc/<service>/<service>.conf.d directory as a custom config file.
+	CustomServiceConfigSecrets []string `json:"customServiceConfigSecrets,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Resources - Compute Resources required by this service (Limits/Requests).
+	// https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network

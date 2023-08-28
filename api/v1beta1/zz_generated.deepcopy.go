@@ -203,6 +203,12 @@ func (in *BarbicanComponentTemplate) DeepCopyInto(out *BarbicanComponentTemplate
 			(*out)[key] = val
 		}
 	}
+	if in.CustomServiceConfigSecrets != nil {
+		in, out := &in.CustomServiceConfigSecrets, &out.CustomServiceConfigSecrets
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	in.Resources.DeepCopyInto(&out.Resources)
 	if in.NetworkAttachments != nil {
 		in, out := &in.NetworkAttachments, &out.NetworkAttachments
 		*out = make([]string, len(*in))
