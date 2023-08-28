@@ -1,5 +1,5 @@
 {
-    "command": "/usr/bin/barbican-api --config-dir /etc/barbican/barbican.conf.d",
+    "command": "barbican-manage db upgrade",
     "config_files": [
       {
         "source": "/var/lib/config-data/merged/barbican.conf.d",
