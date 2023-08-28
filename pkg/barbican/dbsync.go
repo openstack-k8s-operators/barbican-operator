@@ -59,7 +59,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 		{
 			Name:      "config-data",
 			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "barbican-config.json",
+			SubPath:   "barbican-dbsync-config.json",
 			ReadOnly:  true,
 		},
 	}

@@ -6,7 +6,7 @@ const (
 	// DatabaseName -
 	DatabaseName = "barbican"
 	// KollaConfigDbSync -
-	KollaConfigDbSync = "/var/lib/config-data/merged/barbican-config.json"
+	KollaConfigDbSync = "/var/lib/config-data/merged/barbican-dbsync-config.json"
 
 	// DefaultsConfigFileName -
 	DefaultsConfigFileName = "00-default.conf"
