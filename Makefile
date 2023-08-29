@@ -118,7 +118,10 @@ build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
 .PHONY: run
+run: export ENABLE_WEBHOOKS?=false
+run: export OPERATOR_TEMPLATES=./templates/
 run: manifests generate fmt vet ## Run a controller from your host.
+	/bin/bash hack/clean_local_webhook.sh
 	go run ./main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
@@ -315,3 +318,16 @@ gowork: ## Generate go.work file to support our multi module repository
 operator-lint: gowork ## Runs operator-lint
 	GOBIN=$(LOCALBIN) go install github.com/gibizer/operator-lint@v0.3.0
 	go vet -vettool=$(LOCALBIN)/operator-lint ./... ./api/...
+
+# Used for webhook testing
+# Please ensure the barbican-controller-manager deployment and
+# webhook definitions are removed from the csv before running
+# this. Also, cleanup the webhook configuration for local testing
+# before deplying with olm again.
+# $oc delete -n openstack validatingwebhookconfiguration/vbarbican.kb.io
+# $oc delete -n openstack mutatingwebhookconfiguration/mbarbican.kb.io
+SKIP_CERT ?=false
+.PHONY: run-with-webhook
+run-with-webhook: manifests generate fmt vet ## Run a controller from your host.
+	/bin/bash hack/configure_local_webhook.sh
+	go run ./main.go
