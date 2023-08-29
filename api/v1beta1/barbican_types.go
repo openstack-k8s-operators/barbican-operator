@@ -18,12 +18,21 @@ package v1beta1
 
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	// DbSyncHash hash
 	DbSyncHash = "dbsync"
+
+	// Container image fall-back defaults
+
+	// BarbicanAPIContainerImage is the fall-back container image for BarbicanAPI
+	BarbicanAPIContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified"
+
+	// BarbicanWorkerContainerImage is the fall-back container image for BarbicanAPI
+	BarbicanWorkerContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified"
 )
 
 // BarbicanSpec defines the desired state of Barbican
@@ -124,4 +133,15 @@ func (instance Barbican) RbacResourceName() string {
 
 func init() {
 	SchemeBuilder.Register(&Barbican{}, &BarbicanList{})
+}
+
+// SetupDefaults - initializes any CRD field defaults based on environment variables (the defaulting mechanism itself is implemented via webhooks)
+func SetupDefaults() {
+	// Acquire environmental defaults and initialize Barbican defaults with them
+	barbicanDefaults := BarbicanDefaults{
+		APIContainerImageURL:    util.GetEnvVar("BARBICAN_API_IMAGE_URL_DEFAULT", BarbicanAPIContainerImage),
+		WorkerContainerImageURL: util.GetEnvVar("BARBICAN_WORKER_IMAGE_URL_DEFAULT", BarbicanWorkerContainerImage),
+	}
+
+	SetupBarbicanDefaults(barbicanDefaults)
 }
