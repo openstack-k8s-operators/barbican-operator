@@ -204,7 +204,6 @@ spec:
                 description: Secret containing SimpleCrypto KEK
                 type: string
               transportURLSecret:
-                description: Secret containing RabbitMq transport URL
                 type: string
             required:
             - containerImage

@@ -36,22 +36,31 @@ type BarbicanAPISpec struct {
 	BarbicanTemplate `json:",inline"`
 
 	BarbicanAPITemplate `json:",inline"`
+
+	// TransportURLSecret - Secret containing RabbitMQ transportURL
+	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 }
 
 // BarbicanAPIStatus defines the observed state of BarbicanAPI
 type BarbicanAPIStatus struct {
 
-	// Conditions
-	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
+	// ReadyCount of barbican API instances
+	ReadyCount int32 `json:"readyCount,omitempty"`
 
 	// Map of hashes to track e.g. job status
 	Hash map[string]string `json:"hash,omitempty"`
 
+	// API endpoint
+	APIEndpoints map[string]string `json:"apiEndpoint,omitempty"`
+
+	// Conditions
+	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
+
+	// NetworkAttachments status of the deployment pods
+	NetworkAttachments map[string][]string `json:"networkAttachments,omitempty"`
+
 	// Barbican Database Hostname
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
-
-	// TransportURLSecret - Secret containing RabbitMQ transportURL
-	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 }
 
 //+kubebuilder:object:root=true

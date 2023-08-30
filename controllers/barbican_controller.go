@@ -195,6 +195,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
 
+	r.Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
 	instance.Status.Conditions.MarkTrue(barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition, barbicanv1beta1.BarbicanRabbitMQTransportURLReadyMessage)
 
 	//
@@ -222,6 +223,8 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
+	// Setting this here at the top level
+	instance.Spec.ServiceAccount = instance.RbacResourceName()
 
 	err = r.generateServiceConfig(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
@@ -331,6 +334,11 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		return err
 	}
 
+	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Status.TransportURLSecret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
 	customData := map[string]string{barbican.CustomConfigFileName: instance.Spec.CustomServiceConfig}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
@@ -357,7 +365,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
 		"ServiceUser":     instance.Spec.ServiceUser,
 		"ServiceURL":      "TODO",
-		"TransportURL":    instance.Spec.TransportURLSecret,
+		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
@@ -388,9 +396,11 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 
 func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican) (*barbicanv1beta1.BarbicanAPI, controllerutil.OperationResult, error) {
 
+	r.Log.Info(fmt.Sprintf("Creating barbican API spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
 	apiSpec := barbicanv1beta1.BarbicanAPISpec{
 		BarbicanTemplate:    instance.Spec.BarbicanTemplate,
 		BarbicanAPITemplate: instance.Spec.BarbicanAPI,
+		TransportURLSecret:  instance.Status.TransportURLSecret,
 	}
 
 	deployment := &barbicanv1beta1.BarbicanAPI{
@@ -401,6 +411,7 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+		r.Log.Info(fmt.Sprintf("setting deployment spec to be apispec"))
 		deployment.Spec = apiSpec
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)

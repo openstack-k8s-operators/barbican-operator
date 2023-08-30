@@ -7,9 +7,8 @@ const (
 	ServiceName = "barbican"
 	// DatabaseName -
 	DatabaseName = "barbican"
-	// KollaConfigDbSync -
-	KollaConfigDbSync = "/var/lib/config-data/merged/barbican-dbsync-config.json"
 
+	BarbicanPublicPort int32 = 9311
 	// DefaultsConfigFileName -
 	DefaultsConfigFileName = "00-default.conf"
 	// CustomConfigFileName -

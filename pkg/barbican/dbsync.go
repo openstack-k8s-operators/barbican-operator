@@ -68,7 +68,6 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 
 	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
-	envVars["KOLLA_CONFIG_FILE"] = env.SetValue(KollaConfigDbSync)
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["KOLLA_BOOTSTRAP"] = env.SetValue("TRUE")
 

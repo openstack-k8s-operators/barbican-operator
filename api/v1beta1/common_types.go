@@ -36,10 +36,6 @@ type BarbicanTemplate struct {
 	RabbitMqClusterName string `json:"rabbitMqClusterName"`
 
 	// +kubebuilder:validation:Optional
-	// Secret containing RabbitMq transport URL
-	TransportURLSecret string `json:"transportURLSecret,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// Secret containing SimpleCrypto KEK
 	SimpleCryptoBackendKEKSecret string `json:"simpleCryptoBackendKEKSecret,omitempty"`
 

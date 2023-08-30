@@ -1,15 +1,22 @@
-package barbican
+package barbicanapi
 
 import (
 	"fmt"
 
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	barbican "github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
+)
+
+const (
+	// ServiceCommand -
+	ServiceCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
 )
 
 func Deployment(
@@ -35,7 +42,26 @@ func Deployment(
 		PeriodSeconds:       5,
 		InitialDelaySeconds: 5,
 	}
-	args := []string{}
+	args := []string{"-c"}
+	if instance.Spec.Debug.Service {
+		args = append(args, common.DebugCommand)
+		livenessProbe.Exec = &corev1.ExecAction{
+			Command: []string{
+				"/bin/true",
+			},
+		}
+		readinessProbe.Exec = livenessProbe.Exec
+	} else {
+		args = append(args, ServiceCommand)
+		//
+		// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+		//
+		livenessProbe.HTTPGet = &corev1.HTTPGetAction{
+			Path: "/healthcheck",
+			Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(barbican.BarbicanPublicPort)},
+		}
+		readinessProbe.HTTPGet = livenessProbe.HTTPGet
+	}
 
 	apiVolumes := []corev1.Volume{
 		{
@@ -48,8 +74,7 @@ func Deployment(
 			},
 		},
 	}
-	// Append LogVolume to the apiVolumes: this will be used to stream
-	// logging
+
 	apiVolumes = append(apiVolumes, barbican.GetLogVolume()...)
 	apiVolumeMounts := []corev1.VolumeMount{
 		{
@@ -123,5 +148,12 @@ func Deployment(
 			},
 		},
 	}
+	deployment.Spec.Template.Spec.Volumes = append(barbican.GetVolumes(
+		instance.Name,
+		barbican.ServiceName,
+		instance.Spec.CustomServiceConfigSecrets,
+		barbican.BarbicanAPIPropagation),
+		apiVolumes...)
+
 	return deployment
 }
