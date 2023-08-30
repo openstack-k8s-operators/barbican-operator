@@ -411,7 +411,7 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		r.Log.Info(fmt.Sprintf("setting deployment spec to be apispec"))
+		r.Log.Info("Setting deployment spec to be apispec")
 		deployment.Spec = apiSpec
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)

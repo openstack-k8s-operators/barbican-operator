@@ -99,6 +99,9 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.Scheme,
 		r.Log,
 	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Always patch the instance when this function exits
 	defer func() {
@@ -162,7 +165,7 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Handle service delete
 	if !instance.DeletionTimestamp.IsZero() {
-		//return r.reconcileDelete(ctx, instance, helper)
+		return r.reconcileDelete(ctx, instance, helper)
 	}
 
 	r.Log.Info(fmt.Sprintf("Calling reconcile normal %s", instance.Name))

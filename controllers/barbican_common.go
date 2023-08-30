@@ -27,8 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// GenerateConfigsGeneric
-// Generates common configs for all sub-controllers
+// GenerateConfigsGeneric - generates config files
 func GenerateConfigsGeneric(
 	ctx context.Context, h *helper.Helper,
 	instance client.Object,
