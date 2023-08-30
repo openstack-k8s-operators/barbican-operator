@@ -19,6 +19,7 @@ const (
 	ServiceCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
 )
 
+// Deployment - returns a BarbicanAPI Deployment
 func Deployment(
 	instance *barbicanv1beta1.BarbicanAPI,
 	configHash string,

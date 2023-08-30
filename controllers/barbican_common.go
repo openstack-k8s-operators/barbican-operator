@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
@@ -26,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// GenerateConfigsGeneric
+// Generates common configs for all sub-controllers
 func GenerateConfigsGeneric(
 	ctx context.Context, h *helper.Helper,
 	instance client.Object,

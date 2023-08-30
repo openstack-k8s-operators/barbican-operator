@@ -7,7 +7,7 @@ const (
 	ServiceName = "barbican"
 	// DatabaseName -
 	DatabaseName = "barbican"
-
+	// BarbicanPublicPort -
 	BarbicanPublicPort int32 = 9311
 	// DefaultsConfigFileName -
 	DefaultsConfigFileName = "00-default.conf"
