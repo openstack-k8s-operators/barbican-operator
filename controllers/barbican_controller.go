@@ -32,9 +32,10 @@ import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/job"
@@ -42,7 +43,6 @@ import (
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"github.com/openstack-k8s-operators/lib-common/modules/database"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -163,8 +163,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		common.AppSelector: barbican.ServiceName,
 	}
 
-	// ConfigMap
-	configMapVars := make(map[string]env.Setter)
+	configVars := make(map[string]env.Setter)
 
 	//
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
@@ -196,6 +195,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
 
+	r.Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
 	instance.Status.Conditions.MarkTrue(barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition, barbicanv1beta1.BarbicanRabbitMQTransportURLReadyMessage)
 
 	//
@@ -220,12 +220,13 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{}, err
 	}
 	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
-	configMapVars["secret-"+ospSecret.Name] = env.SetValue(hash)
+	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
+	// Setting this here at the top level
+	instance.Spec.ServiceAccount = instance.RbacResourceName()
 
-	// create ConfigMap required for Barbican CR inputs
-	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars, serviceLabels)
+	err = r.generateServiceConfig(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -276,6 +277,29 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrlResult, nil
 	}
 
+	// TODO(dmendiza): Handle service update
+
+	// TODO(dmendiza): Handle service upgrade
+
+	// create or update Barbican API deployment
+	_, op, err = r.apiDeploymentCreateOrUpdate(ctx, instance)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			barbicanv1beta1.BarbicanAPIReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			barbicanv1beta1.BarbicanAPIReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if op != controllerutil.OperationResultNone {
+		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+	}
+
+	// TODO(dmendiza): Handle API endpoints
+
+	// TODO(dmendiza): Understand what Glance is doing with the API conditions and maybe do it here too
+
 	return ctrl.Result{}, nil
 }
 
@@ -293,51 +317,58 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *BarbicanReconciler) generateServiceConfigMaps(
+func (r *BarbicanReconciler) generateServiceConfig(
 	ctx context.Context,
 	h *helper.Helper,
 	instance *barbicanv1beta1.Barbican,
 	envVars *map[string]env.Setter,
 	serviceLabels map[string]string,
 ) error {
-	//
-	// create Configmap/Secret required for barbican input
+	r.Log.Info("generateServiceConfigMaps - Barbican controller")
 
-	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), serviceLabels)
+	// create Secret required for barbican input
+	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), serviceLabels)
 
-	// customData hold any customization for the service.
-	// custom.conf is going to /etc/<service>/<service>.conf.d
-	// all other files get placed into /etc/<service> to allow overwrite of e.g. policy.json
-	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
+	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
+	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Status.TransportURLSecret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
+	customData := map[string]string{barbican.CustomConfigFileName: instance.Spec.CustomServiceConfig}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
 	}
-
-	templateParameters := make(map[string]interface{})
-
-	cms := []util.Template{
-		// ScriptsConfigMap
-		{
-			Name:         fmt.Sprintf("%s-scripts", instance.Name),
-			Namespace:    instance.Namespace,
-			Type:         util.TemplateTypeScripts,
-			InstanceType: instance.Kind,
-			Labels:       cmLabels,
-		},
-		// ConfigMap
-		{
-			Name:          fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:     instance.Namespace,
-			Type:          util.TemplateTypeConfig,
-			InstanceType:  instance.Kind,
-			CustomData:    customData,
-			ConfigOptions: templateParameters,
-			Labels:        cmLabels,
-		},
+	keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
+	// KeystoneAPI not available we should not aggregate the error and continue
+	if err != nil {
+		return err
+	}
+	keystoneInternalURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointInternal)
+	if err != nil {
+		return err
 	}
 
-	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
+	templateParameters := map[string]interface{}{
+		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
+			instance.Spec.DatabaseUser,
+			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+			instance.Status.DatabaseHostname,
+			barbican.DatabaseName,
+		),
+		"KeystoneAuthURL": keystoneInternalURL,
+		"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
+		"ServiceUser":     instance.Spec.ServiceUser,
+		"ServiceURL":      "TODO",
+		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
+	}
+
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }
 
 func (r *BarbicanReconciler) transportURLCreateOrUpdate(
@@ -361,6 +392,38 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 	})
 
 	return transportURL, op, err
+}
+
+func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican) (*barbicanv1beta1.BarbicanAPI, controllerutil.OperationResult, error) {
+
+	r.Log.Info(fmt.Sprintf("Creating barbican API spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
+	apiSpec := barbicanv1beta1.BarbicanAPISpec{
+		BarbicanTemplate:    instance.Spec.BarbicanTemplate,
+		BarbicanAPITemplate: instance.Spec.BarbicanAPI,
+		TransportURLSecret:  instance.Status.TransportURLSecret,
+	}
+
+	deployment := &barbicanv1beta1.BarbicanAPI{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-api", instance.Name),
+			Namespace: instance.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+		r.Log.Info("Setting deployment spec to be apispec")
+		deployment.Spec = apiSpec
+
+		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
+		if err != nil {
+			return err
+		}
+
+		// TODO(dmendiza): Do we want a finalizer here?  Glance has one.
+		return nil
+	})
+
+	return deployment, op, err
 }
 
 func (r *BarbicanReconciler) reconcileInit(

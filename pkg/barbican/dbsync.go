@@ -5,7 +5,6 @@ import (
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
-	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,16 +12,53 @@ import (
 
 const (
 	// DBSyncCommand -
-	DBSyncCommand = "/usr/local/bin/kolla_set_configs && su -s /bin/sh -c \"barbican-manage db upgrade\""
+	DBSyncCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
 )
-
-// DbsyncPropagation keeps track of the DBSync Service Propagation Type
-var DbsyncPropagation = []storage.PropagationType{storage.DBSync}
 
 // DbSyncJob func
 func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
 
 	secretNames := []string{}
+	var config0644AccessMode int32 = 0644
+
+	// Unlike the individual Barbican services, the DbSyncJob doesn't need a
+	// secret that contains all of the config snippets required by every
+	// service, The two snippet files that it does need (DefaultsConfigFileName
+	// and CustomConfigFileName) can be extracted from the top-level barbican
+	// config-data secret.
+	dbSyncVolume := corev1.Volume{
+		Name: "db-sync-config-data",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				DefaultMode: &config0644AccessMode,
+				SecretName:  instance.Name + "-config-data",
+				Items: []corev1.KeyToPath{
+					{
+						Key:  DefaultsConfigFileName,
+						Path: DefaultsConfigFileName,
+					},
+					{
+						Key:  CustomConfigFileName,
+						Path: CustomConfigFileName,
+					},
+				},
+			},
+		},
+	}
+
+	dbSyncMounts := []corev1.VolumeMount{
+		{
+			Name:      "db-sync-config-data",
+			MountPath: "/etc/barbican/barbican.conf.d",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "config-data",
+			MountPath: "/var/lib/kolla/config_files/config.json",
+			SubPath:   "barbican-dbsync-config.json",
+			ReadOnly:  true,
+		},
+	}
 	args := []string{"-c"}
 	if instance.Spec.Debug.DBSync {
 		args = append(args, common.DebugCommand)
@@ -32,7 +68,6 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 
 	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
-	envVars["KOLLA_CONFIG_FILE"] = env.SetValue(KollaConfigDbSync)
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["KOLLA_BOOTSTRAP"] = env.SetValue("TRUE")
 
@@ -61,8 +96,9 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
-							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: GetVolumeMounts(secretNames, DbsyncPropagation),
+							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts: append(GetVolumeMounts(secretNames, DbsyncPropagation),
+								dbSyncMounts...),
 						},
 					},
 				},
@@ -70,24 +106,13 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 		},
 	}
 
-	job.Spec.Template.Spec.Volumes = GetVolumes(
+	job.Spec.Template.Spec.Volumes = append(GetVolumes(
 		instance.Name,
 		ServiceName,
 		secretNames,
-		DbsyncPropagation,
+		DbsyncPropagation),
+		dbSyncVolume,
 	)
-
-	initContainerDetails := APIDetails{
-		ContainerImage:       instance.Spec.BarbicanAPI.ContainerImage,
-		DatabaseHost:         instance.Status.DatabaseHostname,
-		DatabaseUser:         instance.Spec.DatabaseUser,
-		DatabaseName:         DatabaseName,
-		OSPSecret:            instance.Spec.Secret,
-		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
-		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
-		VolumeMounts:         GetInitVolumeMounts(secretNames, DbsyncPropagation),
-	}
-	job.Spec.Template.Spec.InitContainers = InitContainer(initContainerDetails)
 
 	return job
 }

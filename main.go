@@ -113,15 +113,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.BarbicanAPIReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Kclient: kclient,
-		Log:     ctrl.Log.WithName("controllers").WithName("BarbicanAPI"),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "BarbicanAPI")
-		os.Exit(1)
-	}
 	if err = (&controllers.BarbicanReconciler{
 		Client:  mgr.GetClient(),
 		Scheme:  mgr.GetScheme(),
@@ -129,6 +120,15 @@ func main() {
 		Log:     ctrl.Log.WithName("controllers").WithName("Barbican"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Barbican")
+		os.Exit(1)
+	}
+	if err = (&controllers.BarbicanAPIReconciler{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Kclient: kclient,
+		Log:     ctrl.Log.WithName("controllers").WithName("BarbicanAPI"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BarbicanAPI")
 		os.Exit(1)
 	}
 	if err = (&controllers.BarbicanWorkerReconciler{

@@ -46,6 +46,14 @@ spec:
                   added to to /etc/<service>/<service>.conf.d directory as custom.conf
                   file.
                 type: string
+              customServiceConfigSecrets:
+                description: CustomServiceConfigSecrets - customize the service config
+                  using this parameter to specify Secrets that contain sensitive service
+                  config data. The content of each Secret gets added to the /etc/<service>/<service>.conf.d
+                  directory as a custom config file.
+                items:
+                  type: string
+                type: array
               databaseInstance:
                 description: 'MariaDB instance name TODO(dmendiza): Is this comment
                   right? Right now required by the maridb-operator to get the credentials
@@ -119,10 +127,6 @@ spec:
                     description: Service - Selector to get the barbican service user
                       password from the Secret
                     type: string
-                  simpleCryptoKEK:
-                    description: SimpleCryptoKEK - base64 encoded KEK for SimpleCrypto
-                      backend
-                    type: string
                 type: object
               rabbitMqClusterName:
                 default: rabbitmq
@@ -136,6 +140,54 @@ spec:
                 maximum: 32
                 minimum: 0
                 type: integer
+              resources:
+                description: Resources - Compute Resources required by this service
+                  (Limits/Requests). https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                properties:
+                  claims:
+                    description: "Claims lists the names of resources, defined in
+                      spec.resourceClaims, that are used by this container. \n This
+                      is an alpha field and requires enabling the DynamicResourceAllocation
+                      feature gate. \n This field is immutable. It can only be set
+                      for containers."
+                    items:
+                      description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                      properties:
+                        name:
+                          description: Name must match the name of one entry in pod.spec.resourceClaims
+                            of the Pod where this field is used. It makes that resource
+                            available inside a container.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Limits describes the maximum amount of compute resources
+                      allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Requests describes the minimum amount of compute
+                      resources required. If Requests is omitted for a container,
+                      it defaults to Limits if that is explicitly specified, otherwise
+                      to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                type: object
               secret:
                 description: Secret containing all passwords / keys needed
                 type: string
@@ -147,6 +199,11 @@ spec:
                 default: barbican
                 description: ServiceUser - optional username used for this service
                   to register in keystone
+                type: string
+              simpleCryptoBackendKEKSecret:
+                description: Secret containing SimpleCrypto KEK
+                type: string
+              transportURLSecret:
                 type: string
             required:
             - containerImage

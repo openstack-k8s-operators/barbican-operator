@@ -33,6 +33,8 @@ type BarbicanWorkerSpec struct {
 	BarbicanTemplate `json:",inline"`
 
 	BarbicanWorkerTemplate `json:",inline"`
+
+	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 }
 
 // BarbicanWorkerStatus defines the observed state of BarbicanWorker

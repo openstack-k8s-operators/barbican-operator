@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20230714104628-12cc1e43cccd
+	k8s.io/api v0.26.6
 	k8s.io/apimachinery v0.27.1
 	sigs.k8s.io/controller-runtime v0.14.6
 )
@@ -55,7 +56,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.26.6 // indirect
 	k8s.io/apiextensions-apiserver v0.26.6 // indirect
 	k8s.io/client-go v0.26.6 // indirect
 	k8s.io/component-base v0.26.6 // indirect
