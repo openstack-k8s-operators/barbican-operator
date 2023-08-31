@@ -275,7 +275,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		"KeystoneAuthURL": keystoneInternalURL,
 		"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
 		"ServiceUser":     instance.Spec.ServiceUser,
-		"ServiceURL":      "TODO",
+		"ServiceURL":      "https://barbican.openstack.svc:9311",
 		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
 	}
 
