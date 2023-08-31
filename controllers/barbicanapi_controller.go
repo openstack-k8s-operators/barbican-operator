@@ -260,6 +260,11 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		return err
 	}
 
+	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.TransportURLSecret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
 	templateParameters := map[string]interface{}{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
 			instance.Spec.DatabaseUser,
@@ -271,7 +276,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
 		"ServiceUser":     instance.Spec.ServiceUser,
 		"ServiceURL":      "TODO",
-		"TransportURL":    instance.Spec.TransportURLSecret,
+		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
