@@ -1,6 +1,4 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- barbican_v1beta1_barbicanapi.yaml
 - barbican_v1beta1_barbican.yaml
-- barbican_v1beta1_barbicanworker.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
