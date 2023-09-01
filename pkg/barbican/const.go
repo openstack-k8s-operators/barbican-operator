@@ -9,6 +9,8 @@ const (
 	DatabaseName = "barbican"
 	// BarbicanPublicPort -
 	BarbicanPublicPort int32 = 9311
+	// BarbicanPublicPort -
+	BarbicanInternalPort int32 = 9311
 	// DefaultsConfigFileName -
 	DefaultsConfigFileName = "00-default.conf"
 	// CustomConfigFileName -

@@ -282,6 +282,128 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }
 
+func (r *BarbicanAPIReconciler) reconcileInit(
+	ctx context.Context,
+	instance *barbicanv1beta1.BarbicanAPI,
+	helper *helper.Helper,
+	serviceLabels map[string]string,
+) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+
+	//
+	// expose the service (create service, route and return the created endpoint URLs)
+	//
+	ports := map[endpoint.Endpoint]endpoint.Data{}
+	ports[endpoint.EndpointInternal] = endpoint.Data{
+		Port: barbican.BarbicanInternalPort,
+	}
+	ports[endpoint.EndpointPublic] = endpoint.Data{
+		Port: barbican.BarbicanPublicPort,
+	}
+
+	for _, metallbcfg := range instance.Spec.ExternalEndpoints {
+		portCfg := ports[metallbcfg.Endpoint]
+		portCfg.MetalLB = &endpoint.MetalLBData{
+			IPAddressPool:   metallbcfg.IPAddressPool,
+			SharedIP:        metallbcfg.SharedIP,
+			SharedIPKey:     metallbcfg.SharedIPKey,
+			LoadBalancerIPs: metallbcfg.LoadBalancerIPs,
+		}
+
+		ports[metallbcfg.Endpoint] = portCfg
+	}
+
+	apiEndpoints, ctrlResult, err := endpoint.ExposeEndpoints(
+		ctx,
+		helper,
+		barbican.ServiceName,
+		serviceLabels,
+		ports,
+		time.Duration(5)*time.Second,
+	)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ExposeServiceReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ExposeServiceReadyErrorMessage,
+			err.Error()))
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ExposeServiceReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.ExposeServiceReadyRunningMessage))
+		return ctrlResult, nil
+	}
+	instance.Status.Conditions.MarkTrue(condition.ExposeServiceReadyCondition, condition.ExposeServiceReadyMessage)
+
+	//
+	// Update instance status with service endpoint url from route host information
+	//
+	// TODO: need to support https default here
+	if instance.Status.APIEndpoints == nil {
+		instance.Status.APIEndpoints = map[string]string{}
+	}
+	instance.Status.APIEndpoints = apiEndpoints
+
+	// expose service - end
+
+	//
+	// create keystone endpoints
+	//
+
+	ksEndpointSpec := keystonev1.KeystoneEndpointSpec{
+		ServiceName: barbican.ServiceName,
+		Endpoints:   instance.Status.APIEndpoints,
+	}
+
+	ksSvc := keystonev1.NewKeystoneEndpoint(instance.Name, instance.Namespace, ksEndpointSpec, serviceLabels, time.Duration(10)*time.Second)
+	ctrlResult, err = ksSvc.CreateOrPatch(ctx, helper)
+	if err != nil {
+		return ctrlResult, err
+	}
+
+	// mirror the Status, Reason, Severity and Message of the latest keystoneendpoint condition
+	// into a local condition with the type condition.KeystoneEndpointReadyCondition
+	c := ksSvc.GetConditions().Mirror(condition.KeystoneEndpointReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
+
+	if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
+	}
+
+	//
+	// create keystone endpoints - end
+	//
+
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	return ctrl.Result{}, nil
+}
+
+func (r *BarbicanAPIReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
+
+	// TODO: should have minor update tasks if required
+	// - delete dbsync hash from status to rerun it?
+
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
+	return ctrl.Result{}, nil
+}
+
+func (r *BarbicanAPIReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
+
+	// TODO: should have major version upgrade tasks
+	// -delete dbsync hash from status to rerun it?
+
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
+	return ctrl.Result{}, nil
+}
+
 func (r *BarbicanAPIReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 	return ctrl.Result{}, nil
@@ -386,6 +508,30 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.NetworkAttachments, err)
+	}
+
+	// Handle service init
+	ctrlResult, err = r.reconcileInit(ctx, instance, helper, serviceLabels)
+	if err != nil {
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
+	}
+
+	// Handle service update
+	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	if err != nil {
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
+	}
+
+	// Handle service upgrade
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	if err != nil {
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
 	}
 
 	r.Log.Info(fmt.Sprintf("[API] Defining deployment '%s'", instance.Name))
