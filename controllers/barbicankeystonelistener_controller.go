@@ -26,10 +26,12 @@ import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicankeystonelistener"
+
 	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
+
 	//"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
@@ -53,8 +55,12 @@ import (
 type BarbicanKeystoneListenerReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
-	Log     logr.Logger
 	Scheme  *runtime.Scheme
+}
+
+// GetLogger returns a logger object with a prefix of "controller.name" and additional controller context fields
+func (r *BarbicanKeystoneListenerReconciler) GetLogger(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx).WithName("Controllers").WithName("BarbicanKeystoneListener")
 }
 
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete
@@ -63,7 +69,7 @@ type BarbicanKeystoneListenerReconciler struct {
 
 // Reconcile BarbicanAPI
 func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
-	_ = log.FromContext(ctx)
+	Log := r.GetLogger(ctx)
 
 	instance := &barbicanv1beta1.BarbicanKeystoneListener{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
@@ -75,14 +81,14 @@ func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req 
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	r.Log.Info(fmt.Sprintf("Reconciling BarbicanKeystoneListener %s", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciling BarbicanKeystoneListener %s", instance.Name))
 
 	helper, err := helper.NewHelper(
 		instance,
 		r.Client,
 		r.Kclient,
 		r.Scheme,
-		r.Log,
+		Log,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -105,13 +111,13 @@ func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req 
 		}
 	}()
 
-	r.Log.Info(fmt.Sprintf("Add finalizer %s", instance.Name))
+	Log.Info(fmt.Sprintf("Add finalizer %s", instance.Name))
 	// Add Finalizer
 	if instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer()) {
 		return ctrl.Result{}, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("initilize %s", instance.Name))
+	Log.Info(fmt.Sprintf("initilize %s", instance.Name))
 
 	// Initialize Conditions
 	if instance.Status.Conditions == nil {
@@ -126,15 +132,15 @@ func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req 
 			//condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
-		r.Log.Info(fmt.Sprintf("calling init %s", instance.Name))
+		Log.Info(fmt.Sprintf("calling init %s", instance.Name))
 		instance.Status.Conditions.Init(&cl)
-		r.Log.Info(fmt.Sprintf("post init %s", instance.Name))
+		Log.Info(fmt.Sprintf("post init %s", instance.Name))
 
 		// TODO: (alee) this is ssupposed to exit here - but then it never comes back!
 		// Register overall status immediately to have an early feedback e.g. in the cli
 		return ctrl.Result{}, nil
 	}
-	r.Log.Info(fmt.Sprintf("post initiialize %s", instance.Name))
+	Log.Info(fmt.Sprintf("post initiialize %s", instance.Name))
 
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
@@ -154,7 +160,7 @@ func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req 
 		return r.reconcileDelete(ctx, instance, helper)
 	}
 
-	r.Log.Info(fmt.Sprintf("Calling reconcile normal %s", instance.Name))
+	Log.Info(fmt.Sprintf("Calling reconcile normal %s", instance.Name))
 
 	// Handle non-deleted clusters
 	return r.reconcileNormal(ctx, instance, helper)
@@ -199,6 +205,7 @@ func (r *BarbicanKeystoneListenerReconciler) createHashOfInputHashes(
 	instance *barbicanv1beta1.BarbicanKeystoneListener,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
+	Log := r.GetLogger(ctx)
 	var hashMap map[string]string
 	changed := false
 	mergedMapVars := env.MergeEnvs([]corev1.EnvVar{}, envVars)
@@ -206,10 +213,10 @@ func (r *BarbicanKeystoneListenerReconciler) createHashOfInputHashes(
 	if err != nil {
 		return hash, changed, err
 	}
-	r.Log.Info("[KeystoneListener] ON createHashOfInputHashes")
+	Log.Info("[KeystoneListener] ON createHashOfInputHashes")
 	if hashMap, changed = util.SetHash(instance.Status.Hash, common.InputHashName, hash); changed {
 		instance.Status.Hash = hashMap
-		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
+		Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
 	}
 	return hash, changed, nil
 }
@@ -222,13 +229,14 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 	instance *barbicanv1beta1.BarbicanKeystoneListener,
 	envVars *map[string]env.Setter,
 ) error {
-	r.Log.Info("[KeystoneListener] generateServiceConfigs - reconciling")
+	Log := r.GetLogger(ctx)
+	Log.Info("[KeystoneListener] generateServiceConfigs - reconciling")
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), map[string]string{})
 
 	// customData hold any customization for the service.
 	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
+	Log.Info(fmt.Sprintf("[KeystoneListener] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
@@ -278,7 +286,8 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileInit(
 	helper *helper.Helper,
 	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' init", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' init", instance.Name))
 
 	//
 	// expose the service (create service, route and return the created endpoint URLs)
@@ -374,32 +383,35 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileInit(
 		//
 
 	*/
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' init successfully", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanKeystoneListenerReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' update", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' update successfully", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanKeystoneListenerReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' upgrade", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' upgrade successfully", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanKeystoneListenerReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// Remove the finalizer from our KeystoneEndpoint CR
 	//keystoneEndpoint, err := keystonev1.GetKeystoneEndpointWithName(ctx, helper, instance.Name, instance.Namespace)
@@ -421,20 +433,21 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileDelete(ctx context.Context
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s'", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s'", instance.Name))
 
 	configVars := make(map[string]env.Setter)
 
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 1 '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 1 '%s'", instance.Name))
 	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -443,7 +456,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	//
 	// check for required TransportURL secret holding transport URL string
 	//
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
 	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -455,7 +468,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	// TODO (alee) cinder has some code to retrieve CustomServiceConfigSecrets
 	// This seems like a great place to store things like HSM passwords
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Got secrets '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Got secrets '%s'", instance.Name))
 	//
 	// create custom config for this barbican service
 	//
@@ -470,14 +483,14 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting input hash '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Getting input hash '%s'", instance.Name))
 	//
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	//
 	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
 	if err != nil {
-		r.Log.Info("[KeystoneListener] ERR")
+		Log.Info("[KeystoneListener] ERR")
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
 			condition.ErrorReason,
@@ -486,20 +499,20 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 			err.Error()))
 		return ctrl.Result{}, err
 	} else if hashChanged {
-		r.Log.Info("[KeystoneListener] HAS CHANGED")
+		Log.Info("[KeystoneListener] HAS CHANGED")
 		// Hash changed and instance status should be updated (which will be done by main defer func),
 		// so we need to return and reconcile again
 		//return ctrl.Result{}, nil
 	}
-	r.Log.Info("[KeystoneListener] CONTINUE")
+	Log.Info("[KeystoneListener] CONTINUE")
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting service labels '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Getting service labels '%s'", instance.Name))
 	serviceLabels := map[string]string{
 		common.AppSelector: fmt.Sprintf(barbican.ServiceName),
 	}
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting networks '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Getting networks '%s'", instance.Name))
 	// networks to attach to
 	for _, netAtt := range instance.Spec.NetworkAttachments {
 		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
@@ -523,13 +536,13 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 		}
 	}
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting service annotations '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Getting service annotations '%s'", instance.Name))
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.NetworkAttachments, err)
 	}
-	r.Log.Info(fmt.Sprintf("[DELETE] %s", serviceAnnotations))
+	Log.Info(fmt.Sprintf("[DELETE] %s", serviceAnnotations))
 
 	// Handle service init
 	ctrlResult, err = r.reconcileInit(ctx, instance, helper, serviceLabels)
@@ -555,15 +568,15 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 		return ctrlResult, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Defining deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Defining deployment '%s'", instance.Name))
 	// Define a new Deployment object
 	deplDef := barbicankeystonelistener.Deployment(instance, inputHash, serviceLabels, serviceAnnotations)
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Getting deployment '%s'", instance.Name))
 	depl := deployment.NewDeployment(
 		deplDef,
 		time.Duration(5)*time.Second,
 	)
-	r.Log.Info(fmt.Sprintf("[KeystoneListener] Got deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[KeystoneListener] Got deployment '%s'", instance.Name))
 	ctrlResult, err = depl.CreateOrPatch(ctx, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -609,7 +622,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	}
 	// create Deployment - end
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 

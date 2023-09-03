@@ -52,8 +52,12 @@ import (
 type BarbicanWorkerReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
-	Log     logr.Logger
 	Scheme  *runtime.Scheme
+}
+
+// GetLogger returns a logger object with a prefix of "controller.name" and additional controller context fields
+func (r *BarbicanWorkerReconciler) GetLogger(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx).WithName("Controllers").WithName("BarbicanWorker")
 }
 
 // +kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete
@@ -62,7 +66,7 @@ type BarbicanWorkerReconciler struct {
 
 // Reconcile BarbicanAPI
 func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
-	_ = log.FromContext(ctx)
+	Log := r.GetLogger(ctx)
 
 	instance := &barbicanv1beta1.BarbicanWorker{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
@@ -74,14 +78,14 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	r.Log.Info(fmt.Sprintf("Reconciling BarbicanWorker %s", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciling BarbicanWorker %s", instance.Name))
 
 	helper, err := helper.NewHelper(
 		instance,
 		r.Client,
 		r.Kclient,
 		r.Scheme,
-		r.Log,
+		Log,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -104,13 +108,13 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}()
 
-	r.Log.Info(fmt.Sprintf("Add finalizer %s", instance.Name))
+	Log.Info(fmt.Sprintf("Add finalizer %s", instance.Name))
 	// Add Finalizer
 	if instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer()) {
 		return ctrl.Result{}, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("initilize %s", instance.Name))
+	Log.Info(fmt.Sprintf("initilize %s", instance.Name))
 
 	// Initialize Conditions
 	if instance.Status.Conditions == nil {
@@ -121,14 +125,14 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
-		r.Log.Info(fmt.Sprintf("calling init %s", instance.Name))
+		Log.Info(fmt.Sprintf("calling init %s", instance.Name))
 		instance.Status.Conditions.Init(&cl)
-		r.Log.Info(fmt.Sprintf("post init %s", instance.Name))
+		Log.Info(fmt.Sprintf("post init %s", instance.Name))
 
 		// Register overall status immediately to have an early feedback e.g. in the cli
 		return ctrl.Result{}, nil
 	}
-	r.Log.Info(fmt.Sprintf("post initiialize %s", instance.Name))
+	Log.Info(fmt.Sprintf("post initiialize %s", instance.Name))
 
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
@@ -143,7 +147,7 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.reconcileDelete(ctx, instance, helper)
 	}
 
-	r.Log.Info(fmt.Sprintf("Calling reconcile normal %s", instance.Name))
+	Log.Info(fmt.Sprintf("Calling reconcile normal %s", instance.Name))
 
 	// Handle non-deleted clusters
 	return r.reconcileNormal(ctx, instance, helper)
@@ -188,6 +192,7 @@ func (r *BarbicanWorkerReconciler) createHashOfInputHashes(
 	instance *barbicanv1beta1.BarbicanWorker,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
+	Log := r.GetLogger(ctx)
 	var hashMap map[string]string
 	changed := false
 	mergedMapVars := env.MergeEnvs([]corev1.EnvVar{}, envVars)
@@ -195,10 +200,10 @@ func (r *BarbicanWorkerReconciler) createHashOfInputHashes(
 	if err != nil {
 		return hash, changed, err
 	}
-	r.Log.Info("[Worker] ON createHashOfInputHashes")
+	Log.Info("[Worker] ON createHashOfInputHashes")
 	if hashMap, changed = util.SetHash(instance.Status.Hash, common.InputHashName, hash); changed {
 		instance.Status.Hash = hashMap
-		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
+		Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
 	}
 	return hash, changed, nil
 }
@@ -211,13 +216,14 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 	instance *barbicanv1beta1.BarbicanWorker,
 	envVars *map[string]env.Setter,
 ) error {
-	r.Log.Info("[Worker] generateServiceConfigs - reconciling")
+	Log := r.GetLogger(ctx)
+	Log.Info("[Worker] generateServiceConfigs - reconciling")
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), map[string]string{})
 
 	// customData hold any customization for the service.
 	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
 
-	r.Log.Info(fmt.Sprintf("[Worker] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
+	Log.Info(fmt.Sprintf("[Worker] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
@@ -253,49 +259,54 @@ func (r *BarbicanWorkerReconciler) reconcileInit(
 	helper *helper.Helper,
 	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[Worker] Reconciled Service '%s' init successfully", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[Worker] Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanWorkerReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanWorker, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[Worker] Reconciling Service '%s' update", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[Worker] Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("[Worker] Reconciled Service '%s' update successfully", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanWorkerReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanWorker, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[Worker] Reconciling Service '%s' upgrade", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[Worker] Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("[Worker] Reconciled Service '%s' upgrade successfully", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanWorkerReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanWorker, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance *barbicanv1beta1.BarbicanWorker, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[Worker] Reconciling Service '%s'", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[Worker] Reconciling Service '%s'", instance.Name))
 
 	configVars := make(map[string]env.Setter)
 
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	r.Log.Info(fmt.Sprintf("[Worker] Get secret 1 '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Get secret 1 '%s'", instance.Name))
 	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -304,7 +315,7 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 	//
 	// check for required TransportURL secret holding transport URL string
 	//
-	r.Log.Info(fmt.Sprintf("[Worker] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
+	Log.Info(fmt.Sprintf("[Worker] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
 	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -316,7 +327,7 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 	// TODO (alee) cinder has some code to retrieve CustomServiceConfigSecrets
 	// This seems like a great place to store things like HSM passwords
 
-	r.Log.Info(fmt.Sprintf("[Worker] Got secrets '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Got secrets '%s'", instance.Name))
 	//
 	// create custom config for this barbican service
 	//
@@ -331,14 +342,14 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 		return ctrl.Result{}, err
 	}
 
-	r.Log.Info(fmt.Sprintf("[Worker] Getting input hash '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Getting input hash '%s'", instance.Name))
 	//
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	//
 	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
 	if err != nil {
-		r.Log.Info("[Worker] ERR")
+		Log.Info("[Worker] ERR")
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
 			condition.ErrorReason,
@@ -347,20 +358,20 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 			err.Error()))
 		return ctrl.Result{}, err
 	} else if hashChanged {
-		r.Log.Info("[Worker] HAS CHANGED")
+		Log.Info("[Worker] HAS CHANGED")
 		// Hash changed and instance status should be updated (which will be done by main defer func),
 		// so we need to return and reconcile again
 		//return ctrl.Result{}, nil
 	}
-	r.Log.Info("[Worker] CONTINUE")
+	Log.Info("[Worker] CONTINUE")
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
-	r.Log.Info(fmt.Sprintf("[Worker] Getting service labels '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Getting service labels '%s'", instance.Name))
 	serviceLabels := map[string]string{
 		common.AppSelector: fmt.Sprintf(barbican.ServiceName),
 	}
 
-	r.Log.Info(fmt.Sprintf("[Worker] Getting networks '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Getting networks '%s'", instance.Name))
 	// networks to attach to
 	for _, netAtt := range instance.Spec.NetworkAttachments {
 		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
@@ -384,13 +395,13 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 		}
 	}
 
-	r.Log.Info(fmt.Sprintf("[Worker] Getting service annotations '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Getting service annotations '%s'", instance.Name))
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.NetworkAttachments, err)
 	}
-	r.Log.Info(fmt.Sprintf("[DELETE] %s", serviceAnnotations))
+	Log.Info(fmt.Sprintf("[DELETE] %s", serviceAnnotations))
 
 	// Handle service init
 	ctrlResult, err = r.reconcileInit(ctx, instance, helper, serviceLabels)
@@ -416,15 +427,15 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 		return ctrlResult, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("[Worker] Defining deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Defining deployment '%s'", instance.Name))
 	// Define a new Deployment object
 	deplDef := barbicanworker.Deployment(instance, inputHash, serviceLabels, serviceAnnotations)
-	r.Log.Info(fmt.Sprintf("[Worker] Getting deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Getting deployment '%s'", instance.Name))
 	depl := deployment.NewDeployment(
 		deplDef,
 		time.Duration(5)*time.Second,
 	)
-	r.Log.Info(fmt.Sprintf("[Worker] Got deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[Worker] Got deployment '%s'", instance.Name))
 	ctrlResult, err = depl.CreateOrPatch(ctx, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -470,7 +481,7 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 	}
 	// create Deployment - end
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 

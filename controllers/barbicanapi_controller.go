@@ -59,11 +59,6 @@ func (r *BarbicanAPIReconciler) GetKClient() kubernetes.Interface {
 	return r.Kclient
 }
 
-// GetLogger -
-func (r *BarbicanAPIReconciler) GetLogger() logr.Logger {
-	return r.Log
-}
-
 // GetScheme -
 func (r *BarbicanAPIReconciler) GetScheme() *runtime.Scheme {
 	return r.Scheme
@@ -73,8 +68,12 @@ func (r *BarbicanAPIReconciler) GetScheme() *runtime.Scheme {
 type BarbicanAPIReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
-	Log     logr.Logger
 	Scheme  *runtime.Scheme
+}
+
+// GetLogger returns a logger object with a prefix of "controller.name" and additional controller context fields
+func (r *BarbicanAPIReconciler) GetLogger(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx).WithName("Controllers").WithName("BarbicanAPI")
 }
 
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete
@@ -83,7 +82,7 @@ type BarbicanAPIReconciler struct {
 
 // Reconcile BarbicanAPI
 func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
-	_ = log.FromContext(ctx)
+	Log := r.GetLogger(ctx)
 
 	instance := &barbicanv1beta1.BarbicanAPI{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
@@ -95,14 +94,14 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	r.Log.Info(fmt.Sprintf("Reconciling BarbicanAPI %s", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciling BarbicanAPI %s", instance.Name))
 
 	helper, err := helper.NewHelper(
 		instance,
 		r.Client,
 		r.Kclient,
 		r.Scheme,
-		r.Log,
+		Log,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -125,13 +124,13 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}()
 
-	r.Log.Info(fmt.Sprintf("Add finalizer %s", instance.Name))
+	Log.Info(fmt.Sprintf("Add finalizer %s", instance.Name))
 	// Add Finalizer
 	if instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer()) {
 		return ctrl.Result{}, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("initilize %s", instance.Name))
+	Log.Info(fmt.Sprintf("initilize %s", instance.Name))
 	// Initialize Conditions
 	if instance.Status.Conditions == nil {
 		instance.Status.Conditions = condition.Conditions{}
@@ -145,15 +144,15 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
-		r.Log.Info(fmt.Sprintf("calling init %s", instance.Name))
+		Log.Info(fmt.Sprintf("calling init %s", instance.Name))
 		instance.Status.Conditions.Init(&cl)
-		r.Log.Info(fmt.Sprintf("post init %s", instance.Name))
+		Log.Info(fmt.Sprintf("post init %s", instance.Name))
 
 		// TODO: (alee) this is ssupposed to exit here - but then it never comes back!
 		// Register overall status immediately to have an early feedback e.g. in the cli
 		return ctrl.Result{}, nil
 	}
-	r.Log.Info(fmt.Sprintf("post initiialize %s", instance.Name))
+	Log.Info(fmt.Sprintf("post initiialize %s", instance.Name))
 
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
@@ -173,7 +172,7 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return r.reconcileDelete(ctx, instance, helper)
 	}
 
-	r.Log.Info(fmt.Sprintf("Calling reconcile normal %s", instance.Name))
+	Log.Info(fmt.Sprintf("Calling reconcile normal %s", instance.Name))
 
 	// Handle non-deleted clusters
 	return r.reconcileNormal(ctx, instance, helper)
@@ -218,6 +217,7 @@ func (r *BarbicanAPIReconciler) createHashOfInputHashes(
 	instance *barbicanv1beta1.BarbicanAPI,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
+	Log := r.GetLogger(ctx)
 	var hashMap map[string]string
 	changed := false
 	mergedMapVars := env.MergeEnvs([]corev1.EnvVar{}, envVars)
@@ -227,7 +227,7 @@ func (r *BarbicanAPIReconciler) createHashOfInputHashes(
 	}
 	if hashMap, changed = util.SetHash(instance.Status.Hash, common.InputHashName, hash); changed {
 		instance.Status.Hash = hashMap
-		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
+		Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
 	}
 	return hash, changed, nil
 }
@@ -240,7 +240,8 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 	instance *barbicanv1beta1.BarbicanAPI,
 	envVars *map[string]env.Setter,
 ) error {
-	r.Log.Info("generateServiceConfigs - reconciling")
+	Log := r.GetLogger(ctx)
+	Log.Info("generateServiceConfigs - reconciling")
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), map[string]string{})
 
 	// customData hold any customization for the service.
@@ -294,7 +295,9 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 	helper *helper.Helper,
 	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
 
 	//
 	// expose the service (create service and return the created endpoint URLs)
@@ -445,32 +448,38 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 	// create keystone endpoints - end
 	//
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanAPIReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanAPIReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanAPIReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// Remove the finalizer from our KeystoneEndpoint CR
 	keystoneEndpoint, err := keystonev1.GetKeystoneEndpointWithName(ctx, helper, instance.Name, instance.Namespace)
@@ -490,20 +499,21 @@ func (r *BarbicanAPIReconciler) reconcileDelete(ctx context.Context, instance *b
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 
 	return ctrl.Result{}, nil
 }
 
 func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[API] Reconciling Service '%s'", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("[API] Reconciling Service '%s'", instance.Name))
 
 	configVars := make(map[string]env.Setter)
 
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	r.Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Name))
 	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -512,7 +522,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	//
 	// check for required TransportURL secret holding transport URL string
 	//
-	r.Log.Info(fmt.Sprintf("[API] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
+	Log.Info(fmt.Sprintf("[API] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
 	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -524,7 +534,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// TODO (alee) cinder has some code to retrieve CustomServiceConfigSecrets
 	// This seems like a great place to store things like HSM passwords
 
-	r.Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
 	//
 	// create custom config for this barbican service
 	//
@@ -539,7 +549,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		return ctrl.Result{}, err
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Getting input hash '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Getting input hash '%s'", instance.Name))
 	//
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
@@ -560,12 +570,12 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	}
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
-	r.Log.Info(fmt.Sprintf("[API] Getting service labels '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Getting service labels '%s'", instance.Name))
 	serviceLabels := map[string]string{
 		common.AppSelector: fmt.Sprintf(barbican.ServiceName),
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Getting networks '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Getting networks '%s'", instance.Name))
 	// networks to attach to
 	for _, netAtt := range instance.Spec.NetworkAttachments {
 		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
@@ -589,7 +599,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		}
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Getting service annotations '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Getting service annotations '%s'", instance.Name))
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
@@ -620,15 +630,15 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		return ctrlResult, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Defining deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Defining deployment '%s'", instance.Name))
 	// Define a new Deployment object
 	deplDef := barbicanapi.Deployment(instance, inputHash, serviceLabels, serviceAnnotations)
-	r.Log.Info(fmt.Sprintf("[API] Getting deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Getting deployment '%s'", instance.Name))
 	depl := deployment.NewDeployment(
 		deplDef,
 		time.Duration(5)*time.Second,
 	)
-	r.Log.Info(fmt.Sprintf("[API] Got deployment '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Got deployment '%s'", instance.Name))
 	ctrlResult, err = depl.CreateOrPatch(ctx, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -674,7 +684,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	}
 	// create Deployment - end
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
