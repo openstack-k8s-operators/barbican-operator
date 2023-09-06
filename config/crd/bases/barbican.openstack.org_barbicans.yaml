@@ -461,6 +461,9 @@ spec:
                   type: string
                 description: Map of hashes to track e.g. job status
                 type: object
+              serviceID:
+                description: ServiceID
+                type: string
               transportURLSecret:
                 description: TransportURLSecret - Secret containing RabbitMQ transportURL
                 type: string

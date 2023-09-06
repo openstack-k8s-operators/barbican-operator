@@ -43,6 +43,7 @@ import (
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
+	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/database"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -545,6 +546,50 @@ func (r *BarbicanReconciler) reconcileInit(
 	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
 	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
 	// create service DB - end
+
+	//
+	// create Keystone service and users
+	//
+	_, _, err = oko_secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
+	if err != nil {
+		if k8s_errors.IsNotFound(err) {
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+		}
+		return ctrl.Result{}, err
+	}
+
+	ksSvcSpec := keystonev1.KeystoneServiceSpec{
+		ServiceType:        barbican.ServiceType,
+		ServiceName:        barbican.ServiceName,
+		ServiceDescription: "Barbican Service",
+		Enabled:            true,
+		ServiceUser:        instance.Spec.ServiceUser,
+		Secret:             instance.Spec.Secret,
+		PasswordSelector:   instance.Spec.PasswordSelectors.Service,
+	}
+
+	ksSvc := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, time.Duration(10)*time.Second)
+	ctrlResult, err = ksSvc.CreateOrPatch(ctx, helper)
+	if err != nil {
+		return ctrlResult, err
+	}
+
+	// mirror the Status, Reason, Severity and Message of the latest keystoneservice condition
+	// into a local condition with the type condition.KeystoneServiceReadyCondition
+	c := ksSvc.GetConditions().Mirror(condition.KeystoneServiceReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
+
+	if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
+	}
+
+	instance.Status.ServiceID = ksSvc.GetServiceID()
+
+	if instance.Status.Hash == nil {
+		instance.Status.Hash = map[string]string{}
+	}
 
 	//
 	// run Barbican db sync

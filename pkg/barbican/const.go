@@ -5,6 +5,8 @@ import "github.com/openstack-k8s-operators/lib-common/modules/storage"
 const (
 	// ServiceName -
 	ServiceName = "barbican"
+	// ServiceType -
+	ServiceType = "key-manager"
 	// DatabaseName -
 	DatabaseName = "barbican"
 	// BarbicanPublicPort -
