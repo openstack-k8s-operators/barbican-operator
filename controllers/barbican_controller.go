@@ -396,6 +396,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"ServiceUser":     instance.Spec.ServiceUser,
 		"ServiceURL":      "TODO",
 		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
+		"LogFile":         fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
@@ -427,9 +428,11 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican) (*barbicanv1beta1.BarbicanAPI, controllerutil.OperationResult, error) {
 
 	r.Log.Info(fmt.Sprintf("Creating barbican API spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
+	r.Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
 	apiSpec := barbicanv1beta1.BarbicanAPISpec{
 		BarbicanTemplate:    instance.Spec.BarbicanTemplate,
 		BarbicanAPITemplate: instance.Spec.BarbicanAPI,
+		DatabaseHostname:    instance.Status.DatabaseHostname,
 		TransportURLSecret:  instance.Status.TransportURLSecret,
 	}
 

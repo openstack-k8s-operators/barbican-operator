@@ -269,7 +269,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
 			instance.Spec.DatabaseUser,
 			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
-			instance.Status.DatabaseHostname,
+			instance.Spec.DatabaseHostname,
 			barbican.DatabaseName,
 		),
 		"KeystoneAuthURL": keystoneInternalURL,
@@ -277,6 +277,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		"ServiceUser":     instance.Spec.ServiceUser,
 		"ServiceURL":      "https://barbican.openstack.svc:9311",
 		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
+		"LogFile":         fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)

@@ -41,6 +41,20 @@
         "owner": "barbican",
         "perm": "0640",
         "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/default/mime.conf",
+        "dest": "/etc/httpd/conf.modules.d/mime.conf",
+        "owner": "root",
+        "perm": "0640",
+        "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/default/kolla_extend_start",
+        "dest": "/usr/local/bin/kolla_extend_start",
+        "owner": "root",
+        "perm": "0755",
+        "optional": true
       }
     ],
     "permissions": [
