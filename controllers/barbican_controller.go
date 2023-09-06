@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,7 +45,10 @@ import (
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"github.com/openstack-k8s-operators/lib-common/modules/database"
+	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -295,7 +299,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// TODO(dmendiza): Handle service upgrade
 
 	// create or update Barbican API deployment
-	_, op, err = r.apiDeploymentCreateOrUpdate(ctx, instance)
+	_, op, err = r.apiDeploymentCreateOrUpdate(ctx, instance, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanAPIReadyCondition,
@@ -331,6 +335,39 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 		}
 	}
 
+	// Remove the finalizer from our KeystoneService CR
+	keystoneService, err := keystonev1.GetKeystoneServiceWithName(ctx, helper, barbican.ServiceName, instance.Namespace)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	if err == nil {
+		if controllerutil.RemoveFinalizer(keystoneService, helper.GetFinalizer()) {
+			err = r.Update(ctx, keystoneService)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+			util.LogForObject(helper, "Removed finalizer from our KeystoneService", instance)
+		}
+	}
+
+	// Remove finalizers from any existing child GlanceAPIs
+	barbicanAPI := &barbicanv1beta1.BarbicanAPI{}
+	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-api", instance.Name), Namespace: instance.Namespace}, barbicanAPI)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	if err == nil {
+		if controllerutil.RemoveFinalizer(barbicanAPI, helper.GetFinalizer()) {
+			err = r.Update(ctx, barbicanAPI)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+			util.LogForObject(helper, fmt.Sprintf("Removed finalizer from BarbicanAPI %s", barbicanAPI.Name), barbicanAPI)
+		}
+	}
+
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
@@ -342,6 +379,12 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.Barbican{}).
+		Owns(&barbicanv1beta1.BarbicanAPI{}).
+		Owns(&mariadbv1.MariaDBDatabase{}).
+		Owns(&keystonev1.KeystoneService{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&batchv1.Job{}).
+		Owns(&corev1.Secret{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
@@ -426,7 +469,7 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 	return transportURL, op, err
 }
 
-func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican) (*barbicanv1beta1.BarbicanAPI, controllerutil.OperationResult, error) {
+func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (*barbicanv1beta1.BarbicanAPI, controllerutil.OperationResult, error) {
 
 	r.Log.Info(fmt.Sprintf("Creating barbican API spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
 	r.Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
@@ -453,7 +496,9 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 			return err
 		}
 
-		// TODO(dmendiza): Do we want a finalizer here?  Glance has one.
+		// Add a finalizer to prevent user from manually removing child BarbicanAPI
+		controllerutil.AddFinalizer(deployment, helper.GetFinalizer())
+
 		return nil
 	})
 
