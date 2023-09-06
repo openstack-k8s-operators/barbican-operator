@@ -1,5 +1,5 @@
 {
-    "command": "uwsgi --master --emperor /etc/barbican/vassals --logto /var/log/kolla/barbican/barbican_api_uwsgi_access.log --logfile-chmod 644",
+    "command": "/usr/sbin/httpd -DFOREGROUND",
     "config_files": [
       {
         "source": "/var/lib/config-data/default/00-default.conf",
@@ -19,6 +19,41 @@
         "dest": "/etc/barbican/barbican.conf.d/03-secrets.conf",
         "owner": "barbican",
         "perm": "0640",
+        "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/default/10-barbican_wsgi_main.conf",
+        "dest": "/etc/httpd/conf.d/10-barbican_wsgi_main.conf",
+        "owner": "root",
+        "perm": "0640",
+        "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/default/httpd.conf",
+        "dest": "/etc/httpd/conf/httpd.conf",
+        "owner": "root",
+        "perm": "0640",
+        "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/default/main",
+        "dest": "/var/www/cgi-bin/barbican/main",
+        "owner": "barbican",
+        "perm": "0640",
+        "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/default/mime.conf",
+        "dest": "/etc/httpd/conf.modules.d/mime.conf",
+        "owner": "root",
+        "perm": "0640",
+        "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/default/kolla_extend_start",
+        "dest": "/usr/local/bin/kolla_extend_start",
+        "owner": "root",
+        "perm": "0755",
         "optional": true
       }
     ],

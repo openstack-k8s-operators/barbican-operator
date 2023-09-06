@@ -22,8 +22,8 @@ spec:
   debug:
     dbInitContainer: false
     dbSync: false
-    initContainer: true
-    service: true
+    initContainer: false
+    service: false
   preserveJobs: true
   nodeSelector:
     node: controller

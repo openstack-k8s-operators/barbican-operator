@@ -5,10 +5,14 @@ import "github.com/openstack-k8s-operators/lib-common/modules/storage"
 const (
 	// ServiceName -
 	ServiceName = "barbican"
+	// ServiceType -
+	ServiceType = "key-manager"
 	// DatabaseName -
 	DatabaseName = "barbican"
 	// BarbicanPublicPort -
 	BarbicanPublicPort int32 = 9311
+	// BarbicanInternalPort -
+	BarbicanInternalPort int32 = 9311
 	// DefaultsConfigFileName -
 	DefaultsConfigFileName = "00-default.conf"
 	// CustomConfigFileName -

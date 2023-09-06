@@ -37,6 +37,10 @@ type BarbicanAPISpec struct {
 
 	BarbicanAPITemplate `json:",inline"`
 
+	// +kubebuilder:validation:Required
+	// DatabaseHostname - Barbican Database Hostname
+	DatabaseHostname string `json:"databaseHostname"`
+
 	// TransportURLSecret - Secret containing RabbitMQ transportURL
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 }
