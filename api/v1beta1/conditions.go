@@ -19,6 +19,8 @@ const (
 	BarbicanAPIReadyErrorMessage = "BarbicanAPI error occured %s"
 	// BarbicanWorkerReadyInitMessage -
 	BarbicanWorkerReadyInitMessage = "BarbicanWorker not started"
+	// BarbicanWorkerReadyErrorMessage -
+	BarbicanWorkerReadyErrorMessage = "BarbicanWorker error occured %s"
 
 	// BarbicanRabbitMQTransportURLReadyRunningMessage -
 	BarbicanRabbitMQTransportURLReadyRunningMessage = "BarbicanRabbitMQTransportURL creation in progress"

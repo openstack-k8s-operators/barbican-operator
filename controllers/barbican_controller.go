@@ -313,6 +313,20 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
+	// create or update Barbican Worker deployment
+	_, op, err = r.workerDeploymentCreateOrUpdate(ctx, instance, helper)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			barbicanv1beta1.BarbicanWorkerReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			barbicanv1beta1.BarbicanWorkerReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if op != controllerutil.OperationResultNone {
+		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+	}
 	// TODO(dmendiza): Handle API endpoints
 
 	// TODO(dmendiza): Understand what Glance is doing with the API conditions and maybe do it here too
@@ -490,6 +504,42 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		r.Log.Info("Setting deployment spec to be apispec")
 		deployment.Spec = apiSpec
+
+		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
+		if err != nil {
+			return err
+		}
+
+		// Add a finalizer to prevent user from manually removing child BarbicanAPI
+		controllerutil.AddFinalizer(deployment, helper.GetFinalizer())
+
+		return nil
+	})
+
+	return deployment, op, err
+}
+
+func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (*barbicanv1beta1.BarbicanWorker, controllerutil.OperationResult, error) {
+
+	r.Log.Info(fmt.Sprintf("Creating barbican Worker spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
+	r.Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
+	workerSpec := barbicanv1beta1.BarbicanWorkerSpec{
+		BarbicanTemplate:       instance.Spec.BarbicanTemplate,
+		BarbicanWorkerTemplate: instance.Spec.BarbicanWorker,
+		DatabaseHostname:       instance.Status.DatabaseHostname,
+		TransportURLSecret:     instance.Status.TransportURLSecret,
+	}
+
+	deployment := &barbicanv1beta1.BarbicanWorker{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-worker", instance.Name),
+			Namespace: instance.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+		r.Log.Info("Setting deployment spec to be workerspec")
+		deployment.Spec = workerSpec
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {

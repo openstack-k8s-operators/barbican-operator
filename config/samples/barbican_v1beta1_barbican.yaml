@@ -56,5 +56,3 @@ spec:
     defautlConfigOverwrite:
       optional_policy.json: |
         {"some": "custom policy"}
-    networkAttachments:
-      - internal
