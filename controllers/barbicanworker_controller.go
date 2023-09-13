@@ -29,7 +29,7 @@ import (
 	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	//"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
 	//"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
@@ -579,60 +579,57 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 	// Define a new Deployment object
 	deplDef := barbicanworker.Deployment(instance, inputHash, serviceLabels, serviceAnnotations)
 	r.Log.Info(fmt.Sprintf("[Worker] Getting deployment '%s'", instance.Name))
-	r.Log.Info(fmt.Sprintf("[Worker] '%s'", deplDef))
-	/*
-		depl := deployment.NewDeployment(
-			deplDef,
-			time.Duration(5)*time.Second,
-		)
-		r.Log.Info(fmt.Sprintf("[API] Got deployment '%s'", instance.Name))
-		ctrlResult, err = depl.CreateOrPatch(ctx, helper)
-		if err != nil {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.DeploymentReadyCondition,
-				condition.ErrorReason,
-				condition.SeverityWarning,
-				condition.DeploymentReadyErrorMessage,
-				err.Error()))
-			return ctrlResult, err
-		} else if (ctrlResult != ctrl.Result{}) {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.DeploymentReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.DeploymentReadyRunningMessage))
-			return ctrlResult, nil
-		}
-		instance.Status.ReadyCount = depl.GetDeployment().Status.ReadyReplicas
+	depl := deployment.NewDeployment(
+		deplDef,
+		time.Duration(5)*time.Second,
+	)
+	r.Log.Info(fmt.Sprintf("[Worker] Got deployment '%s'", instance.Name))
+	ctrlResult, err = depl.CreateOrPatch(ctx, helper)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error()))
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DeploymentReadyRunningMessage))
+		return ctrlResult, nil
+	}
+	instance.Status.ReadyCount = depl.GetDeployment().Status.ReadyReplicas
 
-		// verify if network attachment matches expectations
-		networkReady, networkAttachmentStatus, err := nad.VerifyNetworkStatusFromAnnotation(ctx, helper, instance.Spec.NetworkAttachments, serviceLabels, instance.Status.ReadyCount)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	// verify if network attachment matches expectations
+	networkReady, networkAttachmentStatus, err := nad.VerifyNetworkStatusFromAnnotation(ctx, helper, instance.Spec.NetworkAttachments, serviceLabels, instance.Status.ReadyCount)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-		instance.Status.NetworkAttachments = networkAttachmentStatus
-		if networkReady {
-			instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
-		} else {
-			err := fmt.Errorf("not all pods have interfaces with ips as configured in NetworkAttachments: %s", instance.Spec.NetworkAttachments)
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.NetworkAttachmentsReadyCondition,
-				condition.ErrorReason,
-				condition.SeverityWarning,
-				condition.NetworkAttachmentsReadyErrorMessage,
-				err.Error()))
+	instance.Status.NetworkAttachments = networkAttachmentStatus
+	if networkReady {
+		instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
+	} else {
+		err := fmt.Errorf("not all pods have interfaces with ips as configured in NetworkAttachments: %s", instance.Spec.NetworkAttachments)
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.NetworkAttachmentsReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.NetworkAttachmentsReadyErrorMessage,
+			err.Error()))
 
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, err
+	}
 
-		if instance.Status.ReadyCount > 0 {
-			instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
-		}
-		// create Deployment - end
+	if instance.Status.ReadyCount > 0 {
+		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
+	}
+	// create Deployment - end
 
-		r.Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
-	*/
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 

@@ -23,6 +23,8 @@ const (
 	CustomServiceConfigSecretsFileName = "03-secrets.conf"
 	// BarbicanAPI defines the barbican-api group
 	BarbicanAPI storage.PropagationType = "BarbicanAPI"
+	// BarbicanWorker defines the barbican-worker group
+	BarbicanWorker storage.PropagationType = "BarbicanWorker"
 	// Barbican is the global ServiceType that refers to all the components deployed
 	// by the barbican operator
 	Barbican storage.PropagationType = "Barbican"
@@ -40,3 +42,8 @@ var DbsyncPropagation = []storage.PropagationType{storage.DBSync}
 // It allows the BarbicanAPI pod to mount volumes destined to Barbican related
 // ServiceTypes
 var BarbicanAPIPropagation = []storage.PropagationType{Barbican, BarbicanAPI}
+
+// BarbicanWorkerPropagation is the  definition of the BarbicanWorker propagation group
+// It allows the BarbicanWorker pod to mount volumes destined to Barbican related
+// ServiceTypes
+var BarbicanWorkerPropagation = []storage.PropagationType{Barbican, BarbicanWorker}

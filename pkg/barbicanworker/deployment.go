@@ -27,31 +27,33 @@ func Deployment(
 	annotations map[string]string,
 ) *appsv1.Deployment {
 	runAsUser := int64(0)
-	//var config0644AccessMode int32 = 0644
+	var config0644AccessMode int32 = 0644
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
-	livenessProbe := &corev1.Probe{
-		// TODO might need tuning
-		TimeoutSeconds:      5,
-		PeriodSeconds:       3,
-		InitialDelaySeconds: 5,
-	}
-	readinessProbe := &corev1.Probe{
-		// TODO might need tuning
-		TimeoutSeconds:      5,
-		PeriodSeconds:       5,
-		InitialDelaySeconds: 5,
-	}
+	/*
+		livenessProbe := &corev1.Probe{
+			// TODO might need tuning
+			TimeoutSeconds:      5,
+			PeriodSeconds:       3,
+			InitialDelaySeconds: 5,
+		}
+		readinessProbe := &corev1.Probe{
+			// TODO might need tuning
+			TimeoutSeconds:      5,
+			PeriodSeconds:       5,
+			InitialDelaySeconds: 5,
+		}
+	*/
 	args := []string{"-c"}
 	if instance.Spec.Debug.Service {
 		args = append(args, common.DebugCommand)
-		livenessProbe.Exec = &corev1.ExecAction{
-			Command: []string{
-				"/bin/true",
-			},
-		}
-		readinessProbe.Exec = livenessProbe.Exec
+		//livenessProbe.Exec = &corev1.ExecAction{
+		//	Command: []string{
+		//		"/bin/true",
+		//	},
+		//}
+		//readinessProbe.Exec = livenessProbe.Exec
 	} else {
 		args = append(args, ServiceCommand)
 		//
@@ -64,32 +66,30 @@ func Deployment(
 		//readinessProbe.HTTPGet = livenessProbe.HTTPGet
 	}
 
-	/*
-		workerVolumes := []corev1.Volume{
-			{
-				Name: "config-data-custom",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						DefaultMode: &config0644AccessMode,
-						SecretName:  instance.Name + "-config-data",
-					},
+	workerVolumes := []corev1.Volume{
+		{
+			Name: "config-data-custom",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					DefaultMode: &config0644AccessMode,
+					SecretName:  instance.Name + "-config-data",
 				},
 			},
-		}
+		},
+	}
 
-		workerVolumes = append(apiVolumes, barbican.GetLogVolume()...)
-		workerVolumeMounts := []corev1.VolumeMount{
-			{
-				Name:      "config-data",
-				MountPath: "/var/lib/kolla/config_files/config.json",
-				SubPath:   "barbican-worker-config.json",
-				ReadOnly:  true,
-			},
-		}
-	*/
+	workerVolumes = append(workerVolumes, barbican.GetLogVolume()...)
+	workerVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "config-data",
+			MountPath: "/var/lib/kolla/config_files/config.json",
+			SubPath:   "barbican-worker-config.json",
+			ReadOnly:  true,
+		},
+	}
 	// Append LogVolume to the apiVolumes: this will be used to stream
 	// logging
-	//apiVolumeMounts = append(apiVolumeMounts, barbican.GetLogVolumeMount()...)
+	workerVolumeMounts = append(workerVolumeMounts, barbican.GetLogVolumeMount()...)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,11 +120,11 @@ func Deployment(
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
-							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   barbican.GetLogVolumeMount(),
-							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
+							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts: barbican.GetLogVolumeMount(),
+							Resources:    instance.Spec.Resources,
+							//ReadinessProbe: readinessProbe,
+							//LivenessProbe:  livenessProbe,
 						},
 						{
 							Name: barbican.ServiceName + "-worker",
@@ -137,27 +137,25 @@ func Deployment(
 								RunAsUser: &runAsUser,
 							},
 							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							//VolumeMounts: append(barbican.GetVolumeMounts(
-							//	instance.Spec.CustomServiceConfigSecrets,
-							//	barbican.BarbicanAPIPropagation),
-							//	apiVolumeMounts...,
-							//),
-							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
+							VolumeMounts: append(barbican.GetVolumeMounts(
+								instance.Spec.CustomServiceConfigSecrets,
+								barbican.BarbicanWorkerPropagation),
+								workerVolumeMounts...,
+							),
+							Resources: instance.Spec.Resources,
+							//ReadinessProbe: readinessProbe,
+							//LivenessProbe:  livenessProbe,
 						},
 					},
 				},
 			},
 		},
 	}
-	/*
-		deployment.Spec.Template.Spec.Volumes = append(barbican.GetVolumes(
-			instance.Name,
-			barbican.ServiceName,
-			instance.Spec.CustomServiceConfigSecrets,
-			barbican.BarbicanAPIPropagation),
-			apiVolumes...)
-	*/
+	deployment.Spec.Template.Spec.Volumes = append(barbican.GetVolumes(
+		instance.Name,
+		barbican.ServiceName,
+		instance.Spec.CustomServiceConfigSecrets,
+		barbican.BarbicanWorkerPropagation),
+		workerVolumes...)
 	return deployment
 }

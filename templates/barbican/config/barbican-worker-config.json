@@ -1,5 +1,5 @@
 {
-    "command": "/usr/sbin/httpd -DFOREGROUND",
+    "command": "barbican-worker",
     "config_files": [
       {
         "source": "/var/lib/config-data/default/00-default.conf",
@@ -22,9 +22,9 @@
         "optional": true
       },
       {
-        "source": "/var/lib/config-data/default/kolla_extend_start",
-        "dest": "/usr/local/bin/kolla_extend_start",
-        "owner": "root",
+        "source": "/var/lib/config-data/default/barbican-worker",
+        "dest": "/usr/bin/barbican-worker",
+        "owner": "barbican",
         "perm": "0755",
         "optional": true
       }
