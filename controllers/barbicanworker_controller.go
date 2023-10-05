@@ -26,10 +26,12 @@ import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicanworker"
+
 	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
+
 	//"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
@@ -71,7 +73,7 @@ func (r *BarbicanAPIReconciler) GetScheme() *runtime.Scheme {
 }
 */
 
-// BarbicanAPIReconciler reconciles a BarbicanAPI object
+// BarbicanWorkerReconciler reconciles a BarbicanAPI object
 type BarbicanWorkerReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
