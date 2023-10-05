@@ -31,8 +31,9 @@ import (
 
 // BarbicanDefaults -
 type BarbicanDefaults struct {
-	APIContainerImageURL    string
-	WorkerContainerImageURL string
+	APIContainerImageURL              string
+	WorkerContainerImageURL           string
+	KeystoneListenerContainerImageURL string
 }
 
 var barbicanDefaults BarbicanDefaults
@@ -72,6 +73,10 @@ func (spec *BarbicanSpec) Default() {
 
 	if spec.BarbicanWorker.ContainerImage == "" {
 		spec.BarbicanWorker.ContainerImage = barbicanDefaults.WorkerContainerImageURL
+	}
+
+	if spec.BarbicanKeystoneListener.ContainerImage == "" {
+		spec.BarbicanKeystoneListener.ContainerImage = barbicanDefaults.KeystoneListenerContainerImageURL
 	}
 }
 
