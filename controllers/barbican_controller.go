@@ -364,7 +364,7 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 		}
 	}
 
-	// Remove finalizers from any existing child GlanceAPIs
+	// Remove finalizers from any existing child barbicanAPIs
 	barbicanAPI := &barbicanv1beta1.BarbicanAPI{}
 	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-api", instance.Name), Namespace: instance.Namespace}, barbicanAPI)
 	if err != nil && !k8s_errors.IsNotFound(err) {
@@ -378,6 +378,23 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 				return ctrl.Result{}, err
 			}
 			util.LogForObject(helper, fmt.Sprintf("Removed finalizer from BarbicanAPI %s", barbicanAPI.Name), barbicanAPI)
+		}
+	}
+
+	// Remove finalizers from any existing child barbicanWorkers
+	barbicanWorker := &barbicanv1beta1.BarbicanWorker{}
+	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-worker", instance.Name), Namespace: instance.Namespace}, barbicanWorker)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	if err == nil {
+		if controllerutil.RemoveFinalizer(barbicanWorker, helper.GetFinalizer()) {
+			err = r.Update(ctx, barbicanWorker)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+			util.LogForObject(helper, fmt.Sprintf("Removed finalizer from BarbicanWorker %s", barbicanWorker.Name), barbicanWorker)
 		}
 	}
 
