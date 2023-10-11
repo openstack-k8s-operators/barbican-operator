@@ -34,7 +34,7 @@ type BarbicanWorkerSpec struct {
 	BarbicanTemplate `json:",inline"`
 
 	BarbicanWorkerTemplate `json:",inline"`
-	DatabaseHostname string `json:"databaseHostname"`
+	DatabaseHostname       string `json:"databaseHostname"`
 
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 }

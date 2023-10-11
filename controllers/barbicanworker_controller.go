@@ -22,17 +22,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	//routev1 "github.com/openshift/api/route/v1"
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicanworker"
 
-	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
 
-	//"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
@@ -46,32 +43,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	//appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 )
-
-/*
-// GetClient -
-func (r *BarbicanAPIReconciler) GetClient() client.Client {
-	return r.Client
-}
-
-// GetKClient -
-func (r *BarbicanAPIReconciler) GetKClient() kubernetes.Interface {
-	return r.Kclient
-}
-
-// GetLogger -
-func (r *BarbicanAPIReconciler) GetLogger() logr.Logger {
-	return r.Log
-}
-
-// GetScheme -
-func (r *BarbicanAPIReconciler) GetScheme() *runtime.Scheme {
-	return r.Scheme
-}
-*/
 
 // BarbicanWorkerReconciler reconciles a BarbicanAPI object
 type BarbicanWorkerReconciler struct {
@@ -81,9 +55,9 @@ type BarbicanWorkerReconciler struct {
 	Scheme  *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/finalizers,verbs=update
+// +kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/finalizers,verbs=update
 
 // Reconcile BarbicanAPI
 func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
@@ -93,7 +67,6 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
-			// Object not found
 			return ctrl.Result{}, err
 		}
 	}
@@ -139,20 +112,15 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if instance.Status.Conditions == nil {
 		instance.Status.Conditions = condition.Conditions{}
 		cl := condition.CreateList(
-			//condition.UnknownCondition(condition.ExposeServiceReadyCondition, condition.InitReason, condition.ExposeServiceReadyInitMessage),
 			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
-			// right now we have no dedicated KeystoneServiceReadyInitMessage and KeystoneEndpointReadyInitMessage
-			//condition.UnknownCondition(condition.KeystoneServiceReadyCondition, condition.InitReason, ""),
-			//condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
 		r.Log.Info(fmt.Sprintf("calling init %s", instance.Name))
 		instance.Status.Conditions.Init(&cl)
 		r.Log.Info(fmt.Sprintf("post init %s", instance.Name))
 
-		// TODO: (alee) this is ssupposed to exit here - but then it never comes back!
 		// Register overall status immediately to have an early feedback e.g. in the cli
 		return ctrl.Result{}, nil
 	}
@@ -161,12 +129,7 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
 	}
-	//if instance.Status.APIEndpoints == nil {
-	//	instance.Status.APIEndpoints = map[string]string{}
-	//}
-	//if instance.Status.ServiceIDs == nil {
-	//	instance.Status.ServiceIDs = map[string]string{}
-	//}
+
 	if instance.Status.NetworkAttachments == nil {
 		instance.Status.NetworkAttachments = map[string][]string{}
 	}
@@ -256,16 +219,6 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 		customData[key] = data
 	}
 
-	//keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
-	// KeystoneAPI not available we should not aggregate the error and continue
-	//if err != nil {
-	//	return err
-	//}
-	//keystoneInternalURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointInternal)
-	//if err != nil {
-	//	return err
-	//}
-
 	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
 		return err
@@ -283,10 +236,6 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 			instance.Spec.DatabaseHostname,
 			barbican.DatabaseName,
 		),
-		//"KeystoneAuthURL": keystoneInternalURL,
-		//"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
-		//"ServiceUser":     instance.Spec.ServiceUser,
-		//"ServiceURL":      "https://barbican.openstack.svc:9311",
 		"TransportURL": string(transportURLSecret.Data["transport_url"]),
 		"LogFile":      fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 	}
@@ -300,102 +249,6 @@ func (r *BarbicanWorkerReconciler) reconcileInit(
 	helper *helper.Helper,
 	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[Worker] Reconciling Service '%s' init", instance.Name))
-
-	//
-	// expose the service (create service, route and return the created endpoint URLs)
-	//
-	//ports := map[endpoint.Endpoint]endpoint.Data{}
-	//ports[endpoint.EndpointInternal] = endpoint.Data{
-	//	Port: barbican.BarbicanInternalPort,
-	//}
-	//ports[endpoint.EndpointPublic] = endpoint.Data{
-	//	Port: barbican.BarbicanPublicPort,
-	//}
-
-	/*
-		for _, metallbcfg := range instance.Spec.ExternalEndpoints {
-			portCfg := ports[metallbcfg.Endpoint]
-			portCfg.MetalLB = &endpoint.MetalLBData{
-				IPAddressPool:   metallbcfg.IPAddressPool,
-				SharedIP:        metallbcfg.SharedIP,
-				SharedIPKey:     metallbcfg.SharedIPKey,
-				LoadBalancerIPs: metallbcfg.LoadBalancerIPs,
-			}
-
-			ports[metallbcfg.Endpoint] = portCfg
-		}
-
-		apiEndpoints, ctrlResult, err := endpoint.ExposeEndpoints(
-			ctx,
-			helper,
-			barbican.ServiceName,
-			serviceLabels,
-			ports,
-			time.Duration(5)*time.Second,
-		)
-		if err != nil {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.ExposeServiceReadyCondition,
-				condition.ErrorReason,
-				condition.SeverityWarning,
-				condition.ExposeServiceReadyErrorMessage,
-				err.Error()))
-			return ctrlResult, err
-		} else if (ctrlResult != ctrl.Result{}) {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.ExposeServiceReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.ExposeServiceReadyRunningMessage))
-			return ctrlResult, nil
-		}
-	*/
-	//instance.Status.Conditions.MarkTrue(condition.ExposeServiceReadyCondition, condition.ExposeServiceReadyMessage)
-
-	//
-	// Update instance status with service endpoint url from route host information
-	//
-	// TODO: need to support https default here
-	//if instance.Status.APIEndpoints == nil {
-	//	instance.Status.APIEndpoints = map[string]string{}
-	//}
-	//instance.Status.APIEndpoints = apiEndpoints
-
-	// expose service - end
-
-	//
-	// create keystone endpoints
-	//
-
-	//ksEndpointSpec := keystonev1.KeystoneEndpointSpec{
-	//	ServiceName: barbican.ServiceName,
-	//	Endpoints:   instance.Status.APIEndpoints,
-	//}
-
-	/*
-		ksSvc := keystonev1.NewKeystoneEndpoint(instance.Name, instance.Namespace, ksEndpointSpec, serviceLabels, time.Duration(10)*time.Second)
-		ctrlResult, err = ksSvc.CreateOrPatch(ctx, helper)
-		if err != nil {
-			return ctrlResult, err
-		}
-
-		// mirror the Status, Reason, Severity and Message of the latest keystoneendpoint condition
-		// into a local condition with the type condition.KeystoneEndpointReadyCondition
-		c := ksSvc.GetConditions().Mirror(condition.KeystoneEndpointReadyCondition)
-		if c != nil {
-			instance.Status.Conditions.Set(c)
-		}
-
-		if (ctrlResult != ctrl.Result{}) {
-			return ctrlResult, nil
-		}
-
-		//
-		// create keystone endpoints - end
-		//
-
-	*/
 	r.Log.Info(fmt.Sprintf("[Worker] Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
@@ -422,24 +275,6 @@ func (r *BarbicanWorkerReconciler) reconcileUpgrade(ctx context.Context, instanc
 
 func (r *BarbicanWorkerReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanWorker, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
-
-	// Remove the finalizer from our KeystoneEndpoint CR
-	//keystoneEndpoint, err := keystonev1.GetKeystoneEndpointWithName(ctx, helper, instance.Name, instance.Namespace)
-	//if err != nil && !k8s_errors.IsNotFound(err) {
-	//	return ctrl.Result{}, err
-	//}
-
-	/*
-		if err == nil {
-			if controllerutil.RemoveFinalizer(keystoneEndpoint, helper.GetFinalizer()) {
-				err = r.Update(ctx, keystoneEndpoint)
-				if err != nil && !k8s_errors.IsNotFound(err) {
-					return ctrl.Result{}, err
-				}
-				util.LogForObject(helper, "Removed finalizer from our KeystoneEndpoint", instance)
-			}
-		}
-	*/
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
@@ -639,7 +474,6 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanWorker{}).
-		//Owns(&keystonev1.KeystoneEndpoint{}).
 		//Owns(&corev1.Service{}).
 		//Owns(&corev1.Secret{}).
 		//Owns(&appsv1.Deployment{}).
