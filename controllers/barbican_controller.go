@@ -353,6 +353,23 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
+	// TODO(afaranha): Rename Keystone with Barbican
+	// We need to allow all KeystoneEndpoint and KeystoneService processing to finish
+	// in the case of a delete before we remove the finalizers.  For instance, in the
+	// case of the Memcached dependency, if Memcached is deleted before all Keystone
+	// cleanup has finished, then the Keystone logic will likely hit a 500 error and
+	// thus its deletion will hang indefinitely.
+	for _, finalizer := range instance.Finalizers {
+		// If this finalizer is not our KeystoneAPI finalizer, then it is either
+		// a KeystoneService or KeystoneEndpointer finalizer, which indicates that
+		// there is more Keystone processing that needs to finish before we can
+		// allow our DB and Memcached dependencies to be potentially deleted
+		// themselves
+		if finalizer != helper.GetFinalizer() {
+			return ctrl.Result{}, nil
+		}
+	}
+
 	// remove db finalizer first
 	db, err := mariadbv1.GetDatabaseByName(ctx, helper, instance.Name)
 	if err != nil && !k8s_errors.IsNotFound(err) {
@@ -381,7 +398,7 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 		}
 	}
 
-	// Remove finalizers from any existing child barbicanAPIs
+	// Remove finalizers from any existing child BarbicanAPIs
 	barbicanAPI := &barbicanv1beta1.BarbicanAPI{}
 	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-api", instance.Name), Namespace: instance.Namespace}, barbicanAPI)
 	if err != nil && !k8s_errors.IsNotFound(err) {
@@ -415,6 +432,23 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 		}
 	}
 
+	// Remove finalizers from Barbican Keystone Listener
+	barbicanKeystoneListener := &barbicanv1beta1.BarbicanKeystoneListener{}
+	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-keystone-listener", instance.Name), Namespace: instance.Namespace}, barbicanKeystoneListener)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	if err == nil {
+		if controllerutil.RemoveFinalizer(barbicanKeystoneListener, helper.GetFinalizer()) {
+			err = r.Update(ctx, barbicanKeystoneListener)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+			util.LogForObject(helper, fmt.Sprintf("Removed finalizer from BarbicanKeystoneListener %s", barbicanKeystoneListener.Name), barbicanKeystoneListener)
+		}
+	}
+
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
@@ -427,6 +461,8 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.Barbican{}).
 		Owns(&barbicanv1beta1.BarbicanAPI{}).
+		Owns(&barbicanv1beta1.BarbicanWorker{}).
+		Owns(&barbicanv1beta1.BarbicanKeystoneListener{}).
 		Owns(&mariadbv1.MariaDBDatabase{}).
 		Owns(&keystonev1.KeystoneService{}).
 		Owns(&corev1.ServiceAccount{}).
