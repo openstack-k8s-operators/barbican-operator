@@ -1,0 +1,87 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  name: barbican
+spec:
+  serviceUser: barbican
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+  databaseInstance: openstack
+  databaseUser: barbican
+  rabbitMqClusterName: rabbitmq
+  barbicanAPI:
+    replicas: 1
+  barbicanWorker:
+    replicas: 1
+  barbicanKeystoneListener:
+    replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: barbican
+    app.kubernetes.io/instance: barbican
+    app.kubernetes.io/part-of: barbican-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: barbican-operator
+  name: barbican
+spec:
+  serviceAccount: barbican
+  serviceUser: barbican
+  containerImage: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
+  databaseInstance: openstack
+  databaseUser: barbican
+  rabbitMqCusterName: barbican_rabbit
+  secret: osp-secret
+  passwordSelectors:
+    database: BarbicanDatabasePassword
+    service: BarbicanPassword
+  debug:
+    dbInitContainer: false
+    dbSync: false
+    initContainer: false
+    service: false
+  preserveJobs: true
+  nodeSelector:
+    node: controller
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+  defaultConfigOverwrite:
+    policy.json: |
+      {"some": "custom policy"}
+  barbicanAPI:
+    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
+    nodeSelector:
+      optional_override: here
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
+    passwordSelectors:
+      database: BarbicanDatabasePassword
+      service: BarbicanPassword
+  barbicanWorker:
+    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified
+    nodeSelector:
+      optional_override: here
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
+  barbicanKeystoneListener:
+    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener:current-podified
+    nodeSelector:
+      optional_override: here
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
