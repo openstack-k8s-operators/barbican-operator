@@ -8,7 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//"k8s.io/apimachinery/pkg/util/intstr"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	barbican "github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
@@ -31,39 +30,11 @@ func Deployment(
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
-	/*
-		livenessProbe := &corev1.Probe{
-			// TODO might need tuning
-			TimeoutSeconds:      5,
-			PeriodSeconds:       3,
-			InitialDelaySeconds: 5,
-		}
-		readinessProbe := &corev1.Probe{
-			// TODO might need tuning
-			TimeoutSeconds:      5,
-			PeriodSeconds:       5,
-			InitialDelaySeconds: 5,
-		}
-	*/
 	args := []string{"-c"}
 	if instance.Spec.Debug.Service {
 		args = append(args, common.DebugCommand)
-		//livenessProbe.Exec = &corev1.ExecAction{
-		//	Command: []string{
-		//		"/bin/true",
-		//	},
-		//}
-		//readinessProbe.Exec = livenessProbe.Exec
 	} else {
 		args = append(args, ServiceCommand)
-		//
-		// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-		//
-		//livenessProbe.HTTPGet = &corev1.HTTPGetAction{
-		//	Path: "/healthcheck",
-		//	Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(barbican.BarbicanPublicPort)},
-		//}
-		//readinessProbe.HTTPGet = livenessProbe.HTTPGet
 	}
 
 	keystoneListenerVolumes := []corev1.Volume{
@@ -123,8 +94,6 @@ func Deployment(
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts: barbican.GetLogVolumeMount(),
 							Resources:    instance.Spec.Resources,
-							//ReadinessProbe: readinessProbe,
-							//LivenessProbe:  livenessProbe,
 						},
 						{
 							Name: barbican.ServiceName + "-keystone-listener",
@@ -143,8 +112,6 @@ func Deployment(
 								keystoneListenerVolumeMounts...,
 							),
 							Resources: instance.Spec.Resources,
-							//ReadinessProbe: readinessProbe,
-							//LivenessProbe:  livenessProbe,
 						},
 					},
 				},

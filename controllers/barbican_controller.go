@@ -353,23 +353,6 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
-	// TODO(afaranha): Rename Keystone with Barbican
-	// We need to allow all KeystoneEndpoint and KeystoneService processing to finish
-	// in the case of a delete before we remove the finalizers.  For instance, in the
-	// case of the Memcached dependency, if Memcached is deleted before all Keystone
-	// cleanup has finished, then the Keystone logic will likely hit a 500 error and
-	// thus its deletion will hang indefinitely.
-	for _, finalizer := range instance.Finalizers {
-		// If this finalizer is not our KeystoneAPI finalizer, then it is either
-		// a KeystoneService or KeystoneEndpointer finalizer, which indicates that
-		// there is more Keystone processing that needs to finish before we can
-		// allow our DB and Memcached dependencies to be potentially deleted
-		// themselves
-		if finalizer != helper.GetFinalizer() {
-			return ctrl.Result{}, nil
-		}
-	}
-
 	// remove db finalizer first
 	db, err := mariadbv1.GetDatabaseByName(ctx, helper, instance.Name)
 	if err != nil && !k8s_errors.IsNotFound(err) {
@@ -615,7 +598,7 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 			return err
 		}
 
-		// Add a finalizer to prevent user from manually removing child BarbicanAPI
+		// Add a finalizer to prevent user from manually removing child BarbicanWorker
 		controllerutil.AddFinalizer(deployment, helper.GetFinalizer())
 
 		return nil
@@ -651,7 +634,7 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 			return err
 		}
 
-		// Add a finalizer to prevent user from manually removing child BarbicanAPI
+		// Add a finalizer to prevent user from manually removing child BarbicanKeystoneListener
 		controllerutil.AddFinalizer(deployment, helper.GetFinalizer())
 
 		return nil

@@ -49,9 +49,6 @@ type BarbicanKeystoneListenerStatus struct {
 	// Map of hashes to track e.g. job status
 	Hash map[string]string `json:"hash,omitempty"`
 
-	// API endpoint
-	//APIEndpoints map[string]string `json:"apiEndpoint,omitempty"`
-
 	// Conditions
 	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
