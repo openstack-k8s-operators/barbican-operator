@@ -8,6 +8,10 @@ const (
 
 	// BarbicanWorkerReadyCondition -
 	BarbicanWorkerReadyCondition condition.Type = "BarbicanWorkerReady"
+
+	// BarbicanKeystoneListenerReadyCondition -
+	BarbicanKeystoneListenerReadyCondition condition.Type = "BarbicanKeystoneListenerReady"
+
 	// BarbicanRabbitMQTransportURLReadyCondition -
 	BarbicanRabbitMQTransportURLReadyCondition condition.Type = "BarbicanRabbitMQTransportURLReady"
 )
@@ -21,6 +25,10 @@ const (
 	BarbicanWorkerReadyInitMessage = "BarbicanWorker not started"
 	// BarbicanWorkerReadyErrorMessage -
 	BarbicanWorkerReadyErrorMessage = "BarbicanWorker error occured %s"
+	// BarbicanKeystoneListenerReadyInitMessage -
+	BarbicanKeystoneListenerReadyInitMessage = "BarbicanKeystoneListener not started"
+	// BarbicanKeystoneListenerReadyErrorMessage -
+	BarbicanKeystoneListenerReadyErrorMessage = "BarbicanKeystoneListener error occured %s"
 
 	// BarbicanRabbitMQTransportURLReadyRunningMessage -
 	BarbicanRabbitMQTransportURLReadyRunningMessage = "BarbicanRabbitMQTransportURL creation in progress"

@@ -140,6 +140,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.BarbicanKeystoneListenerReconciler{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Kclient: kclient,
+		Log:     ctrl.Log.WithName("controllers").WithName("BarbicanKeystoneListener"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BarbicanKeystoneListener")
+		os.Exit(1)
+	}
+
 	// Acquire environmental defaults and initialize operator defaults with them
 	barbicanv1beta1.SetupDefaults()
 

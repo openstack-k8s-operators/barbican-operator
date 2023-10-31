@@ -33,6 +33,9 @@ const (
 
 	// BarbicanWorkerContainerImage is the fall-back container image for BarbicanAPI
 	BarbicanWorkerContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified"
+
+	// BarbicanKeystoneListenerContainerImage is the fall-back container image for BarbicanAPI
+	BarbicanKeystoneListenerContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener:current-podified"
 )
 
 // BarbicanSpec defines the desired state of Barbican
@@ -67,6 +70,8 @@ type BarbicanSpec struct {
 	BarbicanAPI BarbicanAPITemplate `json:"barbicanAPI"`
 
 	BarbicanWorker BarbicanWorkerTemplate `json:"barbicanWorker"`
+
+	BarbicanKeystoneListener BarbicanKeystoneListenerTemplate `json:"barbicanKeystoneListener"`
 }
 
 // BarbicanStatus defines the observed state of Barbican
@@ -85,6 +90,9 @@ type BarbicanStatus struct {
 
 	// ReadyCount of Barbican Worker instances
 	BarbicanWorkerReadyCount int32 `json:"barbicanWorkerReadyCount,omitempty"`
+
+	// ReadyCount of Barbican KeystoneListener instances
+	BarbicanKeystoneListenerReadyCount int32 `json:"barbicanKeystoneListenerReadyCount,omitempty"`
 
 	// TransportURLSecret - Secret containing RabbitMQ transportURL
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
@@ -142,8 +150,9 @@ func init() {
 func SetupDefaults() {
 	// Acquire environmental defaults and initialize Barbican defaults with them
 	barbicanDefaults := BarbicanDefaults{
-		APIContainerImageURL:    util.GetEnvVar("BARBICAN_API_IMAGE_URL_DEFAULT", BarbicanAPIContainerImage),
-		WorkerContainerImageURL: util.GetEnvVar("BARBICAN_WORKER_IMAGE_URL_DEFAULT", BarbicanWorkerContainerImage),
+		APIContainerImageURL:              util.GetEnvVar("BARBICAN_API_IMAGE_URL_DEFAULT", BarbicanAPIContainerImage),
+		WorkerContainerImageURL:           util.GetEnvVar("BARBICAN_WORKER_IMAGE_URL_DEFAULT", BarbicanWorkerContainerImage),
+		KeystoneListenerContainerImageURL: util.GetEnvVar("BARBICAN_KEYSTONE_LISTENER_IMAGE_URL_DEFAULT", BarbicanKeystoneListenerContainerImage),
 	}
 
 	SetupBarbicanDefaults(barbicanDefaults)

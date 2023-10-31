@@ -25,6 +25,8 @@ const (
 	BarbicanAPI storage.PropagationType = "BarbicanAPI"
 	// BarbicanWorker defines the barbican-worker group
 	BarbicanWorker storage.PropagationType = "BarbicanWorker"
+	// BarbicanKeystoneListener defines the barbican-keystone-listener group
+	BarbicanKeystoneListener storage.PropagationType = "BarbicanKeystoneListener"
 	// Barbican is the global ServiceType that refers to all the components deployed
 	// by the barbican operator
 	Barbican storage.PropagationType = "Barbican"
@@ -47,3 +49,8 @@ var BarbicanAPIPropagation = []storage.PropagationType{Barbican, BarbicanAPI}
 // It allows the BarbicanWorker pod to mount volumes destined to Barbican related
 // ServiceTypes
 var BarbicanWorkerPropagation = []storage.PropagationType{Barbican, BarbicanWorker}
+
+// BarbicanKeystoneListenerPropagation is the  definition of the BarbicanKeystoneListener propagation group
+// It allows the BarbicanKeystoneListener pod to mount volumes destined to Barbican related
+// ServiceTypes
+var BarbicanKeystoneListenerPropagation = []storage.PropagationType{Barbican, BarbicanKeystoneListener}

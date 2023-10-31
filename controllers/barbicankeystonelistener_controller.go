@@ -22,20 +22,20 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	//routev1 "github.com/openshift/api/route/v1"
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
-	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicanapi"
-	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicankeystonelistener"
+	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
+	//"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -49,28 +49,8 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// GetClient -
-func (r *BarbicanAPIReconciler) GetClient() client.Client {
-	return r.Client
-}
-
-// GetKClient -
-func (r *BarbicanAPIReconciler) GetKClient() kubernetes.Interface {
-	return r.Kclient
-}
-
-// GetLogger -
-func (r *BarbicanAPIReconciler) GetLogger() logr.Logger {
-	return r.Log
-}
-
-// GetScheme -
-func (r *BarbicanAPIReconciler) GetScheme() *runtime.Scheme {
-	return r.Scheme
-}
-
-// BarbicanAPIReconciler reconciles a BarbicanAPI object
-type BarbicanAPIReconciler struct {
+// BarbicanKeystoneListenerReconciler reconciles a BarbicanKeystoneListener object
+type BarbicanKeystoneListenerReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
 	Log     logr.Logger
@@ -82,10 +62,10 @@ type BarbicanAPIReconciler struct {
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/finalizers,verbs=update
 
 // Reconcile BarbicanAPI
-func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
+func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
 	_ = log.FromContext(ctx)
 
-	instance := &barbicanv1beta1.BarbicanAPI{}
+	instance := &barbicanv1beta1.BarbicanKeystoneListener{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
@@ -95,7 +75,7 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	r.Log.Info(fmt.Sprintf("Reconciling BarbicanAPI %s", instance.Name))
+	r.Log.Info(fmt.Sprintf("Reconciling BarbicanKeystoneListener %s", instance.Name))
 
 	helper, err := helper.NewHelper(
 		instance,
@@ -132,17 +112,18 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	r.Log.Info(fmt.Sprintf("initilize %s", instance.Name))
+
 	// Initialize Conditions
 	if instance.Status.Conditions == nil {
 		instance.Status.Conditions = condition.Conditions{}
 		cl := condition.CreateList(
-			condition.UnknownCondition(condition.ExposeServiceReadyCondition, condition.InitReason, condition.ExposeServiceReadyInitMessage),
+			//condition.UnknownCondition(condition.ExposeServiceReadyCondition, condition.InitReason, condition.ExposeServiceReadyInitMessage),
 			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
 			// right now we have no dedicated KeystoneServiceReadyInitMessage and KeystoneEndpointReadyInitMessage
-			condition.UnknownCondition(condition.KeystoneServiceReadyCondition, condition.InitReason, ""),
-			condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
+			//condition.UnknownCondition(condition.KeystoneServiceReadyCondition, condition.InitReason, ""),
+			//condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
 		r.Log.Info(fmt.Sprintf("calling init %s", instance.Name))
@@ -158,9 +139,9 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
 	}
-	if instance.Status.APIEndpoints == nil {
-		instance.Status.APIEndpoints = map[string]string{}
-	}
+	//if instance.Status.APIEndpoints == nil {
+	//	instance.Status.APIEndpoints = map[string]string{}
+	//}
 	//if instance.Status.ServiceIDs == nil {
 	//	instance.Status.ServiceIDs = map[string]string{}
 	//}
@@ -179,10 +160,10 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return r.reconcileNormal(ctx, instance, helper)
 }
 
-func (r *BarbicanAPIReconciler) getSecret(
+func (r *BarbicanKeystoneListenerReconciler) getSecret(
 	ctx context.Context,
 	h *helper.Helper,
-	instance *barbicanv1beta1.BarbicanAPI,
+	instance *barbicanv1beta1.BarbicanKeystoneListener,
 	secretName string,
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
@@ -213,9 +194,9 @@ func (r *BarbicanAPIReconciler) getSecret(
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanAPIReconciler) createHashOfInputHashes(
+func (r *BarbicanKeystoneListenerReconciler) createHashOfInputHashes(
 	ctx context.Context,
-	instance *barbicanv1beta1.BarbicanAPI,
+	instance *barbicanv1beta1.BarbicanKeystoneListener,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
 	var hashMap map[string]string
@@ -225,6 +206,7 @@ func (r *BarbicanAPIReconciler) createHashOfInputHashes(
 	if err != nil {
 		return hash, changed, err
 	}
+	r.Log.Info("[KeystoneListener] ON createHashOfInputHashes")
 	if hashMap, changed = util.SetHash(instance.Status.Hash, common.InputHashName, hash); changed {
 		instance.Status.Hash = hashMap
 		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
@@ -234,31 +216,33 @@ func (r *BarbicanAPIReconciler) createHashOfInputHashes(
 
 // generateServiceConfigs - create Secret which holds the service configuration
 // TODO add DefaultConfigOverwrite
-func (r *BarbicanAPIReconciler) generateServiceConfigs(
+func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 	ctx context.Context,
 	h *helper.Helper,
-	instance *barbicanv1beta1.BarbicanAPI,
+	instance *barbicanv1beta1.BarbicanKeystoneListener,
 	envVars *map[string]env.Setter,
 ) error {
-	r.Log.Info("generateServiceConfigs - reconciling")
+	r.Log.Info("[KeystoneListener] generateServiceConfigs - reconciling")
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), map[string]string{})
 
 	// customData hold any customization for the service.
 	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
 
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
+
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
 	}
 
-	keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
+	//keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
 	// KeystoneAPI not available we should not aggregate the error and continue
-	if err != nil {
-		return err
-	}
-	keystoneInternalURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointInternal)
-	if err != nil {
-		return err
-	}
+	//if err != nil {
+	//	return err
+	//}
+	//keystoneInternalURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointInternal)
+	//if err != nil {
+	//	return err
+	//}
 
 	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
@@ -277,104 +261,57 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 			instance.Spec.DatabaseHostname,
 			barbican.DatabaseName,
 		),
-		"KeystoneAuthURL": keystoneInternalURL,
-		"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
-		"ServiceUser":     instance.Spec.ServiceUser,
-		"ServiceURL":      "https://barbican.openstack.svc:9311",
-		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
-		"LogFile":         fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		//"KeystoneAuthURL": keystoneInternalURL,
+		//"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
+		//"ServiceUser":     instance.Spec.ServiceUser,
+		//"ServiceURL":      "https://barbican.openstack.svc:9311",
+		"TransportURL": string(transportURLSecret.Data["transport_url"]),
+		"LogFile":      fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }
 
-func (r *BarbicanAPIReconciler) reconcileInit(
+func (r *BarbicanKeystoneListenerReconciler) reconcileInit(
 	ctx context.Context,
-	instance *barbicanv1beta1.BarbicanAPI,
+	instance *barbicanv1beta1.BarbicanKeystoneListener,
 	helper *helper.Helper,
 	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' init", instance.Name))
 
 	//
-	// expose the service (create service and return the created endpoint URLs)
+	// expose the service (create service, route and return the created endpoint URLs)
 	//
-	publicEndpointData := endpoint.Data{
-		Port: barbican.BarbicanPublicPort,
-	}
-	internalEndpointData := endpoint.Data{
-		Port: barbican.BarbicanInternalPort,
-	}
-	barbicanEndpoints := map[service.Endpoint]endpoint.Data{
-		service.EndpointPublic:   publicEndpointData,
-		service.EndpointInternal: internalEndpointData,
-	}
+	//ports := map[endpoint.Endpoint]endpoint.Data{}
+	//ports[endpoint.EndpointInternal] = endpoint.Data{
+	//	Port: barbican.BarbicanInternalPort,
+	//}
+	//ports[endpoint.EndpointPublic] = endpoint.Data{
+	//	Port: barbican.BarbicanPublicPort,
+	//}
 
-	apiEndpoints := make(map[string]string)
-
-	for endpointType, data := range barbicanEndpoints {
-		endpointTypeStr := string(endpointType)
-		endpointName := barbican.ServiceName + "-" + endpointTypeStr
-		svcOverride := instance.Spec.Override.Service[endpointType]
-		if svcOverride.EmbeddedLabelsAnnotations == nil {
-			svcOverride.EmbeddedLabelsAnnotations = &service.EmbeddedLabelsAnnotations{}
-		}
-
-		exportLabels := util.MergeStringMaps(
-			serviceLabels,
-			map[string]string{
-				service.AnnotationEndpointKey: endpointTypeStr,
-			},
-		)
-
-		// Create the service
-		svc, err := service.NewService(
-			service.GenericService(&service.GenericServiceDetails{
-				Name:      endpointName,
-				Namespace: instance.Namespace,
-				Labels:    exportLabels,
-				Selector:  serviceLabels,
-				Port: service.GenericServicePort{
-					Name:     endpointName,
-					Port:     data.Port,
-					Protocol: corev1.ProtocolTCP,
-				},
-			}),
-			5,
-			&svcOverride.OverrideSpec,
-		)
-		if err != nil {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.ExposeServiceReadyCondition,
-				condition.ErrorReason,
-				condition.SeverityWarning,
-				condition.ExposeServiceReadyErrorMessage,
-				err.Error()))
-
-			return ctrl.Result{}, err
-		}
-
-		svc.AddAnnotation(map[string]string{
-			service.AnnotationEndpointKey: endpointTypeStr,
-		})
-
-		// add Annotation to whether creating an ingress is required or not
-		if endpointType == service.EndpointPublic && svc.GetServiceType() == corev1.ServiceTypeClusterIP {
-			svc.AddAnnotation(map[string]string{
-				service.AnnotationIngressCreateKey: "true",
-			})
-		} else {
-			svc.AddAnnotation(map[string]string{
-				service.AnnotationIngressCreateKey: "false",
-			})
-			if svc.GetServiceType() == corev1.ServiceTypeLoadBalancer {
-				svc.AddAnnotation(map[string]string{
-					service.AnnotationHostnameKey: svc.GetServiceHostname(), // add annotation to register service name in dnsmasq
-				})
+	/*
+		for _, metallbcfg := range instance.Spec.ExternalEndpoints {
+			portCfg := ports[metallbcfg.Endpoint]
+			portCfg.MetalLB = &endpoint.MetalLBData{
+				IPAddressPool:   metallbcfg.IPAddressPool,
+				SharedIP:        metallbcfg.SharedIP,
+				SharedIPKey:     metallbcfg.SharedIPKey,
+				LoadBalancerIPs: metallbcfg.LoadBalancerIPs,
 			}
+
+			ports[metallbcfg.Endpoint] = portCfg
 		}
 
-		ctrlResult, err := svc.CreateOrPatch(ctx, helper)
+		apiEndpoints, ctrlResult, err := endpoint.ExposeEndpoints(
+			ctx,
+			helper,
+			barbican.ServiceName,
+			serviceLabels,
+			ports,
+			time.Duration(5)*time.Second,
+		)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.ExposeServiceReadyCondition,
@@ -382,7 +319,6 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 				condition.SeverityWarning,
 				condition.ExposeServiceReadyErrorMessage,
 				err.Error()))
-
 			return ctrlResult, err
 		} else if (ctrlResult != ctrl.Result{}) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -392,26 +328,17 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 				condition.ExposeServiceReadyRunningMessage))
 			return ctrlResult, nil
 		}
-		// create service - end
-
-		// TODO: TLS, pass in https as protocol, create TLS cert
-		apiEndpoints[string(endpointType)], err = svc.GetAPIEndpoint(
-			svcOverride.EndpointURL, data.Protocol, data.Path)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	instance.Status.Conditions.MarkTrue(condition.ExposeServiceReadyCondition, condition.ExposeServiceReadyMessage)
+	*/
+	//instance.Status.Conditions.MarkTrue(condition.ExposeServiceReadyCondition, condition.ExposeServiceReadyMessage)
 
 	//
 	// Update instance status with service endpoint url from route host information
 	//
 	// TODO: need to support https default here
-	if instance.Status.APIEndpoints == nil {
-		instance.Status.APIEndpoints = map[string]string{}
-	}
-	instance.Status.APIEndpoints = apiEndpoints
+	//if instance.Status.APIEndpoints == nil {
+	//	instance.Status.APIEndpoints = map[string]string{}
+	//}
+	//instance.Status.APIEndpoints = apiEndpoints
 
 	// expose service - end
 
@@ -419,74 +346,78 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 	// create keystone endpoints
 	//
 
-	ksEndpointSpec := keystonev1.KeystoneEndpointSpec{
-		ServiceName: barbican.ServiceName,
-		Endpoints:   instance.Status.APIEndpoints,
-	}
+	//ksEndpointSpec := keystonev1.KeystoneEndpointSpec{
+	//	ServiceName: barbican.ServiceName,
+	//	Endpoints:   instance.Status.APIEndpoints,
+	//}
 
-	ksSvc := keystonev1.NewKeystoneEndpoint(instance.Name, instance.Namespace, ksEndpointSpec, serviceLabels, time.Duration(10)*time.Second)
-	ctrlResult, err := ksSvc.CreateOrPatch(ctx, helper)
-	if err != nil {
-		return ctrlResult, err
-	}
+	/*
+		ksSvc := keystonev1.NewKeystoneEndpoint(instance.Name, instance.Namespace, ksEndpointSpec, serviceLabels, time.Duration(10)*time.Second)
+		ctrlResult, err = ksSvc.CreateOrPatch(ctx, helper)
+		if err != nil {
+			return ctrlResult, err
+		}
 
-	// mirror the Status, Reason, Severity and Message of the latest keystoneendpoint condition
-	// into a local condition with the type condition.KeystoneEndpointReadyCondition
-	c := ksSvc.GetConditions().Mirror(condition.KeystoneEndpointReadyCondition)
-	if c != nil {
-		instance.Status.Conditions.Set(c)
-	}
+		// mirror the Status, Reason, Severity and Message of the latest keystoneendpoint condition
+		// into a local condition with the type condition.KeystoneEndpointReadyCondition
+		c := ksSvc.GetConditions().Mirror(condition.KeystoneEndpointReadyCondition)
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
 
-	if (ctrlResult != ctrl.Result{}) {
-		return ctrlResult, nil
-	}
+		if (ctrlResult != ctrl.Result{}) {
+			return ctrlResult, nil
+		}
 
-	//
-	// create keystone endpoints - end
-	//
+		//
+		// create keystone endpoints - end
+		//
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	*/
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanAPIReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
+func (r *BarbicanKeystoneListenerReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanAPIReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
+func (r *BarbicanKeystoneListenerReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanAPIReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
+func (r *BarbicanKeystoneListenerReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// Remove the finalizer from our KeystoneEndpoint CR
-	keystoneEndpoint, err := keystonev1.GetKeystoneEndpointWithName(ctx, helper, instance.Name, instance.Namespace)
-	if err != nil && !k8s_errors.IsNotFound(err) {
-		return ctrl.Result{}, err
-	}
+	//keystoneEndpoint, err := keystonev1.GetKeystoneEndpointWithName(ctx, helper, instance.Name, instance.Namespace)
+	//if err != nil && !k8s_errors.IsNotFound(err) {
+	//	return ctrl.Result{}, err
+	//}
 
-	if err == nil {
-		if controllerutil.RemoveFinalizer(keystoneEndpoint, helper.GetFinalizer()) {
-			err = r.Update(ctx, keystoneEndpoint)
-			if err != nil && !k8s_errors.IsNotFound(err) {
-				return ctrl.Result{}, err
+	/*
+		if err == nil {
+			if controllerutil.RemoveFinalizer(keystoneEndpoint, helper.GetFinalizer()) {
+				err = r.Update(ctx, keystoneEndpoint)
+				if err != nil && !k8s_errors.IsNotFound(err) {
+					return ctrl.Result{}, err
+				}
+				util.LogForObject(helper, "Removed finalizer from our KeystoneEndpoint", instance)
 			}
-			util.LogForObject(helper, "Removed finalizer from our KeystoneEndpoint", instance)
 		}
-	}
+	*/
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
@@ -495,15 +426,15 @@ func (r *BarbicanAPIReconciler) reconcileDelete(ctx context.Context, instance *b
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("[API] Reconciling Service '%s'", instance.Name))
+func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s'", instance.Name))
 
 	configVars := make(map[string]env.Setter)
 
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	r.Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 1 '%s'", instance.Name))
 	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -512,7 +443,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	//
 	// check for required TransportURL secret holding transport URL string
 	//
-	r.Log.Info(fmt.Sprintf("[API] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
 	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
 	if err != nil {
 		return ctrlResult, err
@@ -524,7 +455,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// TODO (alee) cinder has some code to retrieve CustomServiceConfigSecrets
 	// This seems like a great place to store things like HSM passwords
 
-	r.Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Got secrets '%s'", instance.Name))
 	//
 	// create custom config for this barbican service
 	//
@@ -539,13 +470,14 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		return ctrl.Result{}, err
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Getting input hash '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting input hash '%s'", instance.Name))
 	//
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	//
 	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
 	if err != nil {
+		r.Log.Info("[KeystoneListener] ERR")
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
 			condition.ErrorReason,
@@ -554,18 +486,20 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 			err.Error()))
 		return ctrl.Result{}, err
 	} else if hashChanged {
+		r.Log.Info("[KeystoneListener] HAS CHANGED")
 		// Hash changed and instance status should be updated (which will be done by main defer func),
 		// so we need to return and reconcile again
-		return ctrl.Result{}, nil
+		//return ctrl.Result{}, nil
 	}
+	r.Log.Info("[KeystoneListener] CONTINUE")
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
-	r.Log.Info(fmt.Sprintf("[API] Getting service labels '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting service labels '%s'", instance.Name))
 	serviceLabels := map[string]string{
 		common.AppSelector: fmt.Sprintf(barbican.ServiceName),
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Getting networks '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting networks '%s'", instance.Name))
 	// networks to attach to
 	for _, netAtt := range instance.Spec.NetworkAttachments {
 		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
@@ -589,12 +523,13 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		}
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Getting service annotations '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting service annotations '%s'", instance.Name))
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.NetworkAttachments, err)
 	}
+	r.Log.Info(fmt.Sprintf("[DELETE] %s", serviceAnnotations))
 
 	// Handle service init
 	ctrlResult, err = r.reconcileInit(ctx, instance, helper, serviceLabels)
@@ -620,15 +555,15 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		return ctrlResult, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("[API] Defining deployment '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Defining deployment '%s'", instance.Name))
 	// Define a new Deployment object
-	deplDef := barbicanapi.Deployment(instance, inputHash, serviceLabels, serviceAnnotations)
-	r.Log.Info(fmt.Sprintf("[API] Getting deployment '%s'", instance.Name))
+	deplDef := barbicankeystonelistener.Deployment(instance, inputHash, serviceLabels, serviceAnnotations)
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Getting deployment '%s'", instance.Name))
 	depl := deployment.NewDeployment(
 		deplDef,
 		time.Duration(5)*time.Second,
 	)
-	r.Log.Info(fmt.Sprintf("[API] Got deployment '%s'", instance.Name))
+	r.Log.Info(fmt.Sprintf("[KeystoneListener] Got deployment '%s'", instance.Name))
 	ctrlResult, err = depl.CreateOrPatch(ctx, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -679,11 +614,12 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&barbicanv1beta1.BarbicanAPI{}).
-		Owns(&corev1.Service{}).
-		Owns(&corev1.Secret{}).
+		For(&barbicanv1beta1.BarbicanKeystoneListener{}).
+		//Owns(&corev1.Service{}).
+		//Owns(&corev1.Secret{}).
 		Owns(&appsv1.Deployment{}).
+		//Owns(&routev1.Route{}).
 		Complete(r)
 }

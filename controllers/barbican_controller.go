@@ -146,6 +146,7 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 			condition.UnknownCondition(barbicanv1beta1.BarbicanAPIReadyCondition, condition.InitReason, barbicanv1beta1.BarbicanAPIReadyInitMessage),
 			condition.UnknownCondition(barbicanv1beta1.BarbicanWorkerReadyCondition, condition.InitReason, barbicanv1beta1.BarbicanWorkerReadyInitMessage),
+			condition.UnknownCondition(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition, condition.InitReason, barbicanv1beta1.BarbicanKeystoneListenerReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 			// service account, role, rolebinding conditions
@@ -326,6 +327,22 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	if op != controllerutil.OperationResultNone {
 		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
+
+	// create or update Barbican KeystoneListener deployment
+	_, op, err = r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			barbicanv1beta1.BarbicanKeystoneListenerReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			barbicanv1beta1.BarbicanKeystoneListenerReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if op != controllerutil.OperationResultNone {
+		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+	}
+
 	// TODO(dmendiza): Handle API endpoints
 
 	// TODO(dmendiza): Understand what Glance is doing with the API conditions and maybe do it here too
@@ -364,7 +381,7 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 		}
 	}
 
-	// Remove finalizers from any existing child barbicanAPIs
+	// Remove finalizers from any existing child BarbicanAPIs
 	barbicanAPI := &barbicanv1beta1.BarbicanAPI{}
 	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-api", instance.Name), Namespace: instance.Namespace}, barbicanAPI)
 	if err != nil && !k8s_errors.IsNotFound(err) {
@@ -398,6 +415,23 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 		}
 	}
 
+	// Remove finalizers from Barbican Keystone Listener
+	barbicanKeystoneListener := &barbicanv1beta1.BarbicanKeystoneListener{}
+	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-keystone-listener", instance.Name), Namespace: instance.Namespace}, barbicanKeystoneListener)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	if err == nil {
+		if controllerutil.RemoveFinalizer(barbicanKeystoneListener, helper.GetFinalizer()) {
+			err = r.Update(ctx, barbicanKeystoneListener)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+			util.LogForObject(helper, fmt.Sprintf("Removed finalizer from BarbicanKeystoneListener %s", barbicanKeystoneListener.Name), barbicanKeystoneListener)
+		}
+	}
+
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
@@ -410,6 +444,8 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.Barbican{}).
 		Owns(&barbicanv1beta1.BarbicanAPI{}).
+		Owns(&barbicanv1beta1.BarbicanWorker{}).
+		Owns(&barbicanv1beta1.BarbicanKeystoneListener{}).
 		Owns(&mariadbv1.MariaDBDatabase{}).
 		Owns(&keystonev1.KeystoneService{}).
 		Owns(&corev1.ServiceAccount{}).
@@ -562,7 +598,43 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 			return err
 		}
 
-		// Add a finalizer to prevent user from manually removing child BarbicanAPI
+		// Add a finalizer to prevent user from manually removing child BarbicanWorker
+		controllerutil.AddFinalizer(deployment, helper.GetFinalizer())
+
+		return nil
+	})
+
+	return deployment, op, err
+}
+
+func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (*barbicanv1beta1.BarbicanKeystoneListener, controllerutil.OperationResult, error) {
+
+	r.Log.Info(fmt.Sprintf("Creating barbican KeystoneListener spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
+	r.Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
+	keystoneListenerSpec := barbicanv1beta1.BarbicanKeystoneListenerSpec{
+		BarbicanTemplate:                 instance.Spec.BarbicanTemplate,
+		BarbicanKeystoneListenerTemplate: instance.Spec.BarbicanKeystoneListener,
+		DatabaseHostname:                 instance.Status.DatabaseHostname,
+		TransportURLSecret:               instance.Status.TransportURLSecret,
+	}
+
+	deployment := &barbicanv1beta1.BarbicanKeystoneListener{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-keystone-listener", instance.Name),
+			Namespace: instance.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+		r.Log.Info("Setting deployment spec to be keystonelistenerspec")
+		deployment.Spec = keystoneListenerSpec
+
+		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
+		if err != nil {
+			return err
+		}
+
+		// Add a finalizer to prevent user from manually removing child BarbicanKeystoneListener
 		controllerutil.AddFinalizer(deployment, helper.GetFinalizer())
 
 		return nil
