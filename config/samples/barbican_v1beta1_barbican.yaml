@@ -11,7 +11,6 @@ metadata:
 spec:
   serviceAccount: barbican
   serviceUser: barbican
-  containerImage: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
   databaseInstance: openstack
   databaseUser: barbican
   rabbitMqCusterName: barbican_rabbit
@@ -34,7 +33,6 @@ spec:
     policy.json: |
       {"some": "custom policy"}
   barbicanAPI:
-    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
     nodeSelector:
       optional_override: here
     customServiceConfig: |
@@ -47,7 +45,6 @@ spec:
       database: BarbicanDatabasePassword
       service: BarbicanPassword
   barbicanWorker:
-    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified
     nodeSelector:
       optional_override: here
     customServiceConfig: |
