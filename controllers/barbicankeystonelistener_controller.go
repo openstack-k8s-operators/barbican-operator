@@ -70,7 +70,7 @@ func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req 
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			// Object not found
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
