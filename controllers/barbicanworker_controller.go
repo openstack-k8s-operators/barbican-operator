@@ -68,7 +68,8 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
-			return ctrl.Result{}, err
+			// Object not found
+			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
