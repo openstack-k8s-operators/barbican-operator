@@ -5,6 +5,7 @@ resources:
 - bases/barbican.openstack.org_barbicanapis.yaml
 - bases/barbican.openstack.org_barbicans.yaml
 - bases/barbican.openstack.org_barbicanworkers.yaml
+- bases/barbican.openstack.org_barbicankeystonelisteners.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
