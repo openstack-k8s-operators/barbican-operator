@@ -80,6 +80,58 @@ rules:
   - patch
   - update
 - apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicanworkers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicankeystonelisteners
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicankeystonelisteners/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicankeystonelisteners/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - batch
   resources:
   - jobs
