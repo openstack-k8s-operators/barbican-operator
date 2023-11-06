@@ -1,0 +1,27 @@
+# permissions for end users to view barbicankeystonelisteners.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: barbicankeystonelistener-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: barbican-operator
+    app.kubernetes.io/part-of: barbican-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: barbicankeystonelistener-viewer-role
+rules:
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicankeystonelisteners
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicankeystonelisteners/status
+  verbs:
+  - get
