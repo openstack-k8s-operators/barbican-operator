@@ -65,6 +65,15 @@ type BarbicanReconciler struct {
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans/finalizers,verbs=update
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/finalizers,verbs=update
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanworkers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanworkers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanworkers/finalizers,verbs=update
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicankeystonelisteners,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicankeystonelisteners/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicankeystonelisteners/finalizers,verbs=update
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete;

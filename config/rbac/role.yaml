@@ -56,6 +56,32 @@ rules:
 - apiGroups:
   - barbican.openstack.org
   resources:
+  - barbicankeystonelisteners
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicankeystonelisteners/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
+  - barbicankeystonelisteners/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - barbican.openstack.org
+  resources:
   - barbicans
   verbs:
   - create
@@ -101,32 +127,6 @@ rules:
   - barbican.openstack.org
   resources:
   - barbicanworkers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicankeystonelisteners
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicankeystonelisteners/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicankeystonelisteners/status
   verbs:
   - get
   - patch
