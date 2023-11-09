@@ -28,6 +28,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - barbican.openstack.org
   resources:
   - barbicanapis
@@ -171,6 +183,38 @@ rules:
   - ""
   resources:
   - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keystone.openstack.org
+  resources:
+  - keystoneapis
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keystone.openstack.org
+  resources:
+  - keystoneendpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keystone.openstack.org
+  resources:
+  - keystoneservices
   verbs:
   - create
   - delete
