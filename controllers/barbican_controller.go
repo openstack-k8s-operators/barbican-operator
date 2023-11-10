@@ -58,8 +58,12 @@ import (
 type BarbicanReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
-	Log     logr.Logger
 	Scheme  *runtime.Scheme
+}
+
+// GetLogger returns a logger object with a prefix of "controller.name" and additional controller context fields
+func (r *BarbicanReconciler) GetLogger(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx).WithName("Controllers").WithName("Barbican")
 }
 
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans,verbs=get;list;watch;create;update;patch;delete
@@ -94,7 +98,7 @@ type BarbicanReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
-	_ = log.FromContext(ctx)
+	Log := r.GetLogger(ctx)
 
 	instance := &barbicanv1beta1.Barbican{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
@@ -114,7 +118,7 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 		r.Client,
 		r.Kclient,
 		r.Scheme,
-		r.Log,
+		Log,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -187,7 +191,9 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 }
 
 func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
 
 	serviceLabels := map[string]string{
 		common.AppSelector: barbican.ServiceName,
@@ -210,13 +216,13 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	}
 
 	if op != controllerutil.OperationResultNone {
-		r.Log.Info(fmt.Sprintf("TransportURL %s successfully reconciled - operation: %s", transportURL.Name, string(op)))
+		Log.Info(fmt.Sprintf("TransportURL %s successfully reconciled - operation: %s", transportURL.Name, string(op)))
 	}
 
 	instance.Status.TransportURLSecret = transportURL.Status.SecretName
 
 	if instance.Status.TransportURLSecret == "" {
-		r.Log.Info(fmt.Sprintf("Waiting for TransportURL %s secret to be created", transportURL.Name))
+		Log.Info(fmt.Sprintf("Waiting for TransportURL %s secret to be created", transportURL.Name))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition,
 			condition.RequestedReason,
@@ -225,7 +231,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
+	Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
 	instance.Status.Conditions.MarkTrue(barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition, barbicanv1beta1.BarbicanRabbitMQTransportURLReadyMessage)
 
 	//
@@ -323,7 +329,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
-		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
 	// create or update Barbican Worker deployment
@@ -338,7 +344,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
-		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
 	// create or update Barbican KeystoneListener deployment
@@ -353,7 +359,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
-		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
 	// TODO(dmendiza): Handle API endpoints
@@ -364,7 +370,8 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 }
 
 func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// remove db finalizer first
 	db, err := mariadbv1.GetDatabaseByName(ctx, helper, instance.Name)
@@ -447,7 +454,7 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 
 	return ctrl.Result{}, nil
 }
@@ -477,7 +484,8 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	envVars *map[string]env.Setter,
 	serviceLabels map[string]string,
 ) error {
-	r.Log.Info("generateServiceConfigMaps - Barbican controller")
+	Log := r.GetLogger(ctx)
+	Log.Info("generateServiceConfigMaps - Barbican controller")
 
 	// create Secret required for barbican input
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), serviceLabels)
@@ -549,9 +557,10 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 }
 
 func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (*barbicanv1beta1.BarbicanAPI, controllerutil.OperationResult, error) {
+	Log := r.GetLogger(ctx)
 
-	r.Log.Info(fmt.Sprintf("Creating barbican API spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
-	r.Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
+	Log.Info(fmt.Sprintf("Creating barbican API spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
+	Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
 	apiSpec := barbicanv1beta1.BarbicanAPISpec{
 		BarbicanTemplate:    instance.Spec.BarbicanTemplate,
 		BarbicanAPITemplate: instance.Spec.BarbicanAPI,
@@ -567,7 +576,7 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		r.Log.Info("Setting deployment spec to be apispec")
+		Log.Info("Setting deployment spec to be apispec")
 		deployment.Spec = apiSpec
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
@@ -585,9 +594,10 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 }
 
 func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (*barbicanv1beta1.BarbicanWorker, controllerutil.OperationResult, error) {
+	Log := r.GetLogger(ctx)
 
-	r.Log.Info(fmt.Sprintf("Creating barbican Worker spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
-	r.Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
+	Log.Info(fmt.Sprintf("Creating barbican Worker spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
+	Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
 	workerSpec := barbicanv1beta1.BarbicanWorkerSpec{
 		BarbicanTemplate:       instance.Spec.BarbicanTemplate,
 		BarbicanWorkerTemplate: instance.Spec.BarbicanWorker,
@@ -603,7 +613,7 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		r.Log.Info("Setting deployment spec to be workerspec")
+		Log.Info("Setting deployment spec to be workerspec")
 		deployment.Spec = workerSpec
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
@@ -622,8 +632,9 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 
 func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (*barbicanv1beta1.BarbicanKeystoneListener, controllerutil.OperationResult, error) {
 
-	r.Log.Info(fmt.Sprintf("Creating barbican KeystoneListener spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
-	r.Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("Creating barbican KeystoneListener spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
+	Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
 	keystoneListenerSpec := barbicanv1beta1.BarbicanKeystoneListenerSpec{
 		BarbicanTemplate:                 instance.Spec.BarbicanTemplate,
 		BarbicanKeystoneListenerTemplate: instance.Spec.BarbicanKeystoneListener,
@@ -639,7 +650,7 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		r.Log.Info("Setting deployment spec to be keystonelistenerspec")
+		Log.Info("Setting deployment spec to be keystonelistenerspec")
 		deployment.Spec = keystoneListenerSpec
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
@@ -663,7 +674,8 @@ func (r *BarbicanReconciler) reconcileInit(
 	serviceLabels map[string]string,
 	serviceAnnotations map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+	Log := r.GetLogger(ctx)
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
 
 	// Service account, role, binding
 	rbacRules := []rbacv1.PolicyRule{
@@ -823,7 +835,7 @@ func (r *BarbicanReconciler) reconcileInit(
 	}
 	if dbSyncjob.HasChanged() {
 		instance.Status.Hash[barbicanv1beta1.DbSyncHash] = dbSyncjob.GetHash()
-		r.Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[barbicanv1beta1.DbSyncHash]))
+		Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[barbicanv1beta1.DbSyncHash]))
 	}
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
@@ -832,6 +844,6 @@ func (r *BarbicanReconciler) reconcileInit(
 
 	// run Barbican db sync - end
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
