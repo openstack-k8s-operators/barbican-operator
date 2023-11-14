@@ -13,10 +13,6 @@ type BarbicanTemplate struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Required
-	// Barbican Container Image URL (will be set to environmental default if empty)
-	ContainerImage string `json:"containerImage"`
-
-	// +kubebuilder:validation:Required
 	// MariaDB instance name
 	// TODO(dmendiza): Is this comment right?
 	// Right now required by the maridb-operator to get the credentials from the instance to create the DB

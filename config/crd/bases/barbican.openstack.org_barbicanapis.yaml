@@ -36,8 +36,8 @@ spec:
             description: BarbicanAPISpec defines the desired state of BarbicanAPI
             properties:
               containerImage:
-                description: Barbican Container Image URL (will be set to environmental
-                  default if empty)
+                description: ContainerImage - Barbican Container Image URL (will be
+                  set to environmental default if empty)
                 type: string
               customServiceConfig:
                 description: CustomServiceConfig - customize the service config using
