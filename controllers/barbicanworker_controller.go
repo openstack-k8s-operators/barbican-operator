@@ -239,6 +239,8 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 		return err
 	}
 
+	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
+
 	templateParameters := map[string]interface{}{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
 			instance.Spec.DatabaseUser,

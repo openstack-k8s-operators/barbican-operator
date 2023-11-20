@@ -164,7 +164,6 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 			condition.UnknownCondition(barbicanv1beta1.BarbicanAPIReadyCondition, condition.InitReason, barbicanv1beta1.BarbicanAPIReadyInitMessage),
 			condition.UnknownCondition(barbicanv1beta1.BarbicanWorkerReadyCondition, condition.InitReason, barbicanv1beta1.BarbicanWorkerReadyInitMessage),
 			condition.UnknownCondition(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition, condition.InitReason, barbicanv1beta1.BarbicanKeystoneListenerReadyInitMessage),
-			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 			// service account, role, rolebinding conditions
 			condition.UnknownCondition(condition.ServiceAccountReadyCondition, condition.InitReason, condition.ServiceAccountReadyInitMessage),
@@ -318,7 +317,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// TODO(dmendiza): Handle service upgrade
 
 	// create or update Barbican API deployment
-	_, op, err = r.apiDeploymentCreateOrUpdate(ctx, instance, helper)
+	barbicanAPI, op, err := r.apiDeploymentCreateOrUpdate(ctx, instance, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanAPIReadyCondition,
@@ -332,8 +331,14 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
+	// Mirror BarbicanAPI's condition status
+	c := barbicanAPI.Status.Conditions.Mirror(barbicanv1beta1.BarbicanAPIReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
+
 	// create or update Barbican Worker deployment
-	_, op, err = r.workerDeploymentCreateOrUpdate(ctx, instance, helper)
+	barbicanWorker, op, err := r.workerDeploymentCreateOrUpdate(ctx, instance, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanWorkerReadyCondition,
@@ -347,8 +352,14 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
+	// Mirror BarbicanWorker's condition status
+	c = barbicanWorker.Status.Conditions.Mirror(barbicanv1beta1.BarbicanWorkerReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
+
 	// create or update Barbican KeystoneListener deployment
-	_, op, err = r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
+	barbicanKeystoneListener, op, err := r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanKeystoneListenerReadyCondition,
@@ -360,6 +371,12 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	}
 	if op != controllerutil.OperationResultNone {
 		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+	}
+
+	// Mirror BarbicanKeystoneListener's condition status
+	c = barbicanKeystoneListener.Status.Conditions.Mirror(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
 	}
 
 	// TODO(dmendiza): Handle API endpoints
