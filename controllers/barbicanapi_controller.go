@@ -140,7 +140,6 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
 			// right now we have no dedicated KeystoneServiceReadyInitMessage and KeystoneEndpointReadyInitMessage
-			condition.UnknownCondition(condition.KeystoneServiceReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
@@ -270,6 +269,8 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 	if err != nil {
 		return err
 	}
+
+	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 
 	templateParameters := map[string]interface{}{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
