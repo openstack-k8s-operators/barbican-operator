@@ -5,6 +5,8 @@ metadata:
     alm-examples: '[]'
     capabilities: Basic Install
     operatorframework.io/suggested-namespace: openstack
+    features.operators.openshift.io/disconnected: "true"
+    operators.openshift.io/infrastructure-features: '["disconnected"]'
   name: barbican-operator.v0.0.0
   namespace: placeholder
 spec:

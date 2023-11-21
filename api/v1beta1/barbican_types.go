@@ -150,9 +150,9 @@ func init() {
 func SetupDefaults() {
 	// Acquire environmental defaults and initialize Barbican defaults with them
 	barbicanDefaults := BarbicanDefaults{
-		APIContainerImageURL:              util.GetEnvVar("BARBICAN_API_IMAGE_URL_DEFAULT", BarbicanAPIContainerImage),
-		WorkerContainerImageURL:           util.GetEnvVar("BARBICAN_WORKER_IMAGE_URL_DEFAULT", BarbicanWorkerContainerImage),
-		KeystoneListenerContainerImageURL: util.GetEnvVar("BARBICAN_KEYSTONE_LISTENER_IMAGE_URL_DEFAULT", BarbicanKeystoneListenerContainerImage),
+		APIContainerImageURL:              util.GetEnvVar("RELATED_IMAGE_BARBICAN_API_IMAGE_URL_DEFAULT", BarbicanAPIContainerImage),
+		WorkerContainerImageURL:           util.GetEnvVar("RELATED_IMAGE_BARBICAN_WORKER_IMAGE_URL_DEFAULT", BarbicanWorkerContainerImage),
+		KeystoneListenerContainerImageURL: util.GetEnvVar("RELATED_IMAGE_BARBICAN_KEYSTONE_LISTENER_IMAGE_URL_DEFAULT", BarbicanKeystoneListenerContainerImage),
 	}
 
 	SetupBarbicanDefaults(barbicanDefaults)
