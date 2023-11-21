@@ -11,10 +11,10 @@ spec:
       containers:
       - name: manager
         env:
-        - name: BARBICAN_API_IMAGE_URL_DEFAULT
+        - name: RELATED_IMAGE_BARBICAN_API_IMAGE_URL_DEFAULT
           value: quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified
-        - name: BARBICAN_WORKER_IMAGE_URL_DEFAULT
+        - name: RELATED_IMAGE_BARBICAN_WORKER_IMAGE_URL_DEFAULT
           value: quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified
-        - name: BARBICAN_KEYSTONE_LISTENER_IMAGE_URL_DEFAULT
+        - name: RELATED_IMAGE_BARBICAN_KEYSTONE_LISTENER_IMAGE_URL_DEFAULT
           value: quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener:current-podified
 
