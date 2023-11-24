@@ -3,8 +3,8 @@ module github.com/openstack-k8s-operators/barbican-operator/api
 go 1.19
 
 require (
-	github.com/onsi/ginkgo/v2 v2.12.0
-	github.com/onsi/gomega v1.27.10
+	github.com/onsi/ginkgo/v2 v2.12.1
+	github.com/onsi/gomega v1.28.0
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.0
 	k8s.io/api v0.26.9
 	k8s.io/apimachinery v0.27.1
