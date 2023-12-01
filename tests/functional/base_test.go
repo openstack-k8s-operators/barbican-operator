@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	barbicanv1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
-	//condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 )
 
 func GetDefaultBarbicanSpec() map[string]interface{} {
@@ -68,12 +68,14 @@ func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
 		},
 	)
 }
+*/
 
-func KeystoneConditionGetter(name types.NamespacedName) condition.Conditions {
-	instance := GetKeystoneAPI(name)
+func BarbicanConditionGetter(name types.NamespacedName) condition.Conditions {
+	instance := GetBarbican(name)
 	return instance.Status.Conditions
 }
 
+/*
 func GetCronJob(name types.NamespacedName) *batchv1.CronJob {
 	instance := &batchv1.CronJob{}
 	Eventually(func(g Gomega) {

@@ -24,11 +24,16 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	//memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
+	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	barbicanv1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
+	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	test "github.com/openstack-k8s-operators/lib-common/modules/test"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	infra_test "github.com/openstack-k8s-operators/infra-operator/apis/test/helpers"
 	//keystone_test "github.com/openstack-k8s-operators/keystone-operator/api/test/helpers"
@@ -57,7 +62,7 @@ var (
 )
 
 const (
-	timeout = time.Second * 2
+	timeout = time.Second * 5
 
 	SecretName = "test-osp-secret"
 
@@ -78,20 +83,42 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(context.TODO())
 
+	keystoneCRDs, err := test.GetCRDDirFromModule(
+		"github.com/openstack-k8s-operators/keystone-operator/api", "../../go.mod", "bases")
+	Expect(err).ShouldNot(HaveOccurred())
+	networkv1CRD, err := test.GetCRDDirFromModule(
+		"github.com/k8snetworkplumbingwg/network-attachment-definition-client", "../../go.mod", "artifacts/networks-crd.yaml")
+	Expect(err).ShouldNot(HaveOccurred())
+
+	//rabbitmqv2CRDs, err := test.GetCRDDirFromModule(
+	//	"github.com/rabbitmq/cluster-operator/v2", "../../go.mod", "config/crd/bases")
+	//Expect(err).ShouldNot(HaveOccurred())
+	rabbitmqCRDs, err := test.GetCRDDirFromModule(
+		"github.com/openstack-k8s-operators/infra-operator/apis", "../../go.mod", "bases")
+	Expect(err).ShouldNot(HaveOccurred())
+
 	mariaDBCRDs, err := test.GetCRDDirFromModule(
 		"github.com/openstack-k8s-operators/mariadb-operator/api", "../../go.mod", "bases")
 	Expect(err).ShouldNot(HaveOccurred())
-	//memcachedCRDs, err := test.GetCRDDirFromModule(
-	//	"github.com/openstack-k8s-operators/infra-operator/apis", "../../go.mod", "bases")
-	//Expect(err).ShouldNot(HaveOccurred())
+	memcachedCRDs, err := test.GetCRDDirFromModule(
+		"github.com/openstack-k8s-operators/infra-operator/apis", "../../go.mod", "bases")
+	Expect(err).ShouldNot(HaveOccurred())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "config", "crd", "bases"),
+			keystoneCRDs,
+			rabbitmqCRDs,
 			mariaDBCRDs,
-			//memcachedCRDs,
+			memcachedCRDs,
 		},
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				networkv1CRD,
+			},
+		},
+
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
@@ -107,14 +134,22 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	//err = keystonev1.AddToScheme(scheme.Scheme)
-	//Expect(err).NotTo(HaveOccurred())
 	err = barbicanv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = keystonev1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = mariadbv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	//err = memcachedv1.AddToScheme(scheme.Scheme)
-	//Expect(err).NotTo(HaveOccurred())
+	err = memcachedv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = rabbitmqv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = networkv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = corev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = appsv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 

@@ -172,10 +172,12 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 		)
 
 		instance.Status.Conditions.Init(&cl)
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: STATUS CONDITIONS WAS NIL"))
 
 		// Register overall status immediately to have an early feedback e.g. in the cli
 		return ctrl.Result{}, nil
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: STATUS CONDITIONS WAS _NOT_ NIL"))
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
 	}
@@ -186,6 +188,7 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 	}
 
 	// Handle non-deleted clusters
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: RECONCILE NORMAL"))
 	return r.reconcileNormal(ctx, instance, helper)
 }
 
@@ -204,7 +207,10 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
 	//
 	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels)
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL"))
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL STATUS: %s", transportURL.Status))
 	if err != nil {
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL WITH ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition,
 			condition.ErrorReason,
@@ -213,12 +219,14 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			err.Error()))
 		return ctrl.Result{}, err
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL WORKING"))
 
 	if op != controllerutil.OperationResultNone {
 		Log.Info(fmt.Sprintf("TransportURL %s successfully reconciled - operation: %s", transportURL.Name, string(op)))
 	}
 
 	instance.Status.TransportURLSecret = transportURL.Status.SecretName
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL SECRET: %s", instance.Status.TransportURLSecret))
 
 	if instance.Status.TransportURLSecret == "" {
 		Log.Info(fmt.Sprintf("Waiting for TransportURL %s secret to be created", transportURL.Name))
@@ -229,6 +237,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			barbicanv1beta1.BarbicanRabbitMQTransportURLReadyRunningMessage))
 		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL WAS CREATED"))
 
 	Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
 	instance.Status.Conditions.MarkTrue(barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition, barbicanv1beta1.BarbicanRabbitMQTransportURLReadyMessage)
