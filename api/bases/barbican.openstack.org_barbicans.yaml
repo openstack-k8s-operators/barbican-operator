@@ -67,6 +67,11 @@ spec:
                       add additional files. Those get added to the service config
                       dir in /etc/<service> . TODO: -> implement'
                     type: object
+                  enableSecureRBAC:
+                    default: true
+                    description: EnableSecureRBAC - Enable Consistent and Secure RBAC
+                      policies
+                    type: boolean
                   networkAttachments:
                     description: NetworkAttachments is a list of NetworkAttachment
                       resource names to expose the services to the given network

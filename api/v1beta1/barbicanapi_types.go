@@ -27,6 +27,11 @@ type BarbicanAPITemplate struct {
 	// Common input parameters for the Barbican API service
 	BarbicanComponentTemplate `json:",inline"`
 
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=true
+	// EnableSecureRBAC - Enable Consistent and Secure RBAC policies
+	EnableSecureRBAC bool `json:"enableSecureRBAC"`
+
 	// Override, provides the ability to override the generated manifest of several child resources.
 	Override APIOverrideSpec `json:"override,omitempty"`
 }

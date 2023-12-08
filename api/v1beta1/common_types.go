@@ -5,6 +5,7 @@ import (
 )
 
 // BarbicanTemplate defines common Spec elements for all Barbican components
+// including the top level CR
 type BarbicanTemplate struct {
 
 	// +kubebuilder:validation:Optional
@@ -61,7 +62,7 @@ type BarbicanTemplate struct {
 	ServiceAccount string `json:"serviceAccount"`
 }
 
-// BarbicanComponentTemplate - Variables used by every component of Barbican
+// BarbicanComponentTemplate - Variables used by every sub-component of Barbican
 // (e.g. API, Worker, Listener)
 type BarbicanComponentTemplate struct {
 

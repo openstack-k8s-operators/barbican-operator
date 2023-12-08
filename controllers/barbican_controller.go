@@ -539,12 +539,13 @@ func (r *BarbicanReconciler) generateServiceConfig(
 			instance.Status.DatabaseHostname,
 			barbican.DatabaseName,
 		),
-		"KeystoneAuthURL": keystoneInternalURL,
-		"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
-		"ServiceUser":     instance.Spec.ServiceUser,
-		"ServiceURL":      "TODO",
-		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
-		"LogFile":         fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"KeystoneAuthURL":  keystoneInternalURL,
+		"ServicePassword":  string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
+		"ServiceUser":      instance.Spec.ServiceUser,
+		"ServiceURL":       "TODO",
+		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
+		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
