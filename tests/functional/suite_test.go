@@ -24,7 +24,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
+	//memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	barbicanv1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
@@ -100,9 +100,9 @@ var _ = BeforeSuite(func() {
 	mariaDBCRDs, err := test.GetCRDDirFromModule(
 		"github.com/openstack-k8s-operators/mariadb-operator/api", "../../go.mod", "bases")
 	Expect(err).ShouldNot(HaveOccurred())
-	memcachedCRDs, err := test.GetCRDDirFromModule(
-		"github.com/openstack-k8s-operators/infra-operator/apis", "../../go.mod", "bases")
-	Expect(err).ShouldNot(HaveOccurred())
+	//memcachedCRDs, err := test.GetCRDDirFromModule(
+	//	"github.com/openstack-k8s-operators/infra-operator/apis", "../../go.mod", "bases")
+	//Expect(err).ShouldNot(HaveOccurred())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 			keystoneCRDs,
 			rabbitmqCRDs,
 			mariaDBCRDs,
-			memcachedCRDs,
+			//memcachedCRDs,
 		},
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
@@ -140,8 +140,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = mariadbv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = memcachedv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	//err = memcachedv1.AddToScheme(scheme.Scheme)
+	//Expect(err).NotTo(HaveOccurred())
 	err = rabbitmqv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = networkv1.AddToScheme(scheme.Scheme)

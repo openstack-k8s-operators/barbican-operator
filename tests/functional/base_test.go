@@ -17,10 +17,11 @@ limitations under the License.
 package functional_test
 
 import (
+	"fmt"
 	. "github.com/onsi/gomega"
 
 	//batchv1 "k8s.io/api/batch/v1"
-	//corev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -56,6 +57,17 @@ func GetBarbican(name types.NamespacedName) *barbicanv1.Barbican {
 		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
 	}, timeout, interval).Should(Succeed())
 	return instance
+}
+
+func CreateBarbicanMessageBusSecret(namespace string, name string) *corev1.Secret {
+	s := th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"transport_url": []byte(fmt.Sprintf("rabbit://%s/fake", name)),
+		},
+	)
+	logger.Info("Secret created", "name", name)
+	return s
 }
 
 /*
