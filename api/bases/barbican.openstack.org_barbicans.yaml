@@ -323,6 +323,36 @@ spec:
                           to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
+                  tls:
+                    description: TLS - Parameters related to the TLS
+                    properties:
+                      api:
+                        description: API tls type which encapsulates for API services
+                        properties:
+                          internal:
+                            description: Internal GenericService - holds the secret
+                              for the internal endpoint
+                            properties:
+                              secretName:
+                                description: SecretName - holding the cert, key for
+                                  the service
+                                type: string
+                            type: object
+                          public:
+                            description: Public GenericService - holds the secret
+                              for the public endpoint
+                            properties:
+                              secretName:
+                                description: SecretName - holding the cert, key for
+                                  the service
+                                type: string
+                            type: object
+                        type: object
+                      caBundleSecretName:
+                        description: CaBundleSecretName - holding the CA certs in
+                          a pre-created bundle file
+                        type: string
+                    type: object
                 required:
                 - containerImage
                 type: object

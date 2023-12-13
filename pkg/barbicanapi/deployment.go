@@ -5,6 +5,8 @@ import (
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +27,7 @@ func Deployment(
 	configHash string,
 	labels map[string]string,
 	annotations map[string]string,
-) *appsv1.Deployment {
+) (*appsv1.Deployment, error) {
 	runAsUser := int64(0)
 	var config0644AccessMode int32 = 0644
 	envVars := map[string]env.Setter{}
@@ -62,6 +64,11 @@ func Deployment(
 			Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(barbican.BarbicanPublicPort)},
 		}
 		readinessProbe.HTTPGet = livenessProbe.HTTPGet
+
+		if instance.Spec.TLS.API.Enabled(service.EndpointPublic) {
+			livenessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
+			readinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
+		}
 	}
 
 	apiVolumes := []corev1.Volume{
@@ -88,6 +95,31 @@ func Deployment(
 	// Append LogVolume to the apiVolumes: this will be used to stream
 	// logging
 	apiVolumeMounts = append(apiVolumeMounts, barbican.GetLogVolumeMount()...)
+
+	// add CA cert if defined
+	if instance.Spec.TLS.CaBundleSecretName != "" {
+		apiVolumes = append(apiVolumes, instance.Spec.TLS.CreateVolume())
+		apiVolumeMounts = append(apiVolumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
+	}
+
+	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
+		if instance.Spec.TLS.API.Enabled(endpt) {
+			var tlsEndptCfg tls.GenericService
+			switch endpt {
+			case service.EndpointPublic:
+				tlsEndptCfg = instance.Spec.TLS.API.Public
+			case service.EndpointInternal:
+				tlsEndptCfg = instance.Spec.TLS.API.Internal
+			}
+
+			svc, err := tlsEndptCfg.ToService()
+			if err != nil {
+				return nil, err
+			}
+			apiVolumes = append(apiVolumes, svc.CreateVolume(endpt.String()))
+			apiVolumeMounts = append(apiVolumeMounts, svc.CreateVolumeMounts(endpt.String())...)
+		}
+	}
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -163,5 +195,5 @@ func Deployment(
 		barbican.BarbicanAPIPropagation),
 		apiVolumes...)
 
-	return deployment
+	return deployment, nil
 }

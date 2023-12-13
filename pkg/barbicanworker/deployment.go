@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	//"k8s.io/apimachinery/pkg/util/intstr"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
@@ -90,6 +91,12 @@ func Deployment(
 	// Append LogVolume to the apiVolumes: this will be used to stream
 	// logging
 	workerVolumeMounts = append(workerVolumeMounts, barbican.GetLogVolumeMount()...)
+
+	// Add the CA bundle
+	if instance.Spec.TLS.CaBundleSecretName != "" {
+		workerVolumes = append(workerVolumes, instance.Spec.TLS.CreateVolume())
+		workerVolumeMounts = append(workerVolumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
+	}
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

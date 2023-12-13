@@ -17,16 +17,28 @@ spec:
       displayName: Barbican API
       kind: BarbicanAPI
       name: barbicanapis.barbican.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
       version: v1beta1
     - description: Barbican is the Schema for the barbicans API
       displayName: Barbican
       kind: Barbican
       name: barbicans.barbican.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: barbicanAPI.tls
       version: v1beta1
     - description: BarbicanWorker is the Schema for the barbicanworkers API
       displayName: Barbican Worker
       kind: BarbicanWorker
       name: barbicanworkers.barbican.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
       version: v1beta1
   description: Barbican Operator
   displayName: Barbican Operator

@@ -62,6 +62,12 @@ func Deployment(
 	// logging
 	keystoneListenerVolumeMounts = append(keystoneListenerVolumeMounts, barbican.GetLogVolumeMount()...)
 
+	// Add the CA bundle
+	if instance.Spec.TLS.CaBundleSecretName != "" {
+		keystoneListenerVolumes = append(keystoneListenerVolumes, instance.Spec.TLS.CreateVolume())
+		keystoneListenerVolumeMounts = append(keystoneListenerVolumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-keystone-listener", instance.Name),
