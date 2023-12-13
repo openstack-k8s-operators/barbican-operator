@@ -36,7 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	infra_test "github.com/openstack-k8s-operators/infra-operator/apis/test/helpers"
-	//keystone_test "github.com/openstack-k8s-operators/keystone-operator/api/test/helpers"
+	keystone_test "github.com/openstack-k8s-operators/keystone-operator/api/test/helpers"
 	//"github.com/openstack-k8s-operators/keystone-operator/controllers"
 	"github.com/openstack-k8s-operators/barbican-operator/controllers"
 	common_test "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
@@ -55,14 +55,14 @@ var (
 	cancel    context.CancelFunc
 	logger    logr.Logger
 	th        *common_test.TestHelper
-	//keystone  *keystone_test.TestHelper
+	keystone  *keystone_test.TestHelper
 	mariadb   *mariadb_test.TestHelper
 	infra     *infra_test.TestHelper
 	namespace string
 )
 
 const (
-	timeout = time.Second * 5
+	timeout = time.Second * 50
 
 	SecretName = "test-osp-secret"
 
@@ -158,8 +158,8 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 	th = common_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)
 	Expect(th).NotTo(BeNil())
-	//keystone = keystone_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)
-	//Expect(keystone).NotTo(BeNil())
+	keystone = keystone_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)
+	Expect(keystone).NotTo(BeNil())
 	mariadb = mariadb_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)
 	Expect(mariadb).NotTo(BeNil())
 	infra = infra_test.NewTestHelper(ctx, k8sClient, timeout, interval, logger)

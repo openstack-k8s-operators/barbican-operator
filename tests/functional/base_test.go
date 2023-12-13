@@ -29,6 +29,16 @@ import (
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 )
 
+func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"AdminPassword":            []byte("12345678"),
+			"KeystoneDatabasePassword": []byte("12345678"),
+		},
+	)
+}
+
 func GetDefaultBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseInstance": "openstack",

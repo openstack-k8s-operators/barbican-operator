@@ -10,7 +10,7 @@ import (
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	//"k8s.io/utils/ptr"
+	//rabbit //"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Barbican controller", func() {
@@ -48,6 +48,14 @@ var _ = Describe("Barbican controller", func() {
 
 		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
 		Expect(err).NotTo(HaveOccurred())
+
+		/*
+			DeferCleanup(
+				k8sClient.Delete, ctx, th.CreateSecret(
+					types.NamespacedName{Namespace: namespace, Name: SecretName},
+					map[string][]byte{},
+				))
+		*/
 	})
 
 	When("A Barbican instance is created", func() {
@@ -122,6 +130,7 @@ var _ = Describe("Barbican controller", func() {
 		BeforeEach(func() {
 			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanName.Namespace, "rabbitmq-secret"))
 			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanName, GetDefaultBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateKeystoneAPISecret(namespace, SecretName))
 			DeferCleanup(
 				mariadb.DeleteDBService,
 				mariadb.CreateDBService(
@@ -133,6 +142,7 @@ var _ = Describe("Barbican controller", func() {
 				),
 			)
 			infra.SimulateTransportURLReady(barbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanName.Namespace))
 			//DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, "memcached", memcachedSpec))
 			/*
 				infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
@@ -157,23 +167,23 @@ var _ = Describe("Barbican controller", func() {
 				corev1.ConditionFalse,
 			)
 		})
+		It("Should fail if db-sync job fails when DB is Created", func() {
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanName)
+			th.SimulateJobFailure(dbSyncJobName)
+			th.ExpectCondition(
+				barbicanName,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.DBReadyCondition,
+				corev1.ConditionTrue,
+			)
+			th.ExpectCondition(
+				barbicanName,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.DBSyncReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
 		/*
-			It("Should fail if db-sync job fails when DB is Created", func() {
-				mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
-				th.SimulateJobFailure(cinderTest.CinderDBSync)
-				th.ExpectCondition(
-					cinderTest.Instance,
-					ConditionGetterFunc(CinderConditionGetter),
-					condition.DBReadyCondition,
-					corev1.ConditionTrue,
-				)
-				th.ExpectCondition(
-					cinderTest.Instance,
-					ConditionGetterFunc(CinderConditionGetter),
-					condition.DBSyncReadyCondition,
-					corev1.ConditionFalse,
-				)
-			})
 			It("Does not create CinderAPI", func() {
 				CinderAPINotExists(cinderTest.Instance)
 			})

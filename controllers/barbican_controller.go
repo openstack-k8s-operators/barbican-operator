@@ -245,8 +245,11 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET"))
 	ospSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET: %s", ospSecret))
 	if err != nil {
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET HAS ERRORS"))
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.InputReadyCondition,
@@ -263,6 +266,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			err.Error()))
 		return ctrl.Result{}, err
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET NOT NULL"))
 	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
 	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
@@ -270,8 +274,10 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// Setting this here at the top level
 	instance.Spec.ServiceAccount = instance.RbacResourceName()
 
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE CONFIG"))
 	err = r.generateServiceConfig(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE CONFIG ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
 			condition.ErrorReason,
@@ -280,6 +286,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			err.Error()))
 		return ctrl.Result{}, err
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE CONFIG WORKS"))
 
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
@@ -305,14 +312,19 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			return ctrl.Result{}, err
 		}
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: NETWORK WORKS"))
 
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE ANNOTATION"))
 	// TODO: _ should be serviceAnnotations
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.BarbicanAPI.NetworkAttachments)
 	if err != nil {
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE ANNOTATION ERROR"))
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.BarbicanAPI.NetworkAttachments, err)
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE ANNOTATION WORKS"))
 
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: GOING TO RECONCILE INIT"))
 	// Handle service init
 	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels, serviceAnnotations)
 	if err != nil {
@@ -320,6 +332,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	} else if (ctrlResult != ctrl.Result{}) {
 		return ctrlResult, nil
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: RECONCILE INIT WORKS"))
 
 	// TODO(dmendiza): Handle service update
 
@@ -492,6 +505,7 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&barbicanv1beta1.BarbicanAPI{}).
 		Owns(&barbicanv1beta1.BarbicanWorker{}).
 		Owns(&barbicanv1beta1.BarbicanKeystoneListener{}).
+		Owns(&rabbitmqv1.TransportURL{}).
 		Owns(&mariadbv1.MariaDBDatabase{}).
 		Owns(&keystonev1.KeystoneService{}).
 		Owns(&corev1.ServiceAccount{}).
