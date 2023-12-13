@@ -18,6 +18,7 @@ var _ = Describe("Barbican controller", func() {
 	var barbicanName types.NamespacedName
 	var barbicanTransportURL types.NamespacedName
 	var dbSyncJobName types.NamespacedName
+	var barbicanConfigMapData types.NamespacedName
 	//var bootstrapJobName types.NamespacedName
 	//var deploymentName types.NamespacedName
 
@@ -33,6 +34,10 @@ var _ = Describe("Barbican controller", func() {
 		}
 		dbSyncJobName = types.NamespacedName{
 			Name:      "barbican-db-sync",
+			Namespace: namespace,
+		}
+		barbicanConfigMapData = types.NamespacedName{
+			Name:      "barbican-config-data",
 			Namespace: namespace,
 		}
 		/*
@@ -124,6 +129,11 @@ var _ = Describe("Barbican controller", func() {
 				return GetBarbican(barbicanName).Finalizers
 			}, timeout, interval).Should(ContainElement("Barbican"))
 		})
+		It("should not create a config map", func() {
+			Eventually(func() []corev1.ConfigMap {
+				return th.ListConfigMaps(barbicanConfigMapData.Name).Items
+			}, timeout, interval).Should(BeEmpty())
+		})
 	})
 
 	When("Barbican DB is created", func() {
@@ -183,16 +193,14 @@ var _ = Describe("Barbican controller", func() {
 				corev1.ConditionFalse,
 			)
 		})
-		/*
-			It("Does not create CinderAPI", func() {
-				CinderAPINotExists(cinderTest.Instance)
-			})
-			It("Does not create CinderScheduler", func() {
-				CinderSchedulerNotExists(cinderTest.Instance)
-			})
-			It("Does not create CinderVolume", func() {
-				CinderVolumeNotExists(cinderTest.Instance)
-			})
-		*/
+		It("Does not create BarbicanAPI", func() {
+			BarbicanAPINotExists(barbicanName)
+		})
+		It("Does not create BarbicanWorker", func() {
+			BarbicanWorkerNotExists(barbicanName)
+		})
+		It("Does not create BarbicanKeystoneListener", func() {
+			BarbicanKeystoneListenerNotExists(barbicanName)
+		})
 	})
 })

@@ -22,6 +22,7 @@ import (
 
 	//batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -95,6 +96,30 @@ func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
 func BarbicanConditionGetter(name types.NamespacedName) condition.Conditions {
 	instance := GetBarbican(name)
 	return instance.Status.Conditions
+}
+
+func BarbicanAPINotExists(name types.NamespacedName) {
+	Consistently(func(g Gomega) {
+		instance := &barbicanv1.BarbicanAPI{}
+		err := k8sClient.Get(ctx, name, instance)
+		g.Expect(k8s_errors.IsNotFound(err)).To(BeTrue())
+	}, timeout, interval).Should(Succeed())
+}
+
+func BarbicanWorkerNotExists(name types.NamespacedName) {
+	Consistently(func(g Gomega) {
+		instance := &barbicanv1.BarbicanWorker{}
+		err := k8sClient.Get(ctx, name, instance)
+		g.Expect(k8s_errors.IsNotFound(err)).To(BeTrue())
+	}, timeout, interval).Should(Succeed())
+}
+
+func BarbicanKeystoneListenerNotExists(name types.NamespacedName) {
+	Consistently(func(g Gomega) {
+		instance := &barbicanv1.BarbicanKeystoneListener{}
+		err := k8sClient.Get(ctx, name, instance)
+		g.Expect(k8s_errors.IsNotFound(err)).To(BeTrue())
+	}, timeout, interval).Should(Succeed())
 }
 
 /*
