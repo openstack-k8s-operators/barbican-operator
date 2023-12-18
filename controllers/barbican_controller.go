@@ -738,6 +738,7 @@ func (r *BarbicanReconciler) reconcileInit(
 		return rbacResult, nil
 	}
 
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB"))
 	//
 	// create service DB instance
 	//
@@ -755,6 +756,7 @@ func (r *BarbicanReconciler) reconcileInit(
 		helper,
 	)
 	if err != nil {
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.ErrorReason,
@@ -763,6 +765,7 @@ func (r *BarbicanReconciler) reconcileInit(
 			err.Error()))
 		return ctrl.Result{}, err
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB WORKS"))
 	if (ctrlResult != ctrl.Result{}) {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
@@ -774,6 +777,7 @@ func (r *BarbicanReconciler) reconcileInit(
 	// wait for the DB to be setup
 	ctrlResult, err = db.WaitForDBCreated(ctx, helper)
 	if err != nil {
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB CREATION ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.ErrorReason,
@@ -782,7 +786,9 @@ func (r *BarbicanReconciler) reconcileInit(
 			err.Error()))
 		return ctrlResult, err
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB CREATED"))
 	if (ctrlResult != ctrl.Result{}) {
+		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB RESULT ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.RequestedReason,
@@ -790,9 +796,11 @@ func (r *BarbicanReconciler) reconcileInit(
 			condition.DBReadyRunningMessage))
 		return ctrlResult, nil
 	}
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB MARK AS TRUE"))
 	// update Status.DatabaseHostname, used to config the service
 	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
 	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
+	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB MARKED AS TRUE"))
 	// create service DB - end
 
 	//

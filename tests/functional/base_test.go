@@ -81,6 +81,16 @@ func CreateBarbicanMessageBusSecret(namespace string, name string) *corev1.Secre
 	return s
 }
 
+func CreateBarbicanSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"BarbicanDatabasePassword": []byte("12345678"),
+			"BarbicanPassword":         []byte("12345678"),
+		},
+	)
+}
+
 /*
 func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
 	return th.CreateSecret(

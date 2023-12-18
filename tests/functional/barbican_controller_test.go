@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	//rabbit //"k8s.io/utils/ptr"
+	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 )
 
 var _ = Describe("Barbican controller", func() {
@@ -201,6 +202,76 @@ var _ = Describe("Barbican controller", func() {
 		})
 		It("Does not create BarbicanKeystoneListener", func() {
 			BarbicanKeystoneListenerNotExists(barbicanName)
+		})
+	})
+
+	When("DB sync is completed", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanName.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanName, GetDefaultBarbicanSpec()))
+			//DeferCleanup(th.DeleteInstance, keystone.CreateKeystoneAPI(barbicanName.Namespace))
+			DeferCleanup(k8sClient.Delete, ctx, CreateKeystoneAPISecret(namespace, SecretName))
+
+			DeferCleanup(
+				k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanName.Namespace, SecretName))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					namespace,
+					GetBarbican(barbicanName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanName.Namespace))
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanName)
+			th.SimulateJobSuccess(dbSyncJobName)
+		})
+
+		It("should have db sync ready condition", func() {
+			th.ExpectCondition(
+				barbicanName,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			th.ExpectCondition(
+				barbicanName,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			/*
+				th.ExpectCondition(
+					barbicanName,
+					ConditionGetterFunc(BarbicanConditionGetter),
+					condition.DBSyncReadyCondition,
+					corev1.ConditionTrue,
+				)
+					th.ExpectCondition(
+						barbicanName,
+						ConditionGetterFunc(BarbicanConditionGetter),
+						condition.ExposeServiceReadyCondition,
+						corev1.ConditionTrue,
+					)
+					th.ExpectCondition(
+						barbicanName,
+						ConditionGetterFunc(BarbicanConditionGetter),
+						condition.BootstrapReadyCondition,
+						corev1.ConditionFalse,
+					)
+			*/
+			th.ExpectCondition(
+				barbicanName,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.NetworkAttachmentsReadyCondition,
+				corev1.ConditionUnknown,
+			)
 		})
 	})
 })
