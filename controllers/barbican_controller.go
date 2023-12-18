@@ -358,28 +358,26 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		instance.Status.Conditions.Set(c)
 	}
 
-	/*
-		// create or update Barbican KeystoneListener deployment
-		barbicanKeystoneListener, op, err := r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
-		if err != nil {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				barbicanv1beta1.BarbicanKeystoneListenerReadyCondition,
-				condition.ErrorReason,
-				condition.SeverityWarning,
-				barbicanv1beta1.BarbicanKeystoneListenerReadyErrorMessage,
-				err.Error()))
-			return ctrl.Result{}, err
-		}
-		if op != controllerutil.OperationResultNone {
-			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
-		}
+	// create or update Barbican KeystoneListener deployment
+	barbicanKeystoneListener, op, err := r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			barbicanv1beta1.BarbicanKeystoneListenerReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			barbicanv1beta1.BarbicanKeystoneListenerReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if op != controllerutil.OperationResultNone {
+		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+	}
 
-		// Mirror BarbicanKeystoneListener's condition status
-		c = barbicanKeystoneListener.Status.Conditions.Mirror(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition)
-		if c != nil {
-			instance.Status.Conditions.Set(c)
-		}
-	*/
+	// Mirror BarbicanKeystoneListener's condition status
+	c = barbicanKeystoneListener.Status.Conditions.Mirror(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
 
 	// TODO(dmendiza): Handle API endpoints
 
