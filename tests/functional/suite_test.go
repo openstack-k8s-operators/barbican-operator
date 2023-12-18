@@ -24,8 +24,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	//memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
-	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	barbicanv1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
@@ -35,13 +33,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/openstack-k8s-operators/barbican-operator/controllers"
 	infra_test "github.com/openstack-k8s-operators/infra-operator/apis/test/helpers"
 	keystone_test "github.com/openstack-k8s-operators/keystone-operator/api/test/helpers"
-	//"github.com/openstack-k8s-operators/keystone-operator/controllers"
-	"github.com/openstack-k8s-operators/barbican-operator/controllers"
 	common_test "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
-	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -62,7 +58,7 @@ var (
 )
 
 const (
-	timeout = time.Second * 50
+	timeout = time.Second * 15
 
 	SecretName = "test-osp-secret"
 
@@ -90,9 +86,6 @@ var _ = BeforeSuite(func() {
 		"github.com/k8snetworkplumbingwg/network-attachment-definition-client", "../../go.mod", "artifacts/networks-crd.yaml")
 	Expect(err).ShouldNot(HaveOccurred())
 
-	//rabbitmqv2CRDs, err := test.GetCRDDirFromModule(
-	//	"github.com/rabbitmq/cluster-operator/v2", "../../go.mod", "config/crd/bases")
-	//Expect(err).ShouldNot(HaveOccurred())
 	rabbitmqCRDs, err := test.GetCRDDirFromModule(
 		"github.com/openstack-k8s-operators/infra-operator/apis", "../../go.mod", "bases")
 	Expect(err).ShouldNot(HaveOccurred())
@@ -100,9 +93,6 @@ var _ = BeforeSuite(func() {
 	mariaDBCRDs, err := test.GetCRDDirFromModule(
 		"github.com/openstack-k8s-operators/mariadb-operator/api", "../../go.mod", "bases")
 	Expect(err).ShouldNot(HaveOccurred())
-	//memcachedCRDs, err := test.GetCRDDirFromModule(
-	//	"github.com/openstack-k8s-operators/infra-operator/apis", "../../go.mod", "bases")
-	//Expect(err).ShouldNot(HaveOccurred())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -111,7 +101,6 @@ var _ = BeforeSuite(func() {
 			keystoneCRDs,
 			rabbitmqCRDs,
 			mariaDBCRDs,
-			//memcachedCRDs,
 		},
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
@@ -140,8 +129,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = mariadbv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	//err = memcachedv1.AddToScheme(scheme.Scheme)
-	//Expect(err).NotTo(HaveOccurred())
 	err = rabbitmqv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = networkv1.AddToScheme(scheme.Scheme)
@@ -183,12 +170,9 @@ var _ = BeforeSuite(func() {
 	kclient, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred(), "failed to create kclient")
 
-	//err = (&keystonev1.KeystoneAPI{}).SetupWebhookWithManager(k8sManager)
-	//Expect(err).NotTo(HaveOccurred())
 	err = (&barbicanv1.Barbican{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	//keystonev1.SetupDefaults()
 	barbicanv1.SetupDefaults()
 
 	err = (&controllers.BarbicanReconciler{

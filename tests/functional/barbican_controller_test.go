@@ -1,17 +1,15 @@
 package functional_test
 
 import (
-	//"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	//rabbit //"k8s.io/utils/ptr"
-	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 )
 
 var _ = Describe("Barbican controller", func() {
@@ -20,8 +18,6 @@ var _ = Describe("Barbican controller", func() {
 	var barbicanTransportURL types.NamespacedName
 	var dbSyncJobName types.NamespacedName
 	var barbicanConfigMapData types.NamespacedName
-	//var bootstrapJobName types.NamespacedName
-	//var deploymentName types.NamespacedName
 
 	BeforeEach(func() {
 
@@ -41,27 +37,10 @@ var _ = Describe("Barbican controller", func() {
 			Name:      "barbican-config-data",
 			Namespace: namespace,
 		}
-		/*
-			bootstrapJobName = types.NamespacedName{
-				Name:      "keystone-bootstrap",
-				Namespace: namespace,
-			}
-			deploymentName = types.NamespacedName{
-				Name:      "keystone",
-				Namespace: namespace,
-			}
-		*/
 
 		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
 		Expect(err).NotTo(HaveOccurred())
 
-		/*
-			DeferCleanup(
-				k8sClient.Delete, ctx, th.CreateSecret(
-					types.NamespacedName{Namespace: namespace, Name: SecretName},
-					map[string][]byte{},
-				))
-		*/
 	})
 
 	When("A Barbican instance is created", func() {
@@ -105,15 +84,7 @@ var _ = Describe("Barbican controller", func() {
 				condition.ServiceConfigReadyCondition,
 				condition.DBReadyCondition,
 				condition.DBSyncReadyCondition,
-				//condition.BarbicanAPIReadyCondition,
-				//condition.BarbicanWorkerReadyCondition,
-				//condition.BarbicanKeystoneListenerReadyCondition,
-				//condition.,
-				//condition.ExposeServiceReadyCondition,
-				//condition.BootstrapReadyCondition,
-				//condition.DeploymentReadyCondition,
 				condition.NetworkAttachmentsReadyCondition,
-				//condition.CronJobReadyCondition,
 			} {
 				th.ExpectCondition(
 					barbicanName,
@@ -155,10 +126,6 @@ var _ = Describe("Barbican controller", func() {
 			infra.SimulateTransportURLReady(barbicanTransportURL)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanName.Namespace))
 			//DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, "memcached", memcachedSpec))
-			/*
-				infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
-				DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(namespace))
-			*/
 		})
 		It("Should set DBReady Condition and set DatabaseHostname Status when DB is Created", func() {
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanName)
@@ -209,11 +176,10 @@ var _ = Describe("Barbican controller", func() {
 		BeforeEach(func() {
 			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanName.Namespace, "rabbitmq-secret"))
 			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanName, GetDefaultBarbicanSpec()))
-			//DeferCleanup(th.DeleteInstance, keystone.CreateKeystoneAPI(barbicanName.Namespace))
 			DeferCleanup(k8sClient.Delete, ctx, CreateKeystoneAPISecret(namespace, SecretName))
 
 			DeferCleanup(
-				k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanName.Namespace, SecretName))
+				k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanName.Namespace, "test-osp-secret-berbican"))
 
 			DeferCleanup(
 				mariadb.DeleteDBService,
@@ -246,31 +212,11 @@ var _ = Describe("Barbican controller", func() {
 				corev1.ConditionTrue,
 			)
 
-			/*
-				th.ExpectCondition(
-					barbicanName,
-					ConditionGetterFunc(BarbicanConditionGetter),
-					condition.DBSyncReadyCondition,
-					corev1.ConditionTrue,
-				)
-					th.ExpectCondition(
-						barbicanName,
-						ConditionGetterFunc(BarbicanConditionGetter),
-						condition.ExposeServiceReadyCondition,
-						corev1.ConditionTrue,
-					)
-					th.ExpectCondition(
-						barbicanName,
-						ConditionGetterFunc(BarbicanConditionGetter),
-						condition.BootstrapReadyCondition,
-						corev1.ConditionFalse,
-					)
-			*/
 			th.ExpectCondition(
 				barbicanName,
 				ConditionGetterFunc(BarbicanConditionGetter),
-				condition.NetworkAttachmentsReadyCondition,
-				corev1.ConditionUnknown,
+				condition.DBSyncReadyCondition,
+				corev1.ConditionTrue,
 			)
 		})
 	})

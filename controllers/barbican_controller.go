@@ -172,12 +172,10 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 		)
 
 		instance.Status.Conditions.Init(&cl)
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: STATUS CONDITIONS WAS NIL"))
 
 		// Register overall status immediately to have an early feedback e.g. in the cli
 		return ctrl.Result{}, nil
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: STATUS CONDITIONS WAS _NOT_ NIL"))
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
 	}
@@ -188,7 +186,6 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 	}
 
 	// Handle non-deleted clusters
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: RECONCILE NORMAL"))
 	return r.reconcileNormal(ctx, instance, helper)
 }
 
@@ -207,10 +204,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
 	//
 	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels)
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL"))
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL STATUS: %s", transportURL.Status))
 	if err != nil {
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL WITH ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition,
 			condition.ErrorReason,
@@ -219,14 +213,12 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			err.Error()))
 		return ctrl.Result{}, err
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL WORKING"))
 
 	if op != controllerutil.OperationResultNone {
 		Log.Info(fmt.Sprintf("TransportURL %s successfully reconciled - operation: %s", transportURL.Name, string(op)))
 	}
 
 	instance.Status.TransportURLSecret = transportURL.Status.SecretName
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL SECRET: %s", instance.Status.TransportURLSecret))
 
 	if instance.Status.TransportURLSecret == "" {
 		Log.Info(fmt.Sprintf("Waiting for TransportURL %s secret to be created", transportURL.Name))
@@ -237,7 +229,6 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			barbicanv1beta1.BarbicanRabbitMQTransportURLReadyRunningMessage))
 		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: TRANSPORT URL WAS CREATED"))
 
 	Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
 	instance.Status.Conditions.MarkTrue(barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition, barbicanv1beta1.BarbicanRabbitMQTransportURLReadyMessage)
@@ -245,11 +236,8 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET"))
 	ospSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET: %s", ospSecret))
 	if err != nil {
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET HAS ERRORS"))
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.InputReadyCondition,
@@ -266,7 +254,6 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			err.Error()))
 		return ctrl.Result{}, err
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: OSP SECRET NOT NULL"))
 	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
 	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
@@ -274,10 +261,8 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// Setting this here at the top level
 	instance.Spec.ServiceAccount = instance.RbacResourceName()
 
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE CONFIG"))
 	err = r.generateServiceConfig(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE CONFIG ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
 			condition.ErrorReason,
@@ -286,7 +271,6 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			err.Error()))
 		return ctrl.Result{}, err
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE CONFIG WORKS"))
 
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
@@ -312,19 +296,14 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 			return ctrl.Result{}, err
 		}
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: NETWORK WORKS"))
 
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE ANNOTATION"))
 	// TODO: _ should be serviceAnnotations
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.BarbicanAPI.NetworkAttachments)
 	if err != nil {
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE ANNOTATION ERROR"))
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.BarbicanAPI.NetworkAttachments, err)
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: SERVICE ANNOTATION WORKS"))
 
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: GOING TO RECONCILE INIT"))
 	// Handle service init
 	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels, serviceAnnotations)
 	if err != nil {
@@ -332,7 +311,6 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	} else if (ctrlResult != ctrl.Result{}) {
 		return ctrlResult, nil
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG: RECONCILE INIT WORKS"))
 
 	// TODO(dmendiza): Handle service update
 
@@ -380,26 +358,28 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		instance.Status.Conditions.Set(c)
 	}
 
-	// create or update Barbican KeystoneListener deployment
-	barbicanKeystoneListener, op, err := r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			barbicanv1beta1.BarbicanKeystoneListenerReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			barbicanv1beta1.BarbicanKeystoneListenerReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
-	}
-	if op != controllerutil.OperationResultNone {
-		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
-	}
+	/*
+		// create or update Barbican KeystoneListener deployment
+		barbicanKeystoneListener, op, err := r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				barbicanv1beta1.BarbicanKeystoneListenerReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				barbicanv1beta1.BarbicanKeystoneListenerReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+		if op != controllerutil.OperationResultNone {
+			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		}
 
-	// Mirror BarbicanKeystoneListener's condition status
-	c = barbicanKeystoneListener.Status.Conditions.Mirror(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition)
-	if c != nil {
-		instance.Status.Conditions.Set(c)
-	}
+		// Mirror BarbicanKeystoneListener's condition status
+		c = barbicanKeystoneListener.Status.Conditions.Mirror(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition)
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
+	*/
 
 	// TODO(dmendiza): Handle API endpoints
 
@@ -738,7 +718,6 @@ func (r *BarbicanReconciler) reconcileInit(
 		return rbacResult, nil
 	}
 
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB"))
 	//
 	// create service DB instance
 	//
@@ -756,7 +735,6 @@ func (r *BarbicanReconciler) reconcileInit(
 		helper,
 	)
 	if err != nil {
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.ErrorReason,
@@ -765,7 +743,6 @@ func (r *BarbicanReconciler) reconcileInit(
 			err.Error()))
 		return ctrl.Result{}, err
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB WORKS"))
 	if (ctrlResult != ctrl.Result{}) {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
@@ -777,7 +754,6 @@ func (r *BarbicanReconciler) reconcileInit(
 	// wait for the DB to be setup
 	ctrlResult, err = db.WaitForDBCreated(ctx, helper)
 	if err != nil {
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB CREATION ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.ErrorReason,
@@ -786,9 +762,7 @@ func (r *BarbicanReconciler) reconcileInit(
 			err.Error()))
 		return ctrlResult, err
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB CREATED"))
 	if (ctrlResult != ctrl.Result{}) {
-		Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB RESULT ERROR"))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.RequestedReason,
@@ -796,11 +770,9 @@ func (r *BarbicanReconciler) reconcileInit(
 			condition.DBReadyRunningMessage))
 		return ctrlResult, nil
 	}
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB MARK AS TRUE"))
 	// update Status.DatabaseHostname, used to config the service
 	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
 	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
-	Log.Info(fmt.Sprintf(">>>>>>>>>> DEBUG INIT: DB MARKED AS TRUE"))
 	// create service DB - end
 
 	//

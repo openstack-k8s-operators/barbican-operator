@@ -20,7 +20,6 @@ import (
 	"fmt"
 	. "github.com/onsi/gomega"
 
-	//batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,8 +42,7 @@ func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
 func GetDefaultBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseInstance": "openstack",
-		//"replicas":         1,
-		"secret": SecretName,
+		"secret":           SecretName,
 	}
 }
 
@@ -91,18 +89,6 @@ func CreateBarbicanSecret(namespace string, name string) *corev1.Secret {
 	)
 }
 
-/*
-func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
-	return th.CreateSecret(
-		types.NamespacedName{Namespace: namespace, Name: name},
-		map[string][]byte{
-			"AdminPassword":            []byte("12345678"),
-			"KeystoneDatabasePassword": []byte("12345678"),
-		},
-	)
-}
-*/
-
 func BarbicanConditionGetter(name types.NamespacedName) condition.Conditions {
 	instance := GetBarbican(name)
 	return instance.Status.Conditions
@@ -131,13 +117,3 @@ func BarbicanKeystoneListenerNotExists(name types.NamespacedName) {
 		g.Expect(k8s_errors.IsNotFound(err)).To(BeTrue())
 	}, timeout, interval).Should(Succeed())
 }
-
-/*
-func GetCronJob(name types.NamespacedName) *batchv1.CronJob {
-	instance := &batchv1.CronJob{}
-	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
-	}, timeout, interval).Should(Succeed())
-	return instance
-}
-*/
