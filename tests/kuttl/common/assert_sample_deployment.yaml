@@ -1,0 +1,51 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  name: barbican
+spec:
+  serviceUser: barbican
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+  databaseInstance: openstack
+  databaseUser: barbican
+  rabbitMqClusterName: rabbitmq
+  barbicanAPI:
+    replicas: 1
+  barbicanWorker:
+    replicas: 1
+  barbicanKeystoneListener:
+    replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-api-api
+  ownerReferences:
+  - apiVersion: barbican.openstack.org/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: BarbicanAPI
+    name: barbican-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-keystone-listener-keystone-listener
+  ownerReferences:
+  - apiVersion: barbican.openstack.org/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: BarbicanKeystoneListener
+    name: barbican-keystone-listener
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-worker-worker
+  ownerReferences:
+  - apiVersion: barbican.openstack.org/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: BarbicanWorker
+    name: barbican-worker

@@ -1,0 +1,40 @@
+#
+# Check for:
+# - Barbican CRs with 0 replicas for each one
+# - BarbicanAPI barbican-api Deployment with 0 replicas
+# - BarbicanKeystoneListener barbican-keystone-listener Deployment with 0 replicas
+# - BarbicanWorker barbican-worker Deployment with 0 replicas
+
+
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  name: barbican
+spec:
+  barbicanAPI:
+    replicas: 0
+  barbicanKeystoneListener:
+    replicas: 0
+  barbicanWorker:
+    replicas: 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-api-api
+spec:
+  replicas: 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-keystone-listener-keystone-listener
+spec:
+  replicas: 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-worker-worker
+spec:
+  replicas: 0

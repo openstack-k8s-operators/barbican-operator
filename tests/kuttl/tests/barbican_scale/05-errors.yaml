@@ -1,0 +1,17 @@
+#
+# Check for:
+#
+# No BarbicanAPI CR
+# No Deployment for BarbicanAPI CR
+# No Pods in barbican Deployment
+# No Barbican Services
+#
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  name: barbican
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican

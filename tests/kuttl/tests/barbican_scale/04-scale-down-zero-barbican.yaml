@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+    - script: |
+            oc patch Barbican -n $NAMESPACE barbican --type='json' -p='[{"op": "replace", "path": "/spec/barbicanAPI/replicas", "value":0}]'
+            oc patch Barbican -n $NAMESPACE barbican --type='json' -p='[{"op": "replace", "path": "/spec/barbicanKeystoneListener/replicas", "value":0}]'
+            oc patch Barbican -n $NAMESPACE barbican --type='json' -p='[{"op": "replace", "path": "/spec/barbicanWorker/replicas", "value":0}]'
