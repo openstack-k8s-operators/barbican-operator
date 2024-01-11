@@ -285,6 +285,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		"ServiceURL":       "https://barbican.openstack.svc:9311",
 		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"SimpleCryptoKEK":  string(ospSecret.Data["BarbicanSimpleCryptoKEK"]),
 		"EnableSecureRBAC": instance.Spec.EnableSecureRBAC,
 	}
 
