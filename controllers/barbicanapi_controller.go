@@ -574,7 +574,8 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 
 	Log.Info(fmt.Sprintf("[API] Getting service labels '%s'", instance.Name))
 	serviceLabels := map[string]string{
-		common.AppSelector: fmt.Sprintf(barbican.ServiceName),
+		common.AppSelector:       fmt.Sprintf(barbican.ServiceName),
+		common.ComponentSelector: barbican.ComponentAPI,
 	}
 
 	Log.Info(fmt.Sprintf("[API] Getting networks '%s'", instance.Name))

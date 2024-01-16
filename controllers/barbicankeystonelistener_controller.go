@@ -511,7 +511,8 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 
 	Log.Info(fmt.Sprintf("[KeystoneListener] Getting service labels '%s'", instance.Name))
 	serviceLabels := map[string]string{
-		common.AppSelector: fmt.Sprintf(barbican.ServiceName),
+		common.AppSelector:       fmt.Sprintf(barbican.ServiceName),
+		common.ComponentSelector: barbican.ComponentKeystoneListener,
 	}
 
 	Log.Info(fmt.Sprintf("[KeystoneListener] Getting networks '%s'", instance.Name))
