@@ -50,4 +50,3 @@ else:
     with app_lock:
         if application is None:
             application = get_api_wsgi_script()
-

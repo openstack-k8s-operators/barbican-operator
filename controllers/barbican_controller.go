@@ -485,6 +485,7 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&barbicanv1beta1.BarbicanAPI{}).
 		Owns(&barbicanv1beta1.BarbicanWorker{}).
 		Owns(&barbicanv1beta1.BarbicanKeystoneListener{}).
+		Owns(&rabbitmqv1.TransportURL{}).
 		Owns(&mariadbv1.MariaDBDatabase{}).
 		Owns(&keystonev1.KeystoneService{}).
 		Owns(&corev1.ServiceAccount{}).
