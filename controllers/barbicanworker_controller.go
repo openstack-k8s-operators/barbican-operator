@@ -370,7 +370,8 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 
 	Log.Info(fmt.Sprintf("[Worker] Getting service labels '%s'", instance.Name))
 	serviceLabels := map[string]string{
-		common.AppSelector: fmt.Sprintf(barbican.ServiceName),
+		common.AppSelector:       fmt.Sprintf(barbican.ServiceName),
+		common.ComponentSelector: barbican.ComponentWorker,
 	}
 
 	Log.Info(fmt.Sprintf("[Worker] Getting networks '%s'", instance.Name))

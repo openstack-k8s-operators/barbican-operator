@@ -5,6 +5,12 @@ import "github.com/openstack-k8s-operators/lib-common/modules/storage"
 const (
 	// ServiceName -
 	ServiceName = "barbican"
+	// ComponentAPI -
+	ComponentAPI = "barbican-api"
+	// ComponentKeystoneListener -
+	ComponentKeystoneListener = "keystone-listener"
+	// ComponentWorker -
+	ComponentWorker = "barbican-worker"
 	// ServiceType -
 	ServiceType = "key-manager"
 	// DatabaseName -
