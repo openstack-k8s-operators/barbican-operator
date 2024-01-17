@@ -248,8 +248,9 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 			instance.Spec.DatabaseHostname,
 			barbican.DatabaseName,
 		),
-		"TransportURL": string(transportURLSecret.Data["transport_url"]),
-		"LogFile":      fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
+		"LogFile":         fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"SimpleCryptoKEK": string(ospSecret.Data["BarbicanSimpleCryptoKEK"]),
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
