@@ -18,7 +18,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 reportFormat: JSON
 reportName: kuttl-test-barbican
-namespace: barbican-kuttl-tests 
+namespace: barbican-kuttl-tests
 timeout: 180
 parallel: 1
 suppress:
