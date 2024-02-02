@@ -3,7 +3,6 @@ package barbican
 import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 
-	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -59,12 +58,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 			ReadOnly:  true,
 		},
 	}
-	args := []string{"-c"}
-	if instance.Spec.Debug.DBSync {
-		args = append(args, common.DebugCommand)
-	} else {
-		args = append(args, DBSyncCommand)
-	}
+	args := []string{"-c", DBSyncCommand}
 
 	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}

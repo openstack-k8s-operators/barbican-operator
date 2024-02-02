@@ -3,7 +3,6 @@ package barbicankeystonelistener
 import (
 	"fmt"
 
-	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,12 +29,7 @@ func Deployment(
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
-	args := []string{"-c"}
-	if instance.Spec.Debug.Service {
-		args = append(args, common.DebugCommand)
-	} else {
-		args = append(args, ServiceCommand)
-	}
+	args := []string{"-c", ServiceCommand}
 
 	keystoneListenerVolumes := []corev1.Volume{
 		{
