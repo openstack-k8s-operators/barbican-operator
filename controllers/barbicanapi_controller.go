@@ -303,7 +303,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 	httpdVhostConfig := map[string]interface{}{}
 	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
 		endptConfig := map[string]interface{}{}
-		endptConfig["ServerName"] = fmt.Sprintf("barbican-%s.%s.svc", endpt.String(), instance.Namespace)
+		endptConfig["ServerName"] = fmt.Sprintf("%s-%s.%s.svc", barbican.ServiceName, endpt.String(), instance.Namespace)
 		endptConfig["TLS"] = false // default TLS to false, and set it bellow to true if enabled
 		if instance.Spec.TLS.API.Enabled(endpt) {
 			endptConfig["TLS"] = true
@@ -785,7 +785,6 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	// index passwordSecretField
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanAPI{}, passwordSecretField, func(rawObj client.Object) []string {
 		// Extract the secret name from the spec, if one is provided
