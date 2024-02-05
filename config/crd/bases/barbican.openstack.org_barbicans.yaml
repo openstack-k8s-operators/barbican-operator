@@ -551,30 +551,6 @@ spec:
                 description: DatabaseUser - optional username used for barbican DB,
                   defaults to barbican
                 type: string
-              debug:
-                description: 'Debug - enable debug for different deploy stages. If
-                  an init container is used, it runs and the actual action pod gets
-                  started with sleep infinity TODO(dmendiza): Do we need this?'
-                properties:
-                  dbInitContainer:
-                    default: false
-                    description: dbInitContainer enable debug (waits until /tmp/stop-init-container
-                      disappears)
-                    type: boolean
-                  dbSync:
-                    default: false
-                    description: dbSync enable debug
-                    type: boolean
-                  initContainer:
-                    default: false
-                    description: initContainer enable debug (waits until /tmp/stop-init-container
-                      disappears)
-                    type: boolean
-                  service:
-                    default: false
-                    description: Service enable debug
-                    type: boolean
-                type: object
               defaultConfigOverwrite:
                 additionalProperties:
                   type: string
