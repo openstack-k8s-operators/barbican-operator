@@ -16,9 +16,11 @@ require (
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.3.1-0.20240117103205-2bd91a3da216
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.3.1-0.20240124160436-36095347284f
 	go.uber.org/zap v1.26.0
+	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3
 	k8s.io/api v0.26.13
 	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v0.26.13
+	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 	sigs.k8s.io/controller-runtime v0.14.7
 )
 
@@ -59,7 +61,6 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
@@ -78,7 +79,6 @@ require (
 	k8s.io/component-base v0.26.13 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
-	k8s.io/utils v0.0.0-20240102154912-e7106e64919e // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect

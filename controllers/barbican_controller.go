@@ -478,6 +478,27 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 	return ctrl.Result{}, nil
 }
 
+// fields to index to reconcile when change
+const (
+	passwordSecretField     = ".spec.secret"
+	caBundleSecretNameField = ".spec.tls.caBundleSecretName"
+	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
+	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
+)
+
+var (
+	commonWatchFields = []string{
+		passwordSecretField,
+		caBundleSecretNameField,
+	}
+	apinWatchFields = []string{
+		passwordSecretField,
+		caBundleSecretNameField,
+		tlsAPIInternalField,
+		tlsAPIPublicField,
+	}
+)
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
@@ -624,6 +645,7 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 		BarbicanWorkerTemplate: instance.Spec.BarbicanWorker,
 		DatabaseHostname:       instance.Status.DatabaseHostname,
 		TransportURLSecret:     instance.Status.TransportURLSecret,
+		TLS:                    instance.Spec.BarbicanAPI.TLS.Ca,
 	}
 
 	deployment := &barbicanv1beta1.BarbicanWorker{
@@ -652,7 +674,6 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 }
 
 func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx context.Context, instance *barbicanv1beta1.Barbican, helper *helper.Helper) (*barbicanv1beta1.BarbicanKeystoneListener, controllerutil.OperationResult, error) {
-
 	Log := r.GetLogger(ctx)
 	Log.Info(fmt.Sprintf("Creating barbican KeystoneListener spec.  transporturlsecret: '%s'", instance.Status.TransportURLSecret))
 	Log.Info(fmt.Sprintf("database hostname: '%s'", instance.Status.DatabaseHostname))
@@ -661,6 +682,7 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 		BarbicanKeystoneListenerTemplate: instance.Spec.BarbicanKeystoneListener,
 		DatabaseHostname:                 instance.Status.DatabaseHostname,
 		TransportURLSecret:               instance.Status.TransportURLSecret,
+		TLS:                              instance.Spec.BarbicanAPI.TLS.Ca,
 	}
 
 	deployment := &barbicanv1beta1.BarbicanKeystoneListener{

@@ -14,10 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package functional_test
+package functional
 
 import (
 	"fmt"
+
+	maps "golang.org/x/exp/maps"
+
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +50,6 @@ func GetDefaultBarbicanSpec() map[string]interface{} {
 }
 
 func CreateBarbican(name types.NamespacedName, spec map[string]interface{}) client.Object {
-
 	raw := map[string]interface{}{
 		"apiVersion": "barbican.openstack.org/v1beta1",
 		"kind":       "Barbican",
@@ -116,4 +118,82 @@ func BarbicanKeystoneListenerNotExists(name types.NamespacedName) {
 		err := k8sClient.Get(ctx, name, instance)
 		g.Expect(k8s_errors.IsNotFound(err)).To(BeTrue())
 	}, timeout, interval).Should(Succeed())
+}
+
+// ========== TLS Stuff ==============
+func BarbicanAPIConditionGetter(name types.NamespacedName) condition.Conditions {
+	instance := GetBarbicanAPI(name)
+	return instance.Status.Conditions
+}
+
+func BarbicanAPIExists(name types.NamespacedName) {
+	Consistently(func(g Gomega) {
+		instance := &barbicanv1.BarbicanAPI{}
+		err := k8sClient.Get(ctx, name, instance)
+		g.Expect(k8s_errors.IsNotFound(err)).To(BeFalse())
+	}, timeout, interval).Should(Succeed())
+}
+
+func GetBarbicanAPI(name types.NamespacedName) *barbicanv1.BarbicanAPI {
+	instance := &barbicanv1.BarbicanAPI{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance
+}
+
+func GetTLSBarbicanSpec() map[string]interface{} {
+	return map[string]interface{}{
+		"databaseInstance": "openstack",
+		"secret":           SecretName,
+		"barbicanAPI":      GetTLSBarbicanAPISpec(),
+	}
+}
+
+func GetTLSBarbicanAPISpec() map[string]interface{} {
+	spec := GetDefaultBarbicanAPISpec()
+	maps.Copy(spec, map[string]interface{}{
+		"tls": map[string]interface{}{
+			"api": map[string]interface{}{
+				"internal": map[string]interface{}{
+					"secretName": InternalCertSecretName,
+				},
+				"public": map[string]interface{}{
+					"secretName": PublicCertSecretName,
+				},
+			},
+			"caBundleSecretName": CABundleSecretName,
+		},
+	})
+	return spec
+}
+
+func GetDefaultBarbicanAPISpec() map[string]interface{} {
+	return map[string]interface{}{
+		"secret":             SecretName,
+		"replicas":           1,
+		"databaseHostname":   barbicanTest.DatabaseHostname,
+		"databaseInstance":   barbicanTest.DatabaseInstance,
+		"containerImage":     barbicanTest.ContainerImage,
+		"serviceAccount":     barbicanTest.BarbicanSA.Name,
+		"transportURLSecret": barbicanTest.RabbitmqSecretName,
+	}
+}
+
+func CreateBarbicanAPI(name types.NamespacedName, spec map[string]interface{}) client.Object {
+	// we get the parent CR and set ownership to the barbicanAPI CR
+	raw := map[string]interface{}{
+		"apiVersion": "barbican.openstack.org/v1beta1",
+		"kind":       "BarbicanAPI",
+		"metadata": map[string]interface{}{
+			"annotations": map[string]interface{}{
+				"keystoneEndpoint": "true",
+			},
+			"name":      name.Name,
+			"namespace": name.Namespace,
+		},
+		"spec": spec,
+	}
+
+	return th.CreateUnstructured(raw)
 }

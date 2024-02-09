@@ -16,7 +16,6 @@ const (
 
 // DbSyncJob func
 func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
-
 	secretNames := []string{}
 	var config0644AccessMode int32 = 0644
 
@@ -25,20 +24,22 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 	// service, The two snippet files that it does need (DefaultsConfigFileName
 	// and CustomConfigFileName) can be extracted from the top-level barbican
 	// config-data secret.
-	dbSyncVolume := corev1.Volume{
-		Name: "db-sync-config-data",
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				DefaultMode: &config0644AccessMode,
-				SecretName:  instance.Name + "-config-data",
-				Items: []corev1.KeyToPath{
-					{
-						Key:  DefaultsConfigFileName,
-						Path: DefaultsConfigFileName,
-					},
-					{
-						Key:  CustomConfigFileName,
-						Path: CustomConfigFileName,
+	dbSyncVolume := []corev1.Volume{
+		{
+			Name: "db-sync-config-data",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					DefaultMode: &config0644AccessMode,
+					SecretName:  instance.Name + "-config-data",
+					Items: []corev1.KeyToPath{
+						{
+							Key:  DefaultsConfigFileName,
+							Path: DefaultsConfigFileName,
+						},
+						{
+							Key:  CustomConfigFileName,
+							Path: CustomConfigFileName,
+						},
 					},
 				},
 			},
@@ -58,6 +59,13 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 			ReadOnly:  true,
 		},
 	}
+
+	// add CA cert if defined
+	if instance.Spec.BarbicanAPI.TLS.CaBundleSecretName != "" {
+		dbSyncVolume = append(dbSyncVolume, instance.Spec.BarbicanAPI.TLS.CreateVolume())
+		dbSyncMounts = append(dbSyncMounts, instance.Spec.BarbicanAPI.TLS.CreateVolumeMounts(nil)...)
+	}
+
 	args := []string{"-c", DBSyncCommand}
 
 	runAsUser := int64(0)
@@ -105,7 +113,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 		ServiceName,
 		secretNames,
 		DbsyncPropagation),
-		dbSyncVolume,
+		dbSyncVolume...,
 	)
 
 	return job
