@@ -52,6 +52,7 @@ func Deployment(
 		Path: "/healthcheck",
 		Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(barbican.BarbicanPublicPort)},
 	}
+	readinessProbe.HTTPGet = livenessProbe.HTTPGet
 
 	if instance.Spec.TLS.API.Enabled(service.EndpointPublic) {
 		livenessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS

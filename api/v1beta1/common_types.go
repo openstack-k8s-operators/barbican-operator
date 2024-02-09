@@ -46,12 +46,6 @@ type BarbicanTemplate struct {
 	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
 	// +kubebuilder:validation:Optional
-	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
-	// actual action pod gets started with sleep infinity
-	// TODO(dmendiza): Do we need this?
-	Debug BarbicanDebug `json:"debug,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
 	// or overwrite rendered information using raw OpenStack config format. The content gets added to
 	// to /etc/<service>/<service>.conf.d directory as custom.conf file.
@@ -120,27 +114,4 @@ type PasswordSelector struct {
 	// +kubebuilder:default="BarbicanPassword"
 	// Service - Selector to get the barbican service user password from the Secret
 	Service string `json:"service"`
-}
-
-// BarbicanDebug indicates whether certain stages of deployment should be paused
-type BarbicanDebug struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// dbInitContainer enable debug (waits until /tmp/stop-init-container disappears)
-	DBInitContainer bool `json:"dbInitContainer"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// dbSync enable debug
-	DBSync bool `json:"dbSync"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// initContainer enable debug (waits until /tmp/stop-init-container disappears)
-	InitContainer bool `json:"initContainer"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// Service enable debug
-	Service bool `json:"service"`
 }

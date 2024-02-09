@@ -65,6 +65,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 		dbSyncVolume = append(dbSyncVolume, instance.Spec.BarbicanAPI.TLS.CreateVolume())
 		dbSyncMounts = append(dbSyncMounts, instance.Spec.BarbicanAPI.TLS.CreateVolumeMounts(nil)...)
 	}
+
 	args := []string{"-c", DBSyncCommand}
 
 	runAsUser := int64(0)
