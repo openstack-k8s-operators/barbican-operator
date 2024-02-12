@@ -1,0 +1,206 @@
+#
+# Check for:
+#
+# - Deployment with tls volumes
+#
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  name: barbican
+spec:
+  serviceUser: barbican
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+  databaseInstance: openstack
+  databaseUser: barbican
+  rabbitMqClusterName: rabbitmq
+  barbicanWorker:
+    replicas: 1
+  barbicanKeystoneListener:
+    replicas: 1
+  barbicanAPI:
+    tls:
+      api:
+        internal:
+          secretName: cert-barbican-internal-svc
+        public:
+          secretName: cert-barbican-public-svc
+      caBundleSecretName: combined-ca-bundle
+    replicas: 1
+---
+apiVersion: barbican.openstack.org/v1beta1
+kind: BarbicanAPI
+metadata:
+  name: barbican-api
+spec:
+  tls:
+    api:
+      internal:
+        secretName: cert-barbican-internal-svc
+      public:
+        secretName: cert-barbican-public-svc
+    caBundleSecretName: combined-ca-bundle
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-api-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: barbican-api
+      service: barbican
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        component: barbican-api
+        service: barbican
+    spec:
+      containers:
+        - args:
+            - --single-child
+            - --
+            - /usr/bin/tail
+            - -n+1
+            - -F
+            - /var/log/barbican/barbican-api.log
+          command:
+            - /usr/bin/dumb-init
+          name: barbican-api-log
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthcheck
+              port: 9311
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources: {}
+          securityContext:
+            runAsUser: 0
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/log/barbican
+              name: logs
+        - args:
+            - -c
+            - /usr/local/bin/kolla_start
+          command:
+            - /bin/bash
+          name: barbican-api
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthcheck
+              port: 9311
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources: {}
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /var/lib/config-data/default
+              name: config-data
+              readOnly: true
+            - mountPath: /var/lib/kolla/config_files/config.json
+              name: config-data
+              readOnly: true
+              subPath: barbican-api-config.json
+            - mountPath: /var/log/barbican
+              name: logs
+            - mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+              name: combined-ca-bundle
+              readOnly: true
+              subPath: tls-ca-bundle.pem
+            - mountPath: /var/lib/config-data/tls/certs/internal.crt
+              name: internal-tls-certs
+              readOnly: true
+              subPath: tls.crt
+            - mountPath: /var/lib/config-data/tls/private/internal.key
+              name: internal-tls-certs
+              readOnly: true
+              subPath: tls.key
+            - mountPath: /var/lib/config-data/tls/certs/public.crt
+              name: public-tls-certs
+              readOnly: true
+              subPath: tls.crt
+            - mountPath: /var/lib/config-data/tls/private/public.key
+              name: public-tls-certs
+              readOnly: true
+              subPath: tls.key
+      volumes:
+        - name: config-data
+          secret:
+            defaultMode: 420
+            secretName: barbican-api-config-data
+        - name: config-data-custom
+          secret:
+            defaultMode: 420
+            secretName: barbican-api-config-data
+        - emptyDir: {}
+          name: logs
+        - name: combined-ca-bundle
+          secret:
+            defaultMode: 292
+            secretName: combined-ca-bundle
+        - name: internal-tls-certs
+          secret:
+            defaultMode: 256
+            secretName: cert-barbican-internal-svc
+        - name: public-tls-certs
+          secret:
+            defaultMode: 256
+            secretName: cert-barbican-public-svc
+status:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-keystone-listener-keystone-listener
+  ownerReferences:
+    - apiVersion: barbican.openstack.org/v1beta1
+      blockOwnerDeletion: true
+      controller: true
+      kind: BarbicanKeystoneListener
+      name: barbican-keystone-listener
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-worker-worker
+  ownerReferences:
+    - apiVersion: barbican.openstack.org/v1beta1
+      blockOwnerDeletion: true
+      controller: true
+      kind: BarbicanWorker
+      name: barbican-worker
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+namespaced: true
+commands:
+  - script: |
+      template='{{.status.apiEndpoint.internal}}{{":"}}{{.status.apiEndpoint.public}}{{"\n"}}'
+      regex="https:\/\/barbican-internal.$NAMESPACE.*:https:\/\/barbican-public.$NAMESPACE.*"
+      apiEndpoints=$(oc get -n $NAMESPACE BarbicanAPI barbican-api -o go-template="$template")
+      matches=$(echo "$apiEndpoints" | sed -e "s?$regex??")
+      if [ -z "$matches" ]; then
+        exit 0
+      else
+        exit 1
+      fi
