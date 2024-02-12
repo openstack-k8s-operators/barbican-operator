@@ -1,6 +1,7 @@
 package functional
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
@@ -95,10 +96,11 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 		})
 		It("Should set DBReady Condition and set DatabaseHostname Status when DB is Created", func() {
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 			Barbican := GetBarbican(barbicanTest.Instance)
-			Expect(Barbican.Status.DatabaseHostname).To(Equal("hostname-for-openstack"))
+			Expect(Barbican.Status.DatabaseHostname).To(Equal(fmt.Sprintf("hostname-for-openstack.%s.svc", namespace)))
 			th.ExpectCondition(
 				barbicanTest.Instance,
 				ConditionGetterFunc(BarbicanConditionGetter),
@@ -113,6 +115,7 @@ var _ = Describe("Barbican controller", func() {
 			)
 		})
 		It("Should fail if db-sync job fails when DB is Created", func() {
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
 			th.SimulateJobFailure(barbicanTest.BarbicanDBSync)
 			th.ExpectCondition(
@@ -160,6 +163,7 @@ var _ = Describe("Barbican controller", func() {
 			)
 			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
@@ -205,6 +209,7 @@ var _ = Describe("Barbican controller", func() {
 			)
 			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
