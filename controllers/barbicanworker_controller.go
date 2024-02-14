@@ -49,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -407,7 +406,7 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 		Log.Info("[Worker] HAS CHANGED")
 		// Hash changed and instance status should be updated (which will be done by main defer func),
 		// so we need to return and reconcile again
-		//return ctrl.Result{}, nil
+		// return ctrl.Result{}, nil
 	}
 	Log.Info("[Worker] CONTINUE")
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
@@ -559,19 +558,19 @@ func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanWorker{}).
-		//Owns(&corev1.Service{}).
-		//Owns(&corev1.Secret{}).
+		// Owns(&corev1.Service{}).
+		// Owns(&corev1.Secret{}).
 		Owns(&appsv1.Deployment{}).
-		//Owns(&routev1.Route{}).
+		// Owns(&routev1.Route{}).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *BarbicanWorkerReconciler) findObjectsForSrc(src client.Object) []reconcile.Request {
+func (r *BarbicanWorkerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
 	l := log.FromContext(context.Background()).WithName("Controllers").WithName("BarbicanWorker")

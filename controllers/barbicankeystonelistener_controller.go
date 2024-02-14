@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	//routev1 "github.com/openshift/api/route/v1"
+	// routev1 "github.com/openshift/api/route/v1"
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicankeystonelistener"
 
-	//keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
+	// keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
@@ -52,7 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -539,7 +538,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 		Log.Info("[KeystoneListener] HAS CHANGED")
 		// Hash changed and instance status should be updated (which will be done by main defer func),
 		// so we need to return and reconcile again
-		//return ctrl.Result{}, nil
+		// return ctrl.Result{}, nil
 	}
 	Log.Info("[KeystoneListener] CONTINUE")
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
@@ -692,19 +691,19 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanKeystoneListener{}).
-		//Owns(&corev1.Service{}).
-		//Owns(&corev1.Secret{}).
+		// Owns(&corev1.Service{}).
+		// Owns(&corev1.Secret{}).
 		Owns(&appsv1.Deployment{}).
-		//Owns(&routev1.Route{}).
+		// Owns(&routev1.Route{}).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(src client.Object) []reconcile.Request {
+func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
 	l := log.FromContext(context.Background()).WithName("Controllers").WithName("BarbicanKeystoneListener")
