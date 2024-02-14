@@ -261,6 +261,27 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
 	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
+	// check for Simple Crypto Backend secret holding the KEK
+	kekSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
+	if err != nil {
+		if k8s_errors.IsNotFound(err) {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.InputReadyWaitingMessage))
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Simple Crypto backend secret %s not found", instance.Spec.SimpleCryptoBackendSecret)
+		}
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.InputReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	configVars["secret-"+kekSecret.Name] = env.SetValue(hash)
+
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// Setting this here at the top level
 	instance.Spec.ServiceAccount = instance.RbacResourceName()

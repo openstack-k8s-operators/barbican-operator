@@ -32,16 +32,17 @@ type BarbicanTemplate struct {
 	RabbitMqClusterName string `json:"rabbitMqClusterName"`
 
 	// +kubebuilder:validation:Optional
-	// Secret containing SimpleCrypto KEK
-	SimpleCryptoBackendKEKSecret string `json:"simpleCryptoBackendKEKSecret,omitempty"`
+	// +kubebuilder:default=osp-secret
+	// Secret containing the Key Encryption Key (KEK) used for the Simple Crypto backend
+	SimpleCryptoBackendSecret string `json:"simpleCryptoBackendSecret"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=osp-secret
 	// Secret containing all passwords / keys needed
 	Secret string `json:"secret"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={database: BarbicanDatabasePassword, service: BarbicanPassword}
-	// TODO(dmendiza): Maybe we'll add SimpleCrypto key here?
+	// +kubebuilder:default={database: BarbicanDatabasePassword, service: BarbicanPassword, simplecryptokek: BarbicanSimpleCryptoKEK}
 	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
@@ -114,4 +115,7 @@ type PasswordSelector struct {
 	// +kubebuilder:default="BarbicanPassword"
 	// Service - Selector to get the barbican service user password from the Secret
 	Service string `json:"service"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="SimpleCryptoKEK"
+	SimpleCryptoKEK string `json:"simplecryptokek"`
 }
