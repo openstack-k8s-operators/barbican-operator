@@ -1,0 +1,39 @@
+#
+# Check for:
+# - No Barbican CR
+# - No BarbicanAPI barbican-api-api CR
+# - No BarbicanAPI barbican-api Deployment
+# - No barbican-api Pod
+# - No barbican-public service
+# - No barbican internal and public endpoints
+
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  name: barbican
+---
+apiVersion: barbican.openstack.org/v1beta1
+kind: BarbicanAPI
+metadata:
+  name: barbican-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barbican-api-api
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    service: barbican
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: barbican-internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: barbican-public

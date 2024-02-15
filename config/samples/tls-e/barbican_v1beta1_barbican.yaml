@@ -1,0 +1,66 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  labels:
+    app.kubernetes.io/name: barbican
+    app.kubernetes.io/instance: barbican
+    app.kubernetes.io/part-of: barbican-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: barbican-operator
+  name: barbican
+spec:
+  serviceAccount: barbican
+  serviceUser: barbican
+  databaseInstance: openstack
+  databaseUser: barbican
+  rabbitMqCusterName: barbican_rabbit
+  secret: osp-secret
+  passwordSelectors:
+    database: BarbicanDatabasePassword
+    service: BarbicanPassword
+  preserveJobs: true
+  nodeSelector:
+    node: controller
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+  defaultConfigOverwrite:
+    policy.json: |
+      {"some": "custom policy"}
+  barbicanAPI:
+    nodeSelector:
+      optional_override: here
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
+    passwordSelectors:
+      database: BarbicanDatabasePassword
+      service: BarbicanPassword
+    tls:
+      api:
+        internal:
+          secretName: cert-barbican-internal-svc
+        public:
+          secretName: cert-barbican-public-svc
+      caBundleSecretName: combined-ca-bundle
+  barbicanWorker:
+    nodeSelector:
+      optional_override: here
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}
+  barbicanKeystoneListener:
+    nodeSelector:
+      optional_override: here
+    customServiceConfig: |
+      [optional]
+      overrides = True
+    defautlConfigOverwrite:
+      optional_policy.json: |
+        {"some": "custom policy"}

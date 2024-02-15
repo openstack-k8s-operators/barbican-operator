@@ -1,0 +1,20 @@
+#
+# Check for:
+#
+# - 2 tls cert secrets
+# - 1 tls ca bundle secrets
+
+apiVersion: v1
+kind: secret
+metadata:
+  name: cert-barbican-internal-svc
+---
+apiVersion: v1
+kind: secret
+metadata:
+  name: cert-barbican-public-svc
+---
+apiVersion: v1
+kind: secret
+metadata:
+  name: combined-ca-bundle
