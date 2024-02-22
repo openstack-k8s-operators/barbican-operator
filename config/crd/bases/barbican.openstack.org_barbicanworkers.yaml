@@ -91,9 +91,9 @@ spec:
                 default:
                   database: BarbicanDatabasePassword
                   service: BarbicanPassword
-                description: 'TODO(dmendiza): Maybe we''ll add SimpleCrypto key here?
-                  PasswordSelectors - Selectors to identify the DB and ServiceUser
-                  password from the Secret'
+                  simplecryptokek: BarbicanSimpleCryptoKEK
+                description: PasswordSelectors - Selectors to identify the DB and
+                  ServiceUser password from the Secret
                 properties:
                   database:
                     default: BarbicanDatabasePassword
@@ -104,6 +104,9 @@ spec:
                     default: BarbicanPassword
                     description: Service - Selector to get the barbican service user
                       password from the Secret
+                    type: string
+                  simplecryptokek:
+                    default: SimpleCryptoKEK
                     type: string
                 type: object
               rabbitMqClusterName:
@@ -168,6 +171,7 @@ spec:
                     type: object
                 type: object
               secret:
+                default: osp-secret
                 description: Secret containing all passwords / keys needed
                 type: string
               serviceAccount:
@@ -179,8 +183,10 @@ spec:
                 description: ServiceUser - optional username used for this service
                   to register in keystone
                 type: string
-              simpleCryptoBackendKEKSecret:
-                description: Secret containing SimpleCrypto KEK
+              simpleCryptoBackendSecret:
+                default: osp-secret
+                description: Secret containing the Key Encryption Key (KEK) used for
+                  the Simple Crypto backend
                 type: string
               tls:
                 description: TLS - Parameters related to the TLS

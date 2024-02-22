@@ -274,6 +274,11 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		return err
 	}
 
+	simpleCryptoSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
 	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.TransportURLSecret, instance.Namespace)
 	if err != nil {
 		return err
@@ -294,7 +299,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		"ServiceURL":       "https://barbican.openstack.svc:9311",
 		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
-		"SimpleCryptoKEK":  string(ospSecret.Data["BarbicanSimpleCryptoKEK"]),
+		"SimpleCryptoKEK":  string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK]),
 		"EnableSecureRBAC": instance.Spec.EnableSecureRBAC,
 	}
 

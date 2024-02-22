@@ -44,8 +44,9 @@ func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
 
 func GetDefaultBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
-		"databaseInstance": "openstack",
-		"secret":           SecretName,
+		"databaseInstance":          "openstack",
+		"secret":                    SecretName,
+		"simpleCryptoBackendSecret": SecretName,
 	}
 }
 
@@ -87,6 +88,7 @@ func CreateBarbicanSecret(namespace string, name string) *corev1.Secret {
 		map[string][]byte{
 			"BarbicanDatabasePassword": []byte("12345678"),
 			"BarbicanPassword":         []byte("12345678"),
+			"BarbicanSimpleCryptoKEK":  []byte("sEFmdFjDUqRM2VemYslV5yGNWjokioJXsg8Nrlc3drU="),
 		},
 	)
 }
@@ -144,9 +146,10 @@ func GetBarbicanAPI(name types.NamespacedName) *barbicanv1.BarbicanAPI {
 
 func GetTLSBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
-		"databaseInstance": "openstack",
-		"secret":           SecretName,
-		"barbicanAPI":      GetTLSBarbicanAPISpec(),
+		"databaseInstance":          "openstack",
+		"secret":                    SecretName,
+		"simpleCryptoBackendSecret": SecretName,
+		"barbicanAPI":               GetTLSBarbicanAPISpec(),
 	}
 }
 
@@ -170,13 +173,14 @@ func GetTLSBarbicanAPISpec() map[string]interface{} {
 
 func GetDefaultBarbicanAPISpec() map[string]interface{} {
 	return map[string]interface{}{
-		"secret":             SecretName,
-		"replicas":           1,
-		"databaseHostname":   barbicanTest.DatabaseHostname,
-		"databaseInstance":   barbicanTest.DatabaseInstance,
-		"containerImage":     barbicanTest.ContainerImage,
-		"serviceAccount":     barbicanTest.BarbicanSA.Name,
-		"transportURLSecret": barbicanTest.RabbitmqSecretName,
+		"secret":                    SecretName,
+		"simpleCryptoBackendSecret": SecretName,
+		"replicas":                  1,
+		"databaseHostname":          barbicanTest.DatabaseHostname,
+		"databaseInstance":          barbicanTest.DatabaseInstance,
+		"containerImage":            barbicanTest.ContainerImage,
+		"serviceAccount":            barbicanTest.BarbicanSA.Name,
+		"transportURLSecret":        barbicanTest.RabbitmqSecretName,
 	}
 }
 

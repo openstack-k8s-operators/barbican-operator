@@ -18,6 +18,7 @@ spec:
   passwordSelectors:
     database: BarbicanDatabasePassword
     service: BarbicanPassword
+    simplecryptokek: BarbicanSimpleCryptoKEK
   preserveJobs: true
   nodeSelector:
     node: controller
