@@ -24,6 +24,15 @@ import (
 
 // BarbicanWorkerTemplate defines common Spec elements for the Worker process
 type BarbicanWorkerTemplate struct {
+	BarbicanWorkerTemplateCore `json:",inline"`
+
+	// +kubebuilder:validation:Required
+	// ContainerImage - Barbican Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+}
+
+// BarbicanWorkerTemplateCore -
+type BarbicanWorkerTemplateCore struct {
 	BarbicanComponentTemplate `json:",inline"`
 
 	// TODO(dmendiza): Do we need a setting for number of worker processes

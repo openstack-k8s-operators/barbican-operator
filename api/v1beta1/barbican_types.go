@@ -40,6 +40,28 @@ const (
 
 // BarbicanSpec defines the desired state of Barbican
 type BarbicanSpec struct {
+	BarbicanSpecBase `json:",inline"`
+
+	BarbicanAPI BarbicanAPITemplate `json:"barbicanAPI"`
+
+	BarbicanWorker BarbicanWorkerTemplate `json:"barbicanWorker"`
+
+	BarbicanKeystoneListener BarbicanKeystoneListenerTemplate `json:"barbicanKeystoneListener"`
+}
+
+// BarbicanSpecCore defines the desired state of Barbican, for use with the OpenStackControlplane CR (no containerImages)
+type BarbicanSpecCore struct {
+	BarbicanSpecBase `json:",inline"`
+
+	BarbicanAPI BarbicanAPITemplateCore `json:"barbicanAPI"`
+
+	BarbicanWorker BarbicanWorkerTemplateCore `json:"barbicanWorker"`
+
+	BarbicanKeystoneListener BarbicanKeystoneListenerTemplateCore `json:"barbicanKeystoneListener"`
+}
+
+// BarbicanSpecBase -
+type BarbicanSpecBase struct {
 	BarbicanTemplate `json:",inline"`
 
 	// +kubebuilder:validation:Optional
@@ -66,12 +88,6 @@ type BarbicanSpec struct {
 
 	// +kubebuilder:validation:Required
 	// BarbicanAPIInternal - Spec definition for the internal and admin API service of this Barbican deployment
-
-	BarbicanAPI BarbicanAPITemplate `json:"barbicanAPI"`
-
-	BarbicanWorker BarbicanWorkerTemplate `json:"barbicanWorker"`
-
-	BarbicanKeystoneListener BarbicanKeystoneListenerTemplate `json:"barbicanKeystoneListener"`
 }
 
 // BarbicanStatus defines the observed state of Barbican

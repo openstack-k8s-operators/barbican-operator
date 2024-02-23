@@ -61,10 +61,6 @@ type BarbicanTemplate struct {
 // (e.g. API, Worker, Listener)
 type BarbicanComponentTemplate struct {
 
-	// +kubebuilder:validation:Required
-	// ContainerImage - Barbican Container Image URL (will be set to environmental default if empty)
-	ContainerImage string `json:"containerImage"`
-
 	// +kubebuilder:validation:Optional
 	// NodeSelector to target subset of worker nodes running this component. Setting here overrides
 	// any global NodeSelector settings within the Barbican CR.
