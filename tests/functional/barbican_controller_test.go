@@ -115,6 +115,15 @@ var _ = Describe("Barbican controller", func() {
 				corev1.ConditionFalse,
 			)
 		})
+		It("should create config-data and scripts ConfigMaps", func() {
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := cf.Data["my.cnf"]
+			Expect(conf).To(
+				ContainSubstring("[client]\nssl=0"))
+		})
 		It("Should fail if db-sync job fails when DB is Created", func() {
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
@@ -211,7 +220,7 @@ var _ = Describe("Barbican controller", func() {
 			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
+			mariadb.SimulateMariaDBTLSDatabaseCompleted(barbicanTest.Instance)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
@@ -245,6 +254,14 @@ var _ = Describe("Barbican controller", func() {
 
 			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
 			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
+		})
+
+		It("should create config-data and scripts ConfigMaps", func() {
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := cf.Data["my.cnf"]
+			Expect(conf).To(
+				ContainSubstring("[client]\nssl-ca=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem\nssl=1"))
 		})
 	})
 })

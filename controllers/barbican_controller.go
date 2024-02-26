@@ -45,6 +45,7 @@ import (
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -286,7 +287,18 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	// Setting this here at the top level
 	instance.Spec.ServiceAccount = instance.RbacResourceName()
 
-	err = r.generateServiceConfig(ctx, helper, instance, &configVars, serviceLabels)
+	//
+	// create service DB instance
+	//
+	db, result, err := r.ensureDB(ctx, helper, instance)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if (result != ctrl.Result{}) {
+		return result, nil
+	}
+	// create service DB - end
+
+	err = r.generateServiceConfig(ctx, helper, instance, &configVars, serviceLabels, db)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -548,6 +560,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	instance *barbicanv1beta1.Barbican,
 	envVars *map[string]env.Setter,
 	serviceLabels map[string]string,
+	db *mariadbv1.Database,
 ) error {
 	Log := r.GetLogger(ctx)
 	Log.Info("generateServiceConfigMaps - Barbican controller")
@@ -565,7 +578,14 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		return err
 	}
 
-	customData := map[string]string{barbican.CustomConfigFileName: instance.Spec.CustomServiceConfig}
+	var tlsCfg *tls.Service
+	if instance.Spec.BarbicanAPI.TLS.Ca.CaBundleSecretName != "" {
+		tlsCfg = &tls.Service{}
+	}
+	customData := map[string]string{
+		barbican.CustomConfigFileName: instance.Spec.CustomServiceConfig,
+		"my.cnf":                      db.GetDatabaseClientConfig(tlsCfg), //(mschuppert) for now just get the default my.cnf
+	}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
@@ -581,7 +601,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	}
 
 	templateParameters := map[string]interface{}{
-		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
+		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
 			instance.Spec.DatabaseUser,
 			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
 			instance.Status.DatabaseHostname,
@@ -766,63 +786,6 @@ func (r *BarbicanReconciler) reconcileInit(
 	}
 
 	//
-	// create service DB instance
-	//
-	db := mariadbv1.NewDatabase(
-		instance.Name,
-		instance.Spec.DatabaseUser,
-		instance.Spec.Secret,
-		map[string]string{
-			"dbName": instance.Spec.DatabaseInstance,
-		},
-	)
-	// create or patch the DB
-	ctrlResult, err := db.CreateOrPatchDB(
-		ctx,
-		helper,
-	)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.DBReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.DBReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
-	}
-	if (ctrlResult != ctrl.Result{}) {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.DBReadyCondition,
-			condition.RequestedReason,
-			condition.SeverityInfo,
-			condition.DBReadyRunningMessage))
-		return ctrlResult, nil
-	}
-	// wait for the DB to be setup
-	ctrlResult, err = db.WaitForDBCreated(ctx, helper)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.DBReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.DBReadyErrorMessage,
-			err.Error()))
-		return ctrlResult, err
-	}
-	if (ctrlResult != ctrl.Result{}) {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.DBReadyCondition,
-			condition.RequestedReason,
-			condition.SeverityInfo,
-			condition.DBReadyRunningMessage))
-		return ctrlResult, nil
-	}
-	// update Status.DatabaseHostname, used to config the service
-	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
-	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
-	// create service DB - end
-
-	//
 	// create Keystone service and users
 	//
 	_, _, err = oko_secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
@@ -844,7 +807,7 @@ func (r *BarbicanReconciler) reconcileInit(
 	}
 
 	ksSvc := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, time.Duration(10)*time.Second)
-	ctrlResult, err = ksSvc.CreateOrPatch(ctx, helper)
+	ctrlResult, err := ksSvc.CreateOrPatch(ctx, helper)
 	if err != nil {
 		return ctrlResult, err
 	}
@@ -913,4 +876,67 @@ func (r *BarbicanReconciler) reconcileInit(
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
+}
+
+func (r *BarbicanReconciler) ensureDB(
+	ctx context.Context,
+	h *helper.Helper,
+	instance *barbicanv1beta1.Barbican,
+) (*mariadbv1.Database, ctrl.Result, error) {
+	//
+	// create service DB instance
+	//
+	db := mariadbv1.NewDatabase(
+		barbican.DatabaseName,
+		instance.Spec.DatabaseUser,
+		instance.Spec.Secret,
+		map[string]string{
+			"dbName": instance.Spec.DatabaseInstance,
+		},
+	)
+	// create or patch the DB
+	ctrlResult, err := db.CreateOrPatchDB(
+		ctx,
+		h,
+	)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBReadyErrorMessage,
+			err.Error()))
+		return db, ctrl.Result{}, err
+	}
+	if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBReadyRunningMessage))
+		return db, ctrlResult, nil
+	}
+	// wait for the DB to be setup
+	ctrlResult, err = db.WaitForDBCreated(ctx, h)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBReadyErrorMessage,
+			err.Error()))
+		return db, ctrlResult, err
+	}
+	if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBReadyRunningMessage))
+		return db, ctrlResult, nil
+	}
+	// update Status.DatabaseHostname, used to config the service
+	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
+	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
+	return db, ctrlResult, nil
 }

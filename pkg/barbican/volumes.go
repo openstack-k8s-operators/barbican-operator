@@ -37,6 +37,12 @@ func GetVolumeMounts(secretNames []string, svc []storage.PropagationType) []core
 			MountPath: "/var/lib/config-data/default",
 			ReadOnly:  true,
 		},
+		{
+			Name:      "config-data",
+			MountPath: "/etc/my.cnf",
+			SubPath:   "my.cnf",
+			ReadOnly:  true,
+		},
 	}
 
 	_, secretConfig := GetConfigSecretVolumes(secretNames)
