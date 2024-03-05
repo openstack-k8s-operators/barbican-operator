@@ -24,6 +24,15 @@ import (
 
 // BarbicanKeystoneListenerTemplate defines common Spec elements for the KeystoneListener process
 type BarbicanKeystoneListenerTemplate struct {
+	BarbicanKeystoneListenerTemplateCore `json:",inline"`
+
+	// +kubebuilder:validation:Required
+	// ContainerImage - Barbican Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+}
+
+// BarbicanKeystoneListenerTemplate defines common Spec elements for the KeystoneListener process
+type BarbicanKeystoneListenerTemplateCore struct {
 	BarbicanComponentTemplate `json:",inline"`
 
 	// TODO(dmendiza): Do we need a setting for number of keystone listener processes

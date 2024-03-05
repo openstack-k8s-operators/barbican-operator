@@ -79,6 +79,18 @@ func (spec *BarbicanSpec) Default() {
 	if spec.BarbicanKeystoneListener.ContainerImage == "" {
 		spec.BarbicanKeystoneListener.ContainerImage = barbicanDefaults.KeystoneListenerContainerImageURL
 	}
+	spec.BarbicanSpecBase.Default()
+}
+
+// Default - for shared base validations
+func (spec *BarbicanSpecBase) Default() {
+	// no validations
+}
+
+// Default - set defaults for this BarbicanSpecBase. NOTE: this version is used by the OpenStackControlplane webhook
+func (spec *BarbicanSpecCore) Default() {
+	// no validations
+	spec.BarbicanSpecBase.Default()
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.

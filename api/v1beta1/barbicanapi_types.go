@@ -25,6 +25,15 @@ import (
 
 // BarbicanAPITemplate defines the input parameters for the Barbican API service
 type BarbicanAPITemplate struct {
+	BarbicanAPITemplateCore `json:",inline"`
+
+	// +kubebuilder:validation:Required
+	// ContainerImage - Barbican Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+}
+
+// BarbicanAPITemplateCore -
+type BarbicanAPITemplateCore struct {
 	// Common input parameters for the Barbican API service
 	BarbicanComponentTemplate `json:",inline"`
 
