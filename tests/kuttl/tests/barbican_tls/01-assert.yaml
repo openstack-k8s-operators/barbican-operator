@@ -13,7 +13,7 @@ spec:
     [DEFAULT]
     debug = True
   databaseInstance: openstack
-  databaseUser: barbican
+  databaseAccount: barbican
   rabbitMqClusterName: rabbitmq
   barbicanWorker:
     replicas: 1

@@ -22,8 +22,8 @@ type BarbicanTemplate struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=barbican
-	// DatabaseUser - optional username used for barbican DB, defaults to barbican
-	DatabaseUser string `json:"databaseUser"`
+	// DatabaseAccount - optional MariaDBAccount CR name used for barbican DB, defaults to barbican
+	DatabaseAccount string `json:"databaseAccount"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:default=rabbitmq
@@ -42,8 +42,8 @@ type BarbicanTemplate struct {
 	Secret string `json:"secret"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={database: BarbicanDatabasePassword, service: BarbicanPassword, simplecryptokek: BarbicanSimpleCryptoKEK}
-	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
+	// +kubebuilder:default={service: BarbicanPassword, simplecryptokek: BarbicanSimpleCryptoKEK}
+	// PasswordSelectors - Selectors to identify the ServiceUser password from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
 	// +kubebuilder:validation:Optional
@@ -103,10 +103,6 @@ type BarbicanComponentTemplate struct {
 
 // PasswordSelector to identify the DB and AdminUser password from the Secret
 type PasswordSelector struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="BarbicanDatabasePassword"
-	// Database - Selector to get the barbican database user password from the Secret
-	Database string `json:"database"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="BarbicanPassword"
 	// Service - Selector to get the barbican service user password from the Secret

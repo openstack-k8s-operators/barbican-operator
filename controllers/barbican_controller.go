@@ -395,6 +395,16 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		instance.Status.Conditions.Set(c)
 	}
 
+	// remove finalizers from unused MariaDBAccount records
+	// this assumes all database-depedendent deployments are up and
+	// running with current database account info
+	err = mariadbv1.DeleteUnusedMariaDBAccountFinalizers(
+		ctx, helper, barbican.DatabaseCRName,
+		instance.Spec.DatabaseAccount, instance.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// create or update Barbican KeystoneListener deployment
 	barbicanKeystoneListener, op, err := r.keystoneListenerDeploymentCreateOrUpdate(ctx, instance, helper)
 	if err != nil {
@@ -428,7 +438,7 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// remove db finalizer first
-	db, err := mariadbv1.GetDatabaseByName(ctx, helper, instance.Name)
+	db, err := mariadbv1.GetDatabaseByNameAndAccount(ctx, helper, barbican.DatabaseCRName, instance.Spec.DatabaseAccount, instance.Namespace)
 	if err != nil && !k8s_errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
@@ -600,10 +610,13 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		return err
 	}
 
+	databaseAccount := db.GetAccount()
+	databaseSecret := db.GetSecret()
+
 	templateParameters := map[string]interface{}{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
-			instance.Spec.DatabaseUser,
-			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+			databaseAccount.Spec.UserName,
+			string(databaseSecret.Data[mariadbv1.DatabasePasswordSelector]),
 			instance.Status.DatabaseHostname,
 			barbican.DatabaseName,
 		),
@@ -883,22 +896,45 @@ func (r *BarbicanReconciler) ensureDB(
 	h *helper.Helper,
 	instance *barbicanv1beta1.Barbican,
 ) (*mariadbv1.Database, ctrl.Result, error) {
-	//
-	// create service DB instance
-	//
-	db := mariadbv1.NewDatabase(
-		barbican.DatabaseName,
-		instance.Spec.DatabaseUser,
-		instance.Spec.Secret,
-		map[string]string{
-			"dbName": instance.Spec.DatabaseInstance,
-		},
+	// ensure MariaDBAccount exists.  This account record may be created by
+	// openstack-operator or the cloud operator up front without a specific
+	// MariaDBDatabase configured yet.   Otherwise, a MariaDBAccount CR is
+	// created here with a generated username as well as a secret with
+	// generated password.   The MariaDBAccount is created without being
+	// yet associated with any MariaDBDatabase.
+	_, _, err := mariadbv1.EnsureMariaDBAccount(
+		ctx, h, instance.Spec.DatabaseAccount,
+		instance.Namespace, false, barbican.DatabaseUsernamePrefix,
 	)
+
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			mariadbv1.MariaDBAccountReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			mariadbv1.MariaDBAccountNotReadyMessage,
+			err.Error()))
+
+		return nil, ctrl.Result{}, err
+	}
+	instance.Status.Conditions.MarkTrue(
+		mariadbv1.MariaDBAccountReadyCondition,
+		mariadbv1.MariaDBAccountReadyMessage)
+
+	//
+	// create barbican DB instance
+	//
+	db := mariadbv1.NewDatabaseForAccount(
+		instance.Spec.DatabaseInstance, // mariadb/galera service to target
+		barbican.DatabaseName,          // name used in CREATE DATABASE in mariadb
+		barbican.DatabaseCRName,        // CR name for MariaDBDatabase
+		instance.Spec.DatabaseAccount,  // CR name for MariaDBAccount
+		instance.Namespace,             // namespace
+	)
+
 	// create or patch the DB
-	ctrlResult, err := db.CreateOrPatchDB(
-		ctx,
-		h,
-	)
+	ctrlResult, err := db.CreateOrPatchAll(ctx, h)
+
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,

@@ -13,8 +13,17 @@ const (
 	ComponentWorker = "barbican-worker"
 	// ServiceType -
 	ServiceType = "key-manager"
-	// DatabaseName -
+
+	// DatabaseName - Name of the database used in CREATE DATABASE statement
 	DatabaseName = "barbican"
+
+	// DatabaseCRName - Name of the MariaDBDatabase CR
+	DatabaseCRName = "barbican"
+
+	// DatabaseUsernamePrefix - used by EnsureMariaDBAccount when a new username
+	// is to be generated, e.g. "barbican_e5a4", "barbican_78bc", etc
+	DatabaseUsernamePrefix = "barbican"
+
 	// BarbicanPublicPort -
 	BarbicanPublicPort int32 = 9311
 	// BarbicanInternalPort -

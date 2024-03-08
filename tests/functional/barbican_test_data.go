@@ -20,6 +20,8 @@ package functional
 import (
 	"fmt"
 
+	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
+
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -40,7 +42,6 @@ const (
 
 // BarbicanTestData is the data structure used to provide input data to envTest
 type BarbicanTestData struct {
-	BarbicanDatabaseUser     string
 	BarbicanPassword         string
 	BarbicanServiceUser      string
 	ContainerImage           string
@@ -50,6 +51,8 @@ type BarbicanTestData struct {
 	RabbitmqSecretName       string
 	Instance                 types.NamespacedName
 	Barbican                 types.NamespacedName
+	BarbicanDatabaseName     types.NamespacedName
+	BarbicanDatabaseAccount  types.NamespacedName
 	BarbicanDBSync           types.NamespacedName
 	BarbicanAPI              types.NamespacedName
 	BarbicanRole             types.NamespacedName
@@ -80,6 +83,14 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		Barbican: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      barbicanName.Name,
+		},
+		BarbicanDatabaseName: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      barbican.DatabaseCRName,
+		},
+		BarbicanDatabaseAccount: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      "barbican",
 		},
 		BarbicanDBSync: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
@@ -154,11 +165,10 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 			Namespace: barbicanName.Namespace,
 			Name:      PublicCertSecretName,
 		},
-		RabbitmqClusterName:  "rabbitmq",
-		RabbitmqSecretName:   "rabbitmq-secret",
-		BarbicanDatabaseUser: "barbican",
-		DatabaseInstance:     "openstack",
-		// Password used for both db and service
+		RabbitmqClusterName: "rabbitmq",
+		RabbitmqSecretName:  "rabbitmq-secret",
+		DatabaseInstance:    "openstack",
+		// Password used for service
 		BarbicanPassword:    "12345678",
 		BarbicanServiceUser: "barbican",
 		ContainerImage:      "test://barbican",

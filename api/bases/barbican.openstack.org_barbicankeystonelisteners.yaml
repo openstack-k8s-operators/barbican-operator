@@ -56,17 +56,17 @@ spec:
                 items:
                   type: string
                 type: array
+              databaseAccount:
+                default: barbican
+                description: DatabaseAccount - optional MariaDBAccount CR name used
+                  for barbican DB, defaults to barbican
+                type: string
               databaseHostname:
                 type: string
               databaseInstance:
                 description: 'MariaDB instance name TODO(dmendiza): Is this comment
                   right? Right now required by the maridb-operator to get the credentials
                   from the instance to create the DB Might not be required in future'
-                type: string
-              databaseUser:
-                default: barbican
-                description: DatabaseUser - optional username used for barbican DB,
-                  defaults to barbican
                 type: string
               defaultConfigOverwrite:
                 additionalProperties:
@@ -91,17 +91,11 @@ spec:
                 type: object
               passwordSelectors:
                 default:
-                  database: BarbicanDatabasePassword
                   service: BarbicanPassword
                   simplecryptokek: BarbicanSimpleCryptoKEK
-                description: PasswordSelectors - Selectors to identify the DB and
-                  ServiceUser password from the Secret
+                description: PasswordSelectors - Selectors to identify the ServiceUser
+                  password from the Secret
                 properties:
-                  database:
-                    default: BarbicanDatabasePassword
-                    description: Database - Selector to get the barbican database
-                      user password from the Secret
-                    type: string
                   service:
                     default: BarbicanPassword
                     description: Service - Selector to get the barbican service user
