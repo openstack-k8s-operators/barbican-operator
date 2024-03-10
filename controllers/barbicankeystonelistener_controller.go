@@ -234,7 +234,7 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 	Log.Info("[KeystoneListener] generateServiceConfigs - reconciling")
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), map[string]string{})
 
-	db, err := mariadbv1.GetDatabaseByName(ctx, h, barbican.DatabaseName)
+	db, err := mariadbv1.GetDatabaseByNameAndAccount(ctx, h, barbican.DatabaseCRName, instance.Spec.DatabaseAccount, instance.Namespace)
 	if err != nil {
 		return err
 	}
@@ -263,11 +263,6 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 	//	return err
 	//}
 
-	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
-	if err != nil {
-		return err
-	}
-
 	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.TransportURLSecret, instance.Namespace)
 	if err != nil {
 		return err
@@ -275,10 +270,13 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 
+	databaseAccount := db.GetAccount()
+	databaseSecret := db.GetSecret()
+
 	templateParameters := map[string]interface{}{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
-			instance.Spec.DatabaseUser,
-			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+			databaseAccount.Spec.UserName,
+			string(databaseSecret.Data[mariadbv1.DatabasePasswordSelector]),
 			instance.Spec.DatabaseHostname,
 			barbican.DatabaseName,
 		),

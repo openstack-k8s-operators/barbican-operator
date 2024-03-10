@@ -6,10 +6,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
+	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Barbican controller", func() {
@@ -22,7 +25,7 @@ var _ = Describe("Barbican controller", func() {
 			Barbican := GetBarbican(barbicanTest.Instance)
 			Expect(Barbican.Spec.ServiceUser).Should(Equal("barbican"))
 			Expect(Barbican.Spec.DatabaseInstance).Should(Equal("openstack"))
-			Expect(Barbican.Spec.DatabaseUser).Should(Equal("barbican"))
+			Expect(Barbican.Spec.DatabaseAccount).Should(Equal("barbican"))
 		})
 
 		It("should have the Status fields initialized", func() {
@@ -97,8 +100,8 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 		})
 		It("Should set DBReady Condition and set DatabaseHostname Status when DB is Created", func() {
-			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 			Barbican := GetBarbican(barbicanTest.Instance)
 			Expect(Barbican.Status.DatabaseHostname).To(Equal(fmt.Sprintf("hostname-for-openstack.%s.svc", namespace)))
@@ -116,8 +119,8 @@ var _ = Describe("Barbican controller", func() {
 			)
 		})
 		It("should create config-data and scripts ConfigMaps", func() {
-			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
 			Expect(cf).ShouldNot(BeNil())
 			conf := cf.Data["my.cnf"]
@@ -125,8 +128,8 @@ var _ = Describe("Barbican controller", func() {
 				ContainSubstring("[client]\nssl=0"))
 		})
 		It("Should fail if db-sync job fails when DB is Created", func() {
-			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			th.SimulateJobFailure(barbicanTest.BarbicanDBSync)
 			th.ExpectCondition(
 				barbicanTest.Instance,
@@ -173,8 +176,8 @@ var _ = Describe("Barbican controller", func() {
 			)
 			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
-			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
@@ -219,8 +222,8 @@ var _ = Describe("Barbican controller", func() {
 			)
 			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
-			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.Instance)
-			mariadb.SimulateMariaDBTLSDatabaseCompleted(barbicanTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBTLSDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
@@ -264,4 +267,86 @@ var _ = Describe("Barbican controller", func() {
 				ContainSubstring("[client]\nssl-ca=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem\nssl=1"))
 		})
 	})
+
+	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
+	// that exercise standard account create / update patterns that should be
+	// common to all controllers that ensure MariaDBAccount CRs.
+	mariadbSuite := &mariadb_test.MariaDBTestHarness{
+		PopulateHarness: func(harness *mariadb_test.MariaDBTestHarness) {
+			harness.Setup(
+				"Barbican",
+				barbicanTest.Instance.Namespace,
+				barbicanTest.Instance.Name,
+				"Barbican",
+				mariadb, timeout, interval,
+			)
+		},
+
+		// Generate a fully running service given an accountName
+		// needs to make it all the way to the end where the mariadb finalizers
+		// are removed from unused accounts since that's part of what we are testing
+		SetupCR: func(accountName types.NamespacedName) {
+
+			spec := GetDefaultBarbicanSpec()
+			spec["databaseAccount"] = accountName.Name
+
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
+			DeferCleanup(th.DeleteInstance, CreateBarbicanAPI(barbicanTest.Instance, GetTLSBarbicanAPISpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateKeystoneAPISecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(accountName)
+			mariadb.SimulateMariaDBTLSDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+		},
+		// Change the account name in the service to a new name
+		UpdateAccount: func(newAccountName types.NamespacedName) {
+
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanName)
+				barbican.Spec.DatabaseAccount = newAccountName.Name
+				g.Expect(th.K8sClient.Update(ctx, barbican)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+		},
+		// delete the CR instance to exercise finalizer removal
+		DeleteCR: func() {
+			th.DeleteInstance(GetBarbican(barbicanName))
+		},
+	}
+
+	mariadbSuite.RunBasicSuite()
+
+	mariadbSuite.RunURLAssertSuite(func(accountName types.NamespacedName, username string, password string) {
+		Eventually(func(g Gomega) {
+			secretDataMap := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+
+			conf := secretDataMap.Data["00-default.conf"]
+
+			g.Expect(string(conf)).Should(
+				ContainSubstring(fmt.Sprintf("sql_connection = mysql+pymysql://%s:%s@hostname-for-openstack.%s.svc/%s?read_default_file=/etc/my.cnf",
+					username, password, namespace, barbican.DatabaseName)))
+
+		}).Should(Succeed())
+
+	})
+
 })

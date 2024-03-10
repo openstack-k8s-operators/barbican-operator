@@ -12,7 +12,7 @@ spec:
   serviceAccount: barbican
   serviceUser: barbican
   databaseInstance: openstack
-  databaseUser: barbican
+  databaseAccount: barbican
   rabbitMqCusterName: barbican_rabbit
   secret: osp-secret
   passwordSelectors:
