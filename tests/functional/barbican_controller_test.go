@@ -233,6 +233,13 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))
 			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
 
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionTrue,
+			)
+
 			BarbicanAPIExists(barbicanTest.Instance)
 
 			d := th.GetDeployment(barbicanTest.BarbicanAPI)
