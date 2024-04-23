@@ -188,7 +188,7 @@ func (r *BarbicanKeystoneListenerReconciler) getSecret(
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Secret %s not found", secretName)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("secret %s not found", secretName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -300,111 +300,15 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 func (r *BarbicanKeystoneListenerReconciler) reconcileInit(
 	ctx context.Context,
 	instance *barbicanv1beta1.BarbicanKeystoneListener,
-	helper *helper.Helper,
-	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' init", instance.Name))
 
-	//
-	// expose the service (create service, route and return the created endpoint URLs)
-	//
-	//ports := map[endpoint.Endpoint]endpoint.Data{}
-	//ports[endpoint.EndpointInternal] = endpoint.Data{
-	//	Port: barbican.BarbicanInternalPort,
-	//}
-	//ports[endpoint.EndpointPublic] = endpoint.Data{
-	//	Port: barbican.BarbicanPublicPort,
-	//}
-
-	/*
-		for _, metallbcfg := range instance.Spec.ExternalEndpoints {
-			portCfg := ports[metallbcfg.Endpoint]
-			portCfg.MetalLB = &endpoint.MetalLBData{
-				IPAddressPool:   metallbcfg.IPAddressPool,
-				SharedIP:        metallbcfg.SharedIP,
-				SharedIPKey:     metallbcfg.SharedIPKey,
-				LoadBalancerIPs: metallbcfg.LoadBalancerIPs,
-			}
-
-			ports[metallbcfg.Endpoint] = portCfg
-		}
-
-		apiEndpoints, ctrlResult, err := endpoint.ExposeEndpoints(
-			ctx,
-			helper,
-			barbican.ServiceName,
-			serviceLabels,
-			ports,
-			time.Duration(5)*time.Second,
-		)
-		if err != nil {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.ExposeServiceReadyCondition,
-				condition.ErrorReason,
-				condition.SeverityWarning,
-				condition.ExposeServiceReadyErrorMessage,
-				err.Error()))
-			return ctrlResult, err
-		} else if (ctrlResult != ctrl.Result{}) {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.ExposeServiceReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.ExposeServiceReadyRunningMessage))
-			return ctrlResult, nil
-		}
-	*/
-	//instance.Status.Conditions.MarkTrue(condition.ExposeServiceReadyCondition, condition.ExposeServiceReadyMessage)
-
-	//
-	// Update instance status with service endpoint url from route host information
-	//
-	// TODO: need to support https default here
-	//if instance.Status.APIEndpoints == nil {
-	//	instance.Status.APIEndpoints = map[string]string{}
-	//}
-	//instance.Status.APIEndpoints = apiEndpoints
-
-	// expose service - end
-
-	//
-	// create keystone endpoints
-	//
-
-	//ksEndpointSpec := keystonev1.KeystoneEndpointSpec{
-	//	ServiceName: barbican.ServiceName,
-	//	Endpoints:   instance.Status.APIEndpoints,
-	//}
-
-	/*
-		ksSvc := keystonev1.NewKeystoneEndpoint(instance.Name, instance.Namespace, ksEndpointSpec, serviceLabels, time.Duration(10)*time.Second)
-		ctrlResult, err = ksSvc.CreateOrPatch(ctx, helper)
-		if err != nil {
-			return ctrlResult, err
-		}
-
-		// mirror the Status, Reason, Severity and Message of the latest keystoneendpoint condition
-		// into a local condition with the type condition.KeystoneEndpointReadyCondition
-		c := ksSvc.GetConditions().Mirror(condition.KeystoneEndpointReadyCondition)
-		if c != nil {
-			instance.Status.Conditions.Set(c)
-		}
-
-		if (ctrlResult != ctrl.Result{}) {
-			return ctrlResult, nil
-		}
-
-		//
-		// create keystone endpoints - end
-		//
-
-	*/
 	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanKeystoneListenerReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
+func (r *BarbicanKeystoneListenerReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' update", instance.Name))
 
@@ -415,7 +319,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileUpdate(ctx context.Context
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanKeystoneListenerReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener, helper *helper.Helper) (ctrl.Result, error) {
+func (r *BarbicanKeystoneListenerReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanKeystoneListener) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 	Log.Info(fmt.Sprintf("[KeystoneListener] Reconciling Service '%s' upgrade", instance.Name))
 
@@ -597,7 +501,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	Log.Info(fmt.Sprintf("[DELETE] %s", serviceAnnotations))
 
 	// Handle service init
-	ctrlResult, err = r.reconcileInit(ctx, instance, helper, serviceLabels)
+	ctrlResult, err = r.reconcileInit(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -605,7 +509,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	}
 
 	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpdate(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -613,7 +517,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	}
 
 	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -727,7 +631,7 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	l := log.FromContext(context.Background()).WithName("Controllers").WithName("BarbicanKeystoneListener")
+	l := log.FromContext(ctx).WithName("Controllers").WithName("BarbicanKeystoneListener")
 
 	for _, field := range commonWatchFields {
 		crList := &barbicanv1beta1.BarbicanKeystoneListenerList{}
@@ -735,7 +639,7 @@ func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(ctx context.Conte
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
 			Namespace:     src.GetNamespace(),
 		}
-		err := r.List(context.TODO(), crList, listOps)
+		err := r.List(ctx, crList, listOps)
 		if err != nil {
 			return []reconcile.Request{}
 		}

@@ -51,21 +51,3 @@ const (
 	// BarbicanAPI and the sidecar container
 	LogVolume = "logs"
 )
-
-// DbsyncPropagation keeps track of the DBSync Service Propagation Type
-var DbsyncPropagation = []storage.PropagationType{storage.DBSync}
-
-// BarbicanAPIPropagation is the  definition of the BarbicanAPI propagation group
-// It allows the BarbicanAPI pod to mount volumes destined to Barbican related
-// ServiceTypes
-var BarbicanAPIPropagation = []storage.PropagationType{Barbican, BarbicanAPI}
-
-// BarbicanWorkerPropagation is the  definition of the BarbicanWorker propagation group
-// It allows the BarbicanWorker pod to mount volumes destined to Barbican related
-// ServiceTypes
-var BarbicanWorkerPropagation = []storage.PropagationType{Barbican, BarbicanWorker}
-
-// BarbicanKeystoneListenerPropagation is the  definition of the BarbicanKeystoneListener propagation group
-// It allows the BarbicanKeystoneListener pod to mount volumes destined to Barbican related
-// ServiceTypes
-var BarbicanKeystoneListenerPropagation = []storage.PropagationType{Barbican, BarbicanKeystoneListener}
