@@ -99,7 +99,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 								RunAsUser: &runAsUser,
 							},
 							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: append(GetVolumeMounts(secretNames, DbsyncPropagation),
+							VolumeMounts: append(GetVolumeMounts(secretNames),
 								dbSyncMounts...),
 						},
 					},
@@ -110,9 +110,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 
 	job.Spec.Template.Spec.Volumes = append(GetVolumes(
 		instance.Name,
-		ServiceName,
-		secretNames,
-		DbsyncPropagation),
+		secretNames),
 		dbSyncVolume...,
 	)
 

@@ -205,7 +205,7 @@ func (r *BarbicanAPIReconciler) getSecret(
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Secret %s not found", secretName)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("secret %s not found", secretName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -507,7 +507,7 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanAPIReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
+func (r *BarbicanAPIReconciler) reconcileUpdate(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
@@ -519,7 +519,7 @@ func (r *BarbicanAPIReconciler) reconcileUpdate(ctx context.Context, instance *b
 	return ctrl.Result{}, nil
 }
 
-func (r *BarbicanAPIReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI, helper *helper.Helper) (ctrl.Result, error) {
+func (r *BarbicanAPIReconciler) reconcileUpgrade(ctx context.Context, instance *barbicanv1beta1.BarbicanAPI) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
@@ -703,7 +703,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	}
 
 	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpdate(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -711,7 +711,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	}
 
 	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -878,7 +878,7 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *BarbicanAPIReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	l := log.FromContext(context.Background()).WithName("Controllers").WithName("BarbicanAPI")
+	l := log.FromContext(ctx).WithName("Controllers").WithName("BarbicanAPI")
 
 	for _, field := range apinWatchFields {
 		crList := &barbicanv1beta1.BarbicanAPIList{}
@@ -886,7 +886,7 @@ func (r *BarbicanAPIReconciler) findObjectsForSrc(ctx context.Context, src clien
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
 			Namespace:     src.GetNamespace(),
 		}
-		err := r.List(context.TODO(), crList, listOps)
+		err := r.List(ctx, crList, listOps)
 		if err != nil {
 			return []reconcile.Request{}
 		}

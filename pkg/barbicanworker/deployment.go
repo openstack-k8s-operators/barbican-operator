@@ -140,8 +140,7 @@ func Deployment(
 							},
 							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts: append(barbican.GetVolumeMounts(
-								instance.Spec.CustomServiceConfigSecrets,
-								barbican.BarbicanWorkerPropagation),
+								instance.Spec.CustomServiceConfigSecrets),
 								workerVolumeMounts...,
 							),
 							Resources: instance.Spec.Resources,
@@ -155,9 +154,7 @@ func Deployment(
 	}
 	deployment.Spec.Template.Spec.Volumes = append(barbican.GetVolumes(
 		instance.Name,
-		barbican.ServiceName,
-		instance.Spec.CustomServiceConfigSecrets,
-		barbican.BarbicanWorkerPropagation),
+		instance.Spec.CustomServiceConfigSecrets),
 		workerVolumes...)
 	return deployment
 }

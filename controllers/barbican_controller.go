@@ -43,7 +43,6 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
@@ -243,7 +242,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	ospSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
+	ospSecret, hash, err := oko_secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -265,7 +264,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
 	// check for Simple Crypto Backend secret holding the KEK
-	kekSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
+	kekSecret, hash, err := oko_secret.GetSecret(ctx, helper, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -273,7 +272,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Simple Crypto backend secret %s not found", instance.Spec.SimpleCryptoBackendSecret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("simple Crypto backend secret %s not found", instance.Spec.SimpleCryptoBackendSecret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -588,12 +587,12 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	// create Secret required for barbican input
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(barbican.ServiceName), serviceLabels)
 
-	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
+	ospSecret, _, err := oko_secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
 		return err
 	}
 
-	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Status.TransportURLSecret, instance.Namespace)
+	transportURLSecret, _, err := oko_secret.GetSecret(ctx, h, instance.Status.TransportURLSecret, instance.Namespace)
 	if err != nil {
 		return err
 	}

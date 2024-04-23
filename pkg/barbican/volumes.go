@@ -3,12 +3,11 @@ package barbican
 import (
 	"strconv"
 
-	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // GetVolumes - service volumes
-func GetVolumes(name string, pvcName string, secretNames []string, svc []storage.PropagationType) []corev1.Volume {
+func GetVolumes(name string, secretNames []string) []corev1.Volume {
 	var config0644AccessMode int32 = 0644
 
 	vm := []corev1.Volume{
@@ -29,7 +28,7 @@ func GetVolumes(name string, pvcName string, secretNames []string, svc []storage
 }
 
 // GetVolumeMounts - general VolumeMounts
-func GetVolumeMounts(secretNames []string, svc []storage.PropagationType) []corev1.VolumeMount {
+func GetVolumeMounts(secretNames []string) []corev1.VolumeMount {
 
 	vm := []corev1.VolumeMount{
 		{
