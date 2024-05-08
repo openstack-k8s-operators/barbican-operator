@@ -2,9 +2,11 @@ package functional
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2" //revive:disable:dot-imports
 	. "github.com/onsi/gomega"    //revive:disable:dot-imports
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	//revive:disable-next-line:dot-imports
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
@@ -14,6 +16,7 @@ import (
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -358,4 +361,44 @@ var _ = Describe("Barbican controller", func() {
 
 	})
 
+})
+
+var _ = Describe("Barbican Webhook", func() {
+
+	BeforeEach(func() {
+		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("rejects with wrong BarbicanAPI service override endpoint type", func() {
+		spec := GetDefaultBarbicanSpec()
+		apiSpec := GetDefaultBarbicanAPISpec()
+		apiSpec["override"] = map[string]interface{}{
+			"service": map[string]interface{}{
+				"internal": map[string]interface{}{},
+				"wrooong":  map[string]interface{}{},
+			},
+		}
+		spec["barbicanAPI"] = apiSpec
+
+		raw := map[string]interface{}{
+			"apiVersion": "barbican.openstack.org/v1beta1",
+			"kind":       "Barbican",
+			"metadata": map[string]interface{}{
+				"name":      barbicanTest.Instance.Name,
+				"namespace": barbicanTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(
+			ContainSubstring(
+				"invalid: spec.barbicanAPI.override.service[wrooong]: " +
+					"Invalid value: \"wrooong\": invalid endpoint type: wrooong"),
+		)
+	})
 })
