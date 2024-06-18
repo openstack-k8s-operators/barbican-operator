@@ -77,7 +77,7 @@ var _ = Describe("Barbican controller", func() {
 			// it to run
 			Eventually(func() []string {
 				return GetBarbican(barbicanTest.Instance).Finalizers
-			}, timeout, interval).Should(ContainElement("Barbican"))
+			}, timeout, interval).Should(ContainElement("openstack.org/barbican"))
 		})
 		It("should not create a config map", func() {
 			Eventually(func() []corev1.ConfigMap {
@@ -289,7 +289,7 @@ var _ = Describe("Barbican controller", func() {
 				"Barbican",
 				barbicanTest.Instance.Namespace,
 				barbicanTest.Instance.Name,
-				"Barbican",
+				"openstack.org/barbican",
 				mariadb, timeout, interval,
 			)
 		},
