@@ -356,6 +356,9 @@ var _ = Describe("Barbican controller", func() {
 			g.Expect(string(conf)).Should(
 				ContainSubstring(fmt.Sprintf("sql_connection = mysql+pymysql://%s:%s@hostname-for-openstack.%s.svc/%s?read_default_file=/etc/my.cnf",
 					username, password, namespace, barbican.DatabaseName)))
+			g.Expect(string(conf)).Should(
+				ContainSubstring(fmt.Sprintf("connection = mysql+pymysql://%s:%s@hostname-for-openstack.%s.svc/%s?read_default_file=/etc/my.cnf",
+					username, password, namespace, barbican.DatabaseName)))
 
 		}).Should(Succeed())
 
