@@ -68,16 +68,16 @@ func (r *BarbicanReconciler) GetLogger(ctx context.Context) logr.Logger {
 
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans/finalizers,verbs=update
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicans/finalizers,verbs=update;patch
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/finalizers,verbs=update
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanapis/finalizers,verbs=update;patch
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanworkers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanworkers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanworkers/finalizers,verbs=update
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicanworkers/finalizers,verbs=update;patch
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicankeystonelisteners,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicankeystonelisteners/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicankeystonelisteners/finalizers,verbs=update
+//+kubebuilder:rbac:groups=barbican.openstack.org,resources=barbicankeystonelisteners/finalizers,verbs=update;patch
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch;
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneservices,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneendpoints,verbs=get;list;watch;create;update;patch;delete;
@@ -94,9 +94,9 @@ func (r *BarbicanReconciler) GetLogger(ctx context.Context) logr.Logger {
 //+kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;list;watch
 
 // service account, role, rolebinding
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups="security.openshift.io",resourceNames=anyuid,resources=securitycontextconstraints,verbs=use
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
