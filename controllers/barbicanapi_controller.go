@@ -219,7 +219,6 @@ func (r *BarbicanAPIReconciler) getSecret(
 	// Add a prefix to the var name to avoid accidental collision with other non-secret
 	// vars. The secret names themselves will be unique.
 	(*envVars)["secret-"+instance.Spec.Secret] = env.SetValue(hash)
-	// env[secret-osp-secret] = hash?
 
 	return ctrl.Result{}, nil
 }
