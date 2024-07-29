@@ -197,7 +197,7 @@ func (r *BarbicanAPIReconciler) getSecret(
 	secretName string,
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
-	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: instance.Spec.Secret, Namespace: instance.Namespace}, []string{"AdminPassword"}, h.GetClient(), time.Second*10)
+	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, []string{"AdminPassword"}, h.GetClient(), time.Second*10)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -205,7 +205,7 @@ func (r *BarbicanAPIReconciler) getSecret(
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return result, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return result, fmt.Errorf("OpenStack secret %s not found", secretName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -218,7 +218,7 @@ func (r *BarbicanAPIReconciler) getSecret(
 
 	// Add a prefix to the var name to avoid accidental collision with other non-secret
 	// vars. The secret names themselves will be unique.
-	(*envVars)["secret-"+instance.Spec.Secret] = env.SetValue(hash)
+	(*envVars)["secret-"+secretName] = env.SetValue(hash)
 
 	return ctrl.Result{}, nil
 }
