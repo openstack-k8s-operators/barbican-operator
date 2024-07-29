@@ -59,6 +59,10 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+const (
+	TransportURL = "transport_url"
+)
+
 // GetClient -
 func (r *BarbicanAPIReconciler) GetClient() client.Client {
 	return r.Client
@@ -196,13 +200,10 @@ func (r *BarbicanAPIReconciler) getSecret(
 	h *helper.Helper,
 	instance *barbicanv1beta1.BarbicanAPI,
 	secretName string,
+	expectedFields []string,
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
-	expectedField := "transport_url"
-	if strings.HasSuffix(secretName, "osp-secret") {
-		expectedField = "AdminPassword"
-	}
-	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, []string{expectedField}, h.GetClient(), time.Second*10)
+	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, expectedFields, h.GetClient(), time.Second*10)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -573,7 +574,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
 	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Spec.Secret))
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
+	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
@@ -582,7 +583,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// check for required TransportURL secret holding transport URL string
 	//
 	Log.Info(fmt.Sprintf("[API] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
-	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
+	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, []string{TransportURL}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
