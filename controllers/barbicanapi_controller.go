@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -198,7 +199,7 @@ func (r *BarbicanAPIReconciler) getSecret(
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
 	expectedField := "transport_url"
-	if secretName == "osp-secret" {
+	if strings.HasSuffix(secretName, "osp-secret") {
 		expectedField = "AdminPassword"
 	}
 	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, []string{expectedField}, h.GetClient(), time.Second*10)
