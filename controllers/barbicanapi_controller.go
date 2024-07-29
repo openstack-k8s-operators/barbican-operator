@@ -197,7 +197,11 @@ func (r *BarbicanAPIReconciler) getSecret(
 	secretName string,
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
-	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, []string{"AdminPassword"}, h.GetClient(), time.Second*10)
+	expectedField := "transport_url"
+	if secretName == "osp-secret" {
+		expectedField = "AdminPassword"
+	}
+	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, []string{expectedField}, h.GetClient(), time.Second*10)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -567,7 +571,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Name))
+	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Spec.Secret))
 	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
 	if err != nil {
 		return ctrlResult, err
