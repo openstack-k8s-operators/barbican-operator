@@ -58,6 +58,10 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+const (
+	TransportURL = "transport_url"
+)
+
 // GetClient -
 func (r *BarbicanAPIReconciler) GetClient() client.Client {
 	return r.Client
@@ -195,9 +199,10 @@ func (r *BarbicanAPIReconciler) getSecret(
 	h *helper.Helper,
 	instance *barbicanv1beta1.BarbicanAPI,
 	secretName string,
+	expectedFields []string,
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
-	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: instance.Spec.Secret, Namespace: instance.Namespace}, []string{"AdminPassword"}, h.GetClient(), time.Second*10)
+	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, expectedFields, h.GetClient(), time.Second*10)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -205,7 +210,7 @@ func (r *BarbicanAPIReconciler) getSecret(
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return result, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return result, fmt.Errorf("OpenStack secret %s not found", secretName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -218,8 +223,7 @@ func (r *BarbicanAPIReconciler) getSecret(
 
 	// Add a prefix to the var name to avoid accidental collision with other non-secret
 	// vars. The secret names themselves will be unique.
-	(*envVars)["secret-"+instance.Spec.Secret] = env.SetValue(hash)
-	// env[secret-osp-secret] = hash?
+	(*envVars)["secret-"+secretName] = env.SetValue(hash)
 
 	return ctrl.Result{}, nil
 }
@@ -568,8 +572,8 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Name))
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
+	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Spec.Secret))
+	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
@@ -578,7 +582,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// check for required TransportURL secret holding transport URL string
 	//
 	Log.Info(fmt.Sprintf("[API] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
-	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
+	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, []string{TransportURL}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
