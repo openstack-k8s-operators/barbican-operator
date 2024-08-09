@@ -202,16 +202,9 @@ func (r *BarbicanAPIReconciler) getSecret(
 	expectedFields []string,
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
+	Log := r.GetLogger(ctx)
 	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, expectedFields, h.GetClient(), time.Second*10)
 	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.InputReadyWaitingMessage))
-			return result, fmt.Errorf("OpenStack secret %s not found", secretName)
-		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
 			condition.ErrorReason,
@@ -219,6 +212,14 @@ func (r *BarbicanAPIReconciler) getSecret(
 			condition.InputReadyErrorMessage,
 			err.Error()))
 		return ctrl.Result{}, err
+	} else if (result != ctrl.Result{}) {
+		Log.Info(fmt.Sprintf("OpenStack secret %s not found", secretName))
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.InputReadyWaitingMessage))
+		return result, nil
 	}
 
 	// Add a prefix to the var name to avoid accidental collision with other non-secret
