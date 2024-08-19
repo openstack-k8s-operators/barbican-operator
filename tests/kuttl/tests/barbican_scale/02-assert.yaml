@@ -25,7 +25,6 @@ metadata:
 spec:
   replicas: 2
 status:
-  availableReplicas: 2
   replicas: 2
 ---
 apiVersion: apps/v1
@@ -35,7 +34,6 @@ metadata:
 spec:
   replicas: 2
 status:
-  availableReplicas: 2
   replicas: 2
 ---
 apiVersion: apps/v1
@@ -45,5 +43,4 @@ metadata:
 spec:
   replicas: 2
 status:
-  availableReplicas: 2
   replicas: 2
