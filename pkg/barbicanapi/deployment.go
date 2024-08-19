@@ -128,6 +128,7 @@ func Deployment(
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: instance.Spec.ServiceAccount,
+					NodeSelector:       instance.Spec.NodeSelector,
 					Containers: []corev1.Container{
 						{
 							Name: instance.Name + "-log",
@@ -176,6 +177,7 @@ func Deployment(
 			},
 		},
 	}
+
 	deployment.Spec.Template.Spec.Volumes = append(barbican.GetVolumes(
 		instance.Name,
 		instance.Spec.CustomServiceConfigSecrets),
