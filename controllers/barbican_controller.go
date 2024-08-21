@@ -680,7 +680,7 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 	}
 
 	// If NodeSelector is not specified in BarbicanAPITemplate, the current
-	// API instance inherits the valur from the top-level CR.
+	// API instance inherits the value from the top-level CR.
 	if apiSpec.BarbicanAPITemplate.BarbicanAPITemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
 		apiSpec.BarbicanAPITemplate.BarbicanAPITemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
 	}
