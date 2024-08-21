@@ -724,7 +724,7 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 	}
 
 	// If NodeSelector is not specified in BarbicanWorkerTemplate, the current
-	// Worker instance inherits the valur from the top-level CR.
+	// Worker instance inherits the value from the top-level CR.
 	if workerSpec.BarbicanWorkerTemplate.BarbicanWorkerTemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
 		workerSpec.BarbicanWorkerTemplate.BarbicanWorkerTemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
 	}
