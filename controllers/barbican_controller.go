@@ -764,7 +764,7 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 	}
 
 	// If NodeSelector is not specified in BarbicanKeystoneListenerTemplate, the current
-	// KeystoneListener instance inherits the valur from the top-level CR.
+	// KeystoneListener instance inherits the value from the top-level CR.
 	if keystoneListenerSpec.BarbicanKeystoneListenerTemplate.BarbicanKeystoneListenerTemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
 		keystoneListenerSpec.BarbicanKeystoneListenerTemplate.BarbicanKeystoneListenerTemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
 	}
