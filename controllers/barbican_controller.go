@@ -676,6 +676,12 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 		TransportURLSecret:  instance.Status.TransportURLSecret,
 	}
 
+	// If NodeSelector is not specified in BarbicanAPITemplate, the current
+	// API instance inherits the value from the top-level CR.
+	if apiSpec.BarbicanAPITemplate.BarbicanAPITemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
+		apiSpec.BarbicanAPITemplate.BarbicanAPITemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
+	}
+
 	deployment := &barbicanv1beta1.BarbicanAPI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-api", instance.Name),
@@ -714,6 +720,12 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 		TLS:                    instance.Spec.BarbicanAPI.TLS.Ca,
 	}
 
+	// If NodeSelector is not specified in BarbicanWorkerTemplate, the current
+	// Worker instance inherits the value from the top-level CR.
+	if workerSpec.BarbicanWorkerTemplate.BarbicanWorkerTemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
+		workerSpec.BarbicanWorkerTemplate.BarbicanWorkerTemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
+	}
+
 	deployment := &barbicanv1beta1.BarbicanWorker{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-worker", instance.Name),
@@ -749,6 +761,12 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 		DatabaseHostname:                 instance.Status.DatabaseHostname,
 		TransportURLSecret:               instance.Status.TransportURLSecret,
 		TLS:                              instance.Spec.BarbicanAPI.TLS.Ca,
+	}
+
+	// If NodeSelector is not specified in BarbicanKeystoneListenerTemplate, the current
+	// KeystoneListener instance inherits the value from the top-level CR.
+	if keystoneListenerSpec.BarbicanKeystoneListenerTemplate.BarbicanKeystoneListenerTemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
+		keystoneListenerSpec.BarbicanKeystoneListenerTemplate.BarbicanKeystoneListenerTemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
 	}
 
 	deployment := &barbicanv1beta1.BarbicanKeystoneListener{
