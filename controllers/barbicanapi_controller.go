@@ -58,6 +58,10 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+const (
+	TransportURL = "transport_url"
+)
+
 // GetClient -
 func (r *BarbicanAPIReconciler) GetClient() client.Client {
 	return r.Client
@@ -195,18 +199,12 @@ func (r *BarbicanAPIReconciler) getSecret(
 	h *helper.Helper,
 	instance *barbicanv1beta1.BarbicanAPI,
 	secretName string,
+	expectedFields []string,
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
-	secret, hash, err := secret.GetSecret(ctx, h, secretName, instance.Namespace)
+	Log := r.GetLogger(ctx)
+	hash, result, err := secret.VerifySecret(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, expectedFields, h.GetClient(), time.Second*10)
 	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("secret %s not found", secretName)
-		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
 			condition.ErrorReason,
@@ -214,12 +212,19 @@ func (r *BarbicanAPIReconciler) getSecret(
 			condition.InputReadyErrorMessage,
 			err.Error()))
 		return ctrl.Result{}, err
+	} else if (result != ctrl.Result{}) {
+		Log.Info(fmt.Sprintf("OpenStack secret %s not found", secretName))
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.InputReadyWaitingMessage))
+		return result, nil
 	}
 
 	// Add a prefix to the var name to avoid accidental collision with other non-secret
 	// vars. The secret names themselves will be unique.
-	(*envVars)["secret-"+secret.Name] = env.SetValue(hash)
-	// env[secret-osp-secret] = hash?
+	(*envVars)["secret-"+secretName] = env.SetValue(hash)
 
 	return ctrl.Result{}, nil
 }
@@ -568,8 +573,8 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Name))
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
+	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Spec.Secret))
+	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
@@ -578,7 +583,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// check for required TransportURL secret holding transport URL string
 	//
 	Log.Info(fmt.Sprintf("[API] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
-	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
+	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, []string{TransportURL}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
@@ -669,13 +674,14 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
 		if err != nil {
 			if k8s_errors.IsNotFound(err) {
+				Log.Info(fmt.Sprintf("network-attachment-definition %s not found", netAtt))
 				instance.Status.Conditions.Set(condition.FalseCondition(
 					condition.NetworkAttachmentsReadyCondition,
 					condition.RequestedReason,
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+				return ctrl.Result{RequeueAfter: time.Second * 10}, nil
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
