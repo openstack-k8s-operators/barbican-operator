@@ -20,8 +20,8 @@ spec:
     service: BarbicanPassword
     simplecryptokek: BarbicanSimpleCryptoKEK
   preserveJobs: true
-  nodeSelector:
-    node: controller
+#  nodeSelector:
+#    node: controller
   customServiceConfig: |
     [DEFAULT]
     debug = True
@@ -29,8 +29,8 @@ spec:
     policy.json: |
       {"some": "custom policy"}
   barbicanAPI:
-    nodeSelector:
-      optional_override: here
+#    nodeSelector:
+#      optional_override: here
     customServiceConfig: |
       [optional]
       overrides = True
@@ -41,8 +41,8 @@ spec:
       database: BarbicanDatabasePassword
       service: BarbicanPassword
   barbicanWorker:
-    nodeSelector:
-      optional_override: here
+#    nodeSelector:
+#      optional_override: here
     customServiceConfig: |
       [optional]
       overrides = True
@@ -50,8 +50,8 @@ spec:
       optional_policy.json: |
         {"some": "custom policy"}
   barbicanKeystoneListener:
-    nodeSelector:
-      optional_override: here
+#    nodeSelector:
+#      optional_override: here
     customServiceConfig: |
       [optional]
       overrides = True
