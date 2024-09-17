@@ -347,7 +347,7 @@ var _ = Describe("Barbican controller", func() {
 
 	mariadbSuite.RunBasicSuite()
 
-	mariadbSuite.RunURLAssertSuite(func(accountName types.NamespacedName, username string, password string) {
+	mariadbSuite.RunURLAssertSuite(func(_ types.NamespacedName, username string, password string) {
 		Eventually(func(g Gomega) {
 			secretDataMap := th.GetSecret(barbicanTest.BarbicanConfigSecret)
 
