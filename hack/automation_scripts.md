@@ -15,16 +15,18 @@ procedures might differ. You need to run the script corresponding to the vendor 
 For the Eviden (previously, ATOS) Trustway HSMs, you will use the `build_custom_image-eviden.sh` script. The usage is as follows:
 
 ```bash
-$ bash build_custom_image-eviden.sh <registry_host> <namespace> <barbican-api_image_tag> <barbican-worker_image_tag> <eviden_iso_file>
+$ bash build_custom_image-eviden.sh <source_registry_host> <namespace> <barbican-api_image_tag> <barbican-worker_image_tag> <eviden_iso_file> <destination_registry_host>
 ```
 
 where:
-* `registry_host`:  corresponds to the FQDN (Fully Qualified Domain Name) of the registry that holds the default container images.
+* `source_registry_host`:  corresponds to the FQDN (Fully Qualified Domain Name) of the registry that holds the default container images.
 Example:  quay.io.
 * `namespace`:  it's an internal repository organization that matches the OpenStack distribution with an operating system. Example: `podified-antelope-centos9`. 
 * `barbican-api_image_tag`:  because OpenStack container images may not have the usual `latest` tag, you may need to manually obtain and provide the newest tag.  Example:  `75c508097e39a3423d9f2eef86648c4e`.
 * `barbican-worker_image_tag`:  something similar happens for the Barbican Worker image.  Example:  `71849c7583fa95ee18dcc0c73c93569d`.
 * `eviden_iso_file`:  this is the filename of the ISO file holding the Eviden HSM client software.  Example:  `Proteccio3.00.03.iso`.  **Please put it in the same directory as this script.**
+* `destination_registry_host`:  corresponds to the FQDN (Fully Qualified Domain Name) of the registry that will store the customized container images.
+Example:  hub.docker.com.
 
 >**Note 1**<br>
 **You need to edit the `build_custom_image-eviden.sh` script to include your username on the container registry. <br> This is necessary since one of the final steps the script takes is to push the new customized image to the registry.**

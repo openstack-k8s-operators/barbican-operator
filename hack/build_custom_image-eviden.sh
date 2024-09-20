@@ -3,8 +3,8 @@
 # including the HSM vendor's client software.
 # Vendor:  Eviden
 
-if [ "$#" -ne 5 ]; then
-    echo "Usage: $0 <registry_host> <namespace> <barbican-api_image_tag> <barbican-worker_image_tag> <eviden_iso_file>"
+if [ "$#" -ne 6 ]; then
+    echo "Usage: $0 <source_registry_host> <namespace> <barbican-api_image_tag> <barbican-worker_image_tag> <eviden_iso_file> <destination_registry_host>"
     exit 1
 fi
 
@@ -13,18 +13,19 @@ NAMESPACE=$2
 API_IMAGE_TAG=$3
 WORKER_IMAGE_TAG=$4
 EVIDEN_ISO_FILE=$5
+DESTINATION_HOST=$6
 TEMP_ISO_DIR=iso_eviden
-USERNAME=replace_with_your_registry_username
+USERNAME=replace_with_your_destination_registry_username
 
 echo
 echo "You need to be logged into your registry for this script to work."
 echo "If you're not logged in, stop this script now and log in with 'podman login'."
 
 echo
-echo "Downloading Barbican API image..."
+echo "Downloading Barbican API image from source registry..."
 podman pull $REGISTRY_HOST/$NAMESPACE/openstack-barbican-api:$API_IMAGE_TAG
 echo
-echo "Downloading Barbican Worker image..."
+echo "Downloading Barbican Worker image from source registry..."
 podman pull $REGISTRY_HOST/$NAMESPACE/openstack-barbican-worker:$WORKER_IMAGE_TAG
 
 echo
@@ -67,9 +68,10 @@ echo "Building new container images..."
 buildah bud -t barbican-api-custom:$API_IMAGE_TAG -f Dockerfile.barbican-api
 buildah bud -t barbican-worker-custom:$WORKER_IMAGE_TAG -f Dockerfile.barbican-worker
 
-echo "Pushing new images to the registry..."
+echo
+echo "Pushing new images to the destination registry..."
 # Replace the registry URL with the appropriate one for your environment
-REGISTRY_URL=$(REGISTRY_HOST)/$(USERNAME)
+REGISTRY_URL=$(DESTINATION_HOST)/$(USERNAME)
 
 podman tag barbican-api-custom:$API_IMAGE_TAG $REGISTRY_URL/barbican-api-custom:$API_IMAGE_TAG
 podman push $REGISTRY_URL/barbican-api-custom:$API_IMAGE_TAG
