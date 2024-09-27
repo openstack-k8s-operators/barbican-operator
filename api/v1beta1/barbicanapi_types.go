@@ -64,6 +64,9 @@ type BarbicanAPISpec struct {
 
 	BarbicanAPITemplate `json:",inline"`
 
+	// BarbicanTrustwayTemplate - Representing the presence of an Eviden Trustway HSM
+	BarbicanTrustwayTemplate `json:",inline"`
+
 	// +kubebuilder:validation:Required
 	// DatabaseHostname - Barbican Database Hostname
 	DatabaseHostname string `json:"databaseHostname"`

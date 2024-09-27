@@ -35,6 +35,10 @@ spec:
           spec:
             description: BarbicanAPISpec defines the desired state of BarbicanAPI
             properties:
+              clientCertificate:
+                description: The OpenShift secret storing the client certificate plus
+                  its key
+                type: string
               containerImage:
                 description: ContainerImage - Barbican Container Image URL (will be
                   set to environmental default if empty)
@@ -80,6 +84,31 @@ spec:
                 description: EnableSecureRBAC - Enable Consistent and Secure RBAC
                   policies
                 type: boolean
+              hsmCertificates:
+                additionalProperties:
+                  type: string
+                description: The HSM certificates. The map's key is the HSM's IP address
+                  and the value is the OpenShift secret storing the certificate.
+                type: object
+              ipAddress:
+                description: IP address(es) of the HSM(s)
+                items:
+                  type: string
+                type: array
+              loggingLevel:
+                default: 4
+                description: Level of logging, where 0 means "no logging" and 7 means
+                  "debug".
+                maximum: 7
+                minimum: 0
+                type: integer
+              mode:
+                default: 0
+                description: Working mode for the HSM
+                enum:
+                - 0
+                - 2
+                type: integer
               networkAttachments:
                 description: NetworkAttachments is a list of NetworkAttachment resource
                   names to expose the services to the given network
@@ -283,6 +312,9 @@ spec:
                     default: SimpleCryptoKEK
                     type: string
                 type: object
+              pin:
+                description: The OpenShift secret storing the PKCS#11 HSM's password
+                type: string
               rabbitMqClusterName:
                 default: rabbitmq
                 description: RabbitMQ instance name Needed to request a transportURL
@@ -396,9 +428,13 @@ spec:
                 description: TransportURLSecret - Secret containing RabbitMQ transportURL
                 type: string
             required:
+            - clientCertificate
             - containerImage
             - databaseHostname
             - databaseInstance
+            - hsmCertificates
+            - ipAddress
+            - pin
             - rabbitMqClusterName
             - serviceAccount
             type: object
