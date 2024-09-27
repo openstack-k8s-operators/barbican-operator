@@ -225,13 +225,9 @@ spec:
               transportURLSecret:
                 type: string
             required:
-            - clientCertificate
             - containerImage
             - databaseHostname
             - databaseInstance
-            - hsmCertificates
-            - ipAddress
-            - pin
             - rabbitMqClusterName
             - serviceAccount
             type: object

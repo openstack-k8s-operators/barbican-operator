@@ -428,13 +428,9 @@ spec:
                 description: TransportURLSecret - Secret containing RabbitMQ transportURL
                 type: string
             required:
-            - clientCertificate
             - containerImage
             - databaseHostname
             - databaseInstance
-            - hsmCertificates
-            - ipAddress
-            - pin
             - rabbitMqClusterName
             - serviceAccount
             type: object
