@@ -103,11 +103,11 @@ type BarbicanComponentTemplate struct {
 
 // BarbicanHSMTemplate - Variables used by the operator to interact with an HSM
 type BarbicanHSMTemplate struct {
-        // +kubebuilder:validation:Required
+        // +kubebuilder:validation:Optional
         // IP address(es) of the HSM(s)
         IPAddress []string `json:"ipAddress"`
 
-        // +kubebuilder:validation:Required
+        // +kubebuilder:validation:Optional
         // The OpenShift secret storing the PKCS#11 HSM's password
         Pin string `json:"pin"`
 }
@@ -123,12 +123,12 @@ type BarbicanTrustwayTemplate struct {
         // Level of logging, where 0 means "no logging" and 7 means "debug".
         LoggingLevel int `json:"loggingLevel"`
 
-        // +kubebuilder:validation:Required
+        // +kubebuilder:validation:Optional
         // The HSM certificates. The map's key is the HSM's IP address and
         // the value is the OpenShift secret storing the certificate.
         HSMCertificates map[string]string `json:"hsmCertificates"`
 
-        // +kubebuilder:validation:Required
+        // +kubebuilder:validation:Optional
         // The OpenShift secret storing the client certificate plus its key
         ClientCertificate string `json:"clientCertificate"`
 
