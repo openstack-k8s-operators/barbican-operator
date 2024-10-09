@@ -81,7 +81,7 @@ spec:
                   policies
                 type: boolean
               enabledSecretStores:
-                default: Enum=simple_crypto
+                default: '["simple_crypto"]'
                 items:
                   type: string
                 minItems: 1

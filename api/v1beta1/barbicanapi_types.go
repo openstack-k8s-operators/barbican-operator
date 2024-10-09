@@ -64,11 +64,12 @@ type BarbicanAPISpec struct {
 
 	BarbicanAPITemplate `json:",inline"`
 
+	// +kubebuilder:validation:Optional
 	PKCS11 BarbicanPKCS11Template `json:"pkcs11,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:default=Enum=simple_crypto
+	// +kubebuilder:default=["simple_crypto"]
 	EnabledSecretStores []string `json:"enabledSecretStores"`
 
 	// +kubebuilder:validation:Optional

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -275,9 +276,34 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 			instance.Spec.DatabaseHostname,
 			barbican.DatabaseName,
 		),
-		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
-		"LogFile":         fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
-		"SimpleCryptoKEK": string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK]),
+		"TransportURL":             string(transportURLSecret.Data["transport_url"]),
+		"LogFile":                  fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"SimpleCryptoKEK":          string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK]),
+		"EnabledSecretStores":      strings.Join(instance.Spec.EnabledSecretStores, ","),
+		"GlobalDefaultSecretStore": instance.Spec.GlobalDefaultSecretStore,
+		"SimpleCryptoEnabled":      slices.Contains(instance.Spec.EnabledSecretStores, "simple_crypto"),
+		"PKCS11CryptoEnabled":      slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11_crypto"),
+	}
+
+	// Checking if there's an HSM.
+	pkcs11 := instance.Spec.PKCS11
+	if len(pkcs11.HSMLibraryPath) > 0 {
+		hsmLoginSecret, _, err := secret.GetSecret(ctx, h, pkcs11.HSMLogin, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		templateParameters["HSMLibraryPath"] = pkcs11.HSMLibraryPath
+		templateParameters["HSMTokenSerialNumber"] = pkcs11.HSMTokenSerialNumber
+		templateParameters["HSMTokenLabel"] = pkcs11.HSMTokenLabel
+		templateParameters["HSMLogin"] = string(hsmLoginSecret.Data["hsmLogin"])
+		templateParameters["HSMMKEKLabel"] = pkcs11.HSMMKEKLabel
+		templateParameters["HSMMKEKLength"] = pkcs11.HSMMKEKLength
+		templateParameters["HSMHMACLabel"] = pkcs11.HSMHMACLabel
+		templateParameters["HSMSlotId"] = pkcs11.HSMSlotId
+		templateParameters["HSMLoggingLevel"] = pkcs11.HSMLoggingLevel
+		templateParameters["HSMIPAddress"] = pkcs11.HSMIPAddress
+		templateParameters["HSMClientAddress"] = pkcs11.HSMClientAddress
+		templateParameters["HSMType"] = pkcs11.HSMType
 	}
 
 	// Checking if there's an HSM.
