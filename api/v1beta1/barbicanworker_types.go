@@ -50,6 +50,8 @@ type BarbicanWorkerSpec struct {
 
         // +kubebuilder:validation:Required
         // +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=5
+	// +kubebuilder:validation:Items:Enum=simple_crypto;kmip;pkcs11;dogtag;vault
         // +kubebuilder:default=["simple_crypto"]
         EnabledSecretStores []string `json:"enabledSecretStores"`
 

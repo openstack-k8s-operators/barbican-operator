@@ -41,7 +41,6 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -351,45 +350,6 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		templateParameters["HSMIPAddress"] = pkcs11.HSMIPAddress
 		templateParameters["HSMClientAddress"] = pkcs11.HSMClientAddress
 		templateParameters["HSMType"] = pkcs11.HSMType
-	}
-
-	// Checking if there's an HSM.
-	pkcs11 := instance.Spec.PKCS11
-	if pkcs11.HSMEnabled {
-		hsmLoginSecret, _, err := secret.GetSecret(ctx, h, pkcs11.HSMLogin, instance.Namespace)
-		if err != nil {
-			return err
-		}
-		hsmCertificatesSecret, _, err := secret.GetSecret(ctx, h, maps.Keys(pkcs11.HSMCertificates)[0], instance.Namespace)
-		if err != nil {
-			return err
-		}
-		templateParameters["HSMEnabled"] = pkcs11.HSMEnabled
-		templateParameters["HSMLibraryPath"] = pkcs11.HSMLibraryPath
-		templateParameters["HSMTokenSerialNumber"] = pkcs11.HSMTokenSerialNumber
-		templateParameters["HSMTokenLabel"] = pkcs11.HSMTokenLabel
-		templateParameters["HSMLogin"] = string(hsmLoginSecret.Data["hsmLogin"])
-		templateParameters["HSMMKEKLabel"] = pkcs11.HSMMKEKLabel
-		templateParameters["HSMMKEKLength"] = pkcs11.HSMMKEKLength
-		templateParameters["HSMHMACLabel"] = pkcs11.HSMHMACLabel
-		templateParameters["HSMSlotId"] = pkcs11.HSMSlotId
-		templateParameters["HSMLoggingLevel"] = pkcs11.HSMLoggingLevel
-		templateParameters["HSMIPAddress"] = pkcs11.HSMIPAddress
-		templateParameters["HSMClientAddress"] = pkcs11.HSMClientAddress
-		templateParameters["HSMType"] = pkcs11.HSMType
-		templateParameters["HSMCertificatesMountPoint"] = maps.Values(pkcs11.HSMCertificates)[0]
-		for certfile, certificate := range hsmCertificatesSecret.Data {
-			if strings.HasSuffix(certfile, "Cert.pem") {
-				templateParameters["HSMServerCertfile"] = certfile
-				templateParameters["HSMServerCertificate"] = certificate
-			} else if strings.HasSuffix(certfile, "Key.pem") {
-				templateParameters["HSMClientKeyFile"] = certfile
-				templateParameters["HSMClientKey"] = certificate
-			} else if !(strings.HasSuffix(certfile, "File.pem")) { // Excluding "CAFile.pem".
-				templateParameters["HSMClientCertfile"] = certfile
-				templateParameters["HSMClientCertificate"] = certificate
-			}
-		}
 	}
 
 	// create httpd  vhost template parameters
