@@ -101,6 +101,10 @@ type BarbicanComponentTemplate struct {
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
+// +kubebuilder:validation:Enum=simple_crypto;pkcs11
+// This SecretStore type is used by the EnabledSecretStores variable inside the specification.
+type SecretStore string
+
 // BarbicanPKCS11Template - Includes all common HSM properties
 type BarbicanPKCS11Template struct {
         // +kubebuilder:validation:Optional
