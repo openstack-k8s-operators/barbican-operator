@@ -48,12 +48,10 @@ type BarbicanWorkerSpec struct {
 	// +kubebuilder:validation:Optional
 	PKCS11 BarbicanPKCS11Template `json:"pkcs11,omitempty"`
 
-        // +kubebuilder:validation:Required
+        // +kubebuilder:validation:Optional
         // +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=5
-	// +kubebuilder:validation:Items:Enum=simple_crypto;kmip;pkcs11;dogtag;vault
-        // +kubebuilder:default=["simple_crypto"]
-        EnabledSecretStores []string `json:"enabledSecretStores"`
+	// +kubebuilder:validation:MaxItems=2
+        EnabledSecretStores []SecretStore `json:"enabledSecretStores"`
 
         // +kubebuilder:validation:Optional
         // +kubebuilder:default="simple_crypto"

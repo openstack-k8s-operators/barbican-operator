@@ -143,7 +143,7 @@ func (in *BarbicanAPISpec) DeepCopyInto(out *BarbicanAPISpec) {
 	in.PKCS11.DeepCopyInto(&out.PKCS11)
 	if in.EnabledSecretStores != nil {
 		in, out := &in.EnabledSecretStores, &out.EnabledSecretStores
-		*out = make([]string, len(*in))
+		*out = make([]SecretStore, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -690,7 +690,7 @@ func (in *BarbicanWorkerSpec) DeepCopyInto(out *BarbicanWorkerSpec) {
 	in.PKCS11.DeepCopyInto(&out.PKCS11)
 	if in.EnabledSecretStores != nil {
 		in, out := &in.EnabledSecretStores, &out.EnabledSecretStores
-		*out = make([]string, len(*in))
+		*out = make([]SecretStore, len(*in))
 		copy(*out, *in)
 	}
 	out.TLS = in.TLS

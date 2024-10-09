@@ -267,6 +267,20 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 
 	databaseAccount := db.GetAccount()
 	databaseSecret := db.GetSecret()
+	enabledSecretStores := []string{}
+	if len(instance.Spec.EnabledSecretStores) == 0 {
+		enabledSecretStores = []string{"simple_crypto"}
+	} else {
+		for _, value := range instance.Spec.EnabledSecretStores {
+			enabledSecretStores = append(enabledSecretStores, string(value))
+		}
+	}
+	globalDefaultSecretStore := ""
+	if len(instance.Spec.GlobalDefaultSecretStore) == 0 {
+		globalDefaultSecretStore = "simple_crypto"
+	} else {
+		globalDefaultSecretStore = instance.Spec.GlobalDefaultSecretStore
+	}
 
 	templateParameters := map[string]interface{}{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
@@ -278,19 +292,20 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 		"TransportURL":             string(transportURLSecret.Data["transport_url"]),
 		"LogFile":                  fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"SimpleCryptoKEK":          string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK]),
-		"EnabledSecretStores":      strings.Join(instance.Spec.EnabledSecretStores, ","),
-		"GlobalDefaultSecretStore": instance.Spec.GlobalDefaultSecretStore,
-		"SimpleCryptoEnabled":      slices.Contains(instance.Spec.EnabledSecretStores, "simple_crypto"),
-		"PKCS11CryptoEnabled":      slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11_crypto"),
+		"EnabledSecretStores":      strings.Join(enabledSecretStores, ","),
+		"GlobalDefaultSecretStore": globalDefaultSecretStore,
+		"SimpleCryptoEnabled":      slices.Contains(enabledSecretStores, "simple_crypto"),
+		"PKCS11CryptoEnabled":      slices.Contains(enabledSecretStores, "pkcs11"),
 	}
 
 	// Checking if there's an HSM.
-	pkcs11 := instance.Spec.PKCS11
-	if len(pkcs11.HSMLibraryPath) > 0 {
+	if slices.Contains(enabledSecretStores, "pkcs11") {
+		pkcs11 := instance.Spec.PKCS11
 		hsmLoginSecret, _, err := secret.GetSecret(ctx, h, pkcs11.HSMLogin, instance.Namespace)
 		if err != nil {
 			return err
 		}
+		templateParameters["HSMEnabled"] = true
 		templateParameters["HSMLibraryPath"] = pkcs11.HSMLibraryPath
 		templateParameters["HSMTokenSerialNumber"] = pkcs11.HSMTokenSerialNumber
 		templateParameters["HSMTokenLabel"] = pkcs11.HSMTokenLabel

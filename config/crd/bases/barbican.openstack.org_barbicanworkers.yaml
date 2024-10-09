@@ -75,10 +75,12 @@ spec:
                   . TODO: -> implement'
                 type: object
               enabledSecretStores:
-                default: '["simple_crypto"]'
                 items:
+                  enum:
+                  - simple_crypto
+                  - pkcs11
                   type: string
-                maxItems: 5
+                maxItems: 2
                 minItems: 1
                 type: array
               globalDefaultSecretStore:
