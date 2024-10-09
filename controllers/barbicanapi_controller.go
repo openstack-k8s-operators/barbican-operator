@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -325,6 +327,25 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"SimpleCryptoKEK":  string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK]),
 		"EnableSecureRBAC": instance.Spec.EnableSecureRBAC,
+	}
+
+	// Set secret store parameters
+	secretStoreTemplateMap, err := GenerateSecretStoreTemplateMap(
+		instance.Spec.EnabledSecretStores,
+		instance.Spec.GlobalDefaultSecretStore)
+	if err != nil {
+		return err
+	}
+	maps.Copy(templateParameters, secretStoreTemplateMap)
+
+	// Set pkcs11 parameters
+	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
+		pkcs11TemplateMap, err := GeneratePKCS11TemplateMap(
+			ctx, h, *instance.Spec.PKCS11, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		maps.Copy(templateParameters, pkcs11TemplateMap)
 	}
 
 	// create httpd  vhost template parameters

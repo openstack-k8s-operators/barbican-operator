@@ -1,0 +1,53 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  labels:
+    app.kubernetes.io/name: barbican
+    app.kubernetes.io/instance: barbican
+    app.kubernetes.io/part-of: barbican-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: barbican-operator
+  name: barbican
+spec:
+  serviceAccount: barbican
+  serviceUser: barbican
+  databaseInstance: openstack
+  databaseAccount: barbican
+  rabbitMqCusterName: barbican_rabbit
+  secret: osp-secret
+  passwordSelectors:
+    database: BarbicanDatabasePassword
+    service: BarbicanPassword
+    simplecryptokek: BarbicanSimpleCryptoKEK
+  preserveJobs: true
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+  globalDefaultSecretStore: pkcs11
+  enabledSecretStores:
+    - simple_crypto
+    - pkcs11
+  pkcs11:
+    hsmType: luna
+    hsmLibraryPath: /usr/local/luna/libs/64/libCryptoki2.so
+    hsmTokenLabels: my_hsm_partition_label
+    hsmMKEKLabel: my_mkek_label
+    hsmHMACLabel: my_hmac_label
+    hsmIpAddress: my_hsm_server_ip_address
+    hsmClientAddress: my_hsm_client_ip_address
+    hsmLoginSecret: my_luna_login_secret
+    hsmCertificatesSecret: my_luna_certs_secret
+    hsmCertificatesMountPoint: /usr/local/luna/config/certs
+    hsmKeyWrapMechanism: CKM_AES_CBC_PAD
+  barbicanAPI:
+    containerImage: my_custom_barbican_api_image
+    passwordSelectors:
+      database: BarbicanDatabasePassword
+      service: BarbicanPassword
+    replicas: 1
+  barbicanWorker:
+    containerImage: my_custom_barbican_worker_image
+    replicas: 1
+  barbicanKeystoneListener:
+    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener@sha256:9a5deaf4a7db671dab48aface9d426b8fc1ae7cb20d3be64c9c7bf90241fb65c
+    replicas: 1

@@ -44,6 +44,7 @@ type BarbicanKeystoneListenerSpec struct {
 	BarbicanTemplate `json:",inline"`
 
 	BarbicanKeystoneListenerTemplate `json:",inline"`
+
 	DatabaseHostname                 string `json:"databaseHostname"`
 
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
