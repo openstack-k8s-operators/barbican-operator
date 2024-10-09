@@ -101,6 +101,83 @@ type BarbicanComponentTemplate struct {
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
+// BarbicanLunaTemplate - Variables specific to Thales' Luna HSMs
+type BarbicanLunaTemplate struct {
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=4
+        // +kubebuilder:validation:Maximum=7
+        // +kubebuilder:validation:Minimum=0
+        // Level of logging, where 0 means "no logging" and 7 means "debug".
+        LunaLoggingLevel int `json:"lunaLoggingLevel"`
+
+        // +kubebuilder:validation:Optional
+        // The HSM certificates. The map's key is the HSM's IP address and
+        // the value is the OpenShift secret storing the certificate.
+        LunaHSMCertificates map[string]string `json:"lunaHsmCertificates"`
+
+        // +kubebuilder:validation:Optional
+        // The OpenShift secret storing the client certificate plus its key
+        LunaClientCertificate string `json:"lunaClientCertificate"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default="/usr/lib/libCryptoki2_64.so"
+	// Path to vendor PKCS11 library
+	LunaLibraryPath string `json:"lunaLibraryPath"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default="12345678"
+	// Token serial number used to identify the token to be used.  Required
+	// when the device has multiple tokens with the same label.
+	LunaTokenSerialNumber string `json:"lunaTokenSerialNumber"`
+
+        // +kubebuilder:validation:Optional
+	// Token label used to identify the token to be used.  Required when
+	// token_serial_number is not specified.
+	LunaTokenLabel string `json:"lunaTokenLabel"`
+
+        // +kubebuilder:validation:Optional
+	// The OpenShift secret containing the password to login to PKCS11 session
+	LunaPassword string `json:"lunaPassword"`
+
+        // +kubebuilder:validation:Optional
+	// Label to identify master KEK in the HSM (must not be the same as HMAC label)
+	LunaMkekLabel string `json:"lunaMkekLabel"`
+
+        // +kubebuilder:validation:Optional
+	// +kubebuilder:default=32
+	// Length in bytes of master KEK
+	LunaMkekLength int `json:"lunaMkekLength"`
+
+        // +kubebuilder:validation:Optional
+	// Label to identify HMAC key in the HSM (must not be the same as MKEK label)
+	LunaHmacLabel string `json:"lunaHmacLabel"`
+
+        // +kubebuilder:validation:Optional
+	// +kubebuilder:default=1
+	// HSM Slot ID that contains the token device to be used
+	LunaSlotId int `json:"lunaSlotId"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=true
+	// Enable Read/Write session with the HSM?
+	LunaRwSession bool `json:"lunaRwSession"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=32
+	// Length of Project KEKs to create
+	LunaPkekLength int `json:"lunaPkekLength"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=900
+	// How long to cache unwrapped Project KEKs
+	LunaPkekCacheTtl int `json:"lunaPkekCacheTtl"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=100
+	// Max number of items in pkek cache
+	LunaPkekCacheLimit int `json:"lunaPkekCacheLimit"`
+}
+
 // PasswordSelector to identify the DB and AdminUser password from the Secret
 type PasswordSelector struct {
 	// +kubebuilder:validation:Optional
