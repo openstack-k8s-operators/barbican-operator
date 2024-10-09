@@ -64,6 +64,17 @@ type BarbicanAPISpec struct {
 
 	BarbicanAPITemplate `json:",inline"`
 
+	PKCS11 BarbicanPKCS11Template `json:"pkcs11,omitempty"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:default=Enum=simple_crypto
+	EnabledSecretStores []string `json:"enabledSecretStores"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="simple_crypto"
+	GlobalDefaultSecretStore string `json:"globalDefaultSecretStore"`
+
 	// +kubebuilder:validation:Required
 	// DatabaseHostname - Barbican Database Hostname
 	DatabaseHostname string `json:"databaseHostname"`
