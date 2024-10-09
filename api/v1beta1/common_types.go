@@ -165,6 +165,7 @@ type BarbicanPKCS11Template struct {
         HSMCertificates map[string]string `json:"hsmCertificates"`
 
         // +kubebuilder:validation:Optional
+        // +kubebuilder:validation:Items:Enum=trustway;luna;ncipher
         // A string containing the HSM type (currently supported: "trustway", "luna", "ncipher").
         HSMType string `json:"hsmType"`
 }

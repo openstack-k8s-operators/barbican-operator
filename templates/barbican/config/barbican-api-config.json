@@ -77,6 +77,14 @@
       "perm": "0600",
       "optional": true,
       "merge": true
+    },
+    {
+      "source": "/var/lib/config-data/default/Crystoki.conf",
+      "dest": "{{ .HSMLibraryPath }}/config/Crystoki.conf",
+      "owner": "barbican",
+      "perm": "0600",
+      "optional": true,
+      "merge": true
     }
   ],
   "permissions": [
