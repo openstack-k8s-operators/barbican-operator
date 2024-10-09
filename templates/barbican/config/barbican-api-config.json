@@ -77,6 +77,14 @@
       "perm": "0600",
       "optional": true,
       "merge": true
+    },
+    {
+      "source": "/var/lib/config-data/default/Chrystoki.conf",
+      "dest": "/usr/local/luna/Chrystoki.conf",
+      "owner": "barbican",
+      "perm": "0600",
+      "optional": true,
+      "merge": true
     }
   ],
   "permissions": [

@@ -24,6 +24,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -132,6 +133,23 @@ func (r *BarbicanSpec) ValidateCreate(basePath *field.Path) field.ErrorList {
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		r.BarbicanAPI.Override.Service)...)
+
+	// pkcs11 verifications
+        if slices.Contains(r.EnabledSecretStores, "pkcs11") {
+                if r.PKCS11 == nil {
+			allErrs = append(allErrs, field.Required(basePath.Child("PKCS11"),
+				"PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
+			)
+                } else {
+			// Checking that at least one of the following parameters has been provided.
+			if len(r.PKCS11.TokenSerialNumber) == 0 && len(r.PKCS11.TokenLabels) == 0 && len(r.PKCS11.SlotId) == 0 {
+				allErrs = append(allErrs, field.Required(basePath.Child("PKCS11"),
+					"No token identifier provided. One of TokenSerialNumber, TokenLabels or SlotId needed"),
+				)
+			}
+                }
+        }
+
 
 	return allErrs
 }

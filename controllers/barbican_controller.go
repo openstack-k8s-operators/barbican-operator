@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,11 +49,21 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
+	"golang.org/x/exp/maps"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	P11PrepReadyCondition      = "P11PrepReady"
+	P11PrepReadyInitMessage    = "P11 Prep job not started"
+	P11PrepReadyMessage        = "P11 Prep job completed"
+	P11PrepReadyErrorMessage   = "P11 Prep job error occurred %s"
+	P11PrepReadyRunningMessage = "P11 Prep job is still running"
+	P11PrepReadyNotRunMessage  = "P11 Prep job not run"
 )
 
 // BarbicanReconciler reconciles a Barbican object
@@ -136,7 +147,7 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 		instance.Status.Conditions = condition.Conditions{}
 	}
 
-	// Save a copy of the condtions so that we can restore the LastTransitionTime
+	// Save a copy of the conditions so that we can restore the LastTransitionTime
 	// when a condition's state doesn't change.
 	savedConditions := instance.Status.Conditions.DeepCopy()
 
@@ -163,6 +174,7 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 		// failure/in-progress operation
 		condition.UnknownCondition(condition.ReadyCondition, condition.InitReason, condition.ReadyInitMessage),
 		condition.UnknownCondition(condition.DBReadyCondition, condition.InitReason, condition.DBReadyInitMessage),
+		condition.UnknownCondition(P11PrepReadyCondition, condition.InitReason, P11PrepReadyInitMessage),
 		condition.UnknownCondition(condition.DBSyncReadyCondition, condition.InitReason, condition.DBSyncReadyInitMessage),
 		condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 		condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
@@ -647,7 +659,26 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
 	}
 
-	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
+	// Set secret store parameters
+	secretStoreTemplateMap, err := GenerateSecretStoreTemplateMap(
+		instance.Spec.EnabledSecretStores,
+		instance.Spec.GlobalDefaultSecretStore)
+	if err != nil {
+		return err
+	}
+	maps.Copy(templateParameters, secretStoreTemplateMap)
+
+	// Set pkcs11 parameters
+	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
+		pkcs11TemplateMap, err := GeneratePKCS11TemplateMap(
+			ctx, h, *instance.Spec.PKCS11, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		maps.Copy(templateParameters, pkcs11TemplateMap)
+	}
+
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true)
 }
 
 func (r *BarbicanReconciler) transportURLCreateOrUpdate(
@@ -919,10 +950,54 @@ func (r *BarbicanReconciler) reconcileInit(
 	}
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
+	//
+	// run Barbican p11-prep if needed
+	//
+	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
+		p11Hash := instance.Status.Hash[barbicanv1beta1.P11PrepHash]
+		jobDef := barbican.P11PrepJob(instance, serviceLabels, serviceAnnotations)
+
+		p11job := job.NewJob(
+			jobDef,
+			barbicanv1beta1.P11PrepHash,
+			instance.Spec.PreserveJobs,
+			time.Duration(5)*time.Second,
+			p11Hash,
+		)
+		ctrlResult, err = p11job.DoJob(
+			ctx,
+			helper,
+		)
+		if (ctrlResult != ctrl.Result{}) {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				P11PrepReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				P11PrepReadyRunningMessage))
+			return ctrlResult, nil
+		}
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				P11PrepReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				P11PrepReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+		if p11job.HasChanged() {
+			instance.Status.Hash[barbicanv1beta1.P11PrepHash] = p11job.GetHash()
+			Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[barbicanv1beta1.P11PrepHash]))
+		}
+		instance.Status.Conditions.MarkTrue(P11PrepReadyCondition, P11PrepReadyMessage)
+	} else {
+		instance.Status.Conditions.MarkTrue(P11PrepReadyCondition, P11PrepReadyNotRunMessage)
+	}
+
+	// run Barbican p11 prep - end
+
 	// when job passed, mark NetworkAttachmentsReadyCondition ready
 	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
-
-	// run Barbican db sync - end
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil

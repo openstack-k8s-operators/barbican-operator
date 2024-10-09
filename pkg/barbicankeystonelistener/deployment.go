@@ -41,20 +41,13 @@ func Deployment(
 				},
 			},
 		},
+		barbican.GetLogVolume(),
 	}
 
-	keystoneListenerVolumes = append(keystoneListenerVolumes, barbican.GetLogVolume()...)
 	keystoneListenerVolumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "barbican-keystone-listener-config.json",
-			ReadOnly:  true,
-		},
+		barbican.GetKollaConfigVolumeMount(instance.Name),
+		barbican.GetLogVolumeMount(),
 	}
-	// Append LogVolume to the apiVolumes: this will be used to stream
-	// logging
-	keystoneListenerVolumeMounts = append(keystoneListenerVolumeMounts, barbican.GetLogVolumeMount()...)
 
 	// Add the CA bundle
 	if instance.Spec.TLS.CaBundleSecretName != "" {
@@ -99,7 +92,7 @@ func Deployment(
 								RunAsUser: &runAsUser,
 							},
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: barbican.GetLogVolumeMount(),
+							VolumeMounts: []corev1.VolumeMount{barbican.GetLogVolumeMount()},
 							Resources:    instance.Spec.Resources,
 						},
 						{
