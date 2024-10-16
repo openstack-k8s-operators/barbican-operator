@@ -50,4 +50,7 @@ const (
 	// LogVolume is the default logVolume name used to mount logs on both
 	// BarbicanAPI and the sidecar container
 	LogVolume = "logs"
+
+	// HSM constants
+	TrustwayLogfileLocation = "/var/log/barbican/proteccio.log"
 )
