@@ -6,6 +6,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
+	maps "golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,6 +108,47 @@ func Deployment(
 			}
 			apiVolumes = append(apiVolumes, svc.CreateVolume(endpt.String()))
 			apiVolumeMounts = append(apiVolumeMounts, svc.CreateVolumeMounts(endpt.String())...)
+		}
+	}
+
+	// Considering the existence of an HSM.
+	if instance.Spec.PKCS11.HSMEnabled {
+		if instance.Spec.PKCS11.HSMType == "luna" {
+			hsmVolume := corev1.Volume{
+				Name: "hsm-luna-certificates",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						DefaultMode: &config0644AccessMode,
+						SecretName:  maps.Keys(instance.Spec.PKCS11.HSMCertificates)[0],
+					},
+				},
+			}
+			apiVolumes = append(apiVolumes, hsmVolume)
+			hsmMountPath := maps.Values(instance.Spec.PKCS11.HSMCertificates)[0]
+			if string(hsmMountPath[len(hsmMountPath)-1]) != "/" {
+				hsmMountPath = hsmMountPath + "/"
+			}
+			hsmMountPoint := []corev1.VolumeMount{
+				{
+					Name:      "hsm-luna-certificates",
+					MountPath: hsmMountPath + instance.Spec.PKCS11.HSMClientAddress + ".pem",
+					SubPath:   instance.Spec.PKCS11.HSMClientAddress + ".pem",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "hsm-luna-certificates",
+					MountPath: hsmMountPath + instance.Spec.PKCS11.HSMClientAddress + "Key.pem",
+					SubPath:   instance.Spec.PKCS11.HSMClientAddress + "Key.pem",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "hsm-luna-certificates",
+					MountPath: hsmMountPath + instance.Spec.PKCS11.HSMIPAddress + "Cert.pem",
+					SubPath:   instance.Spec.PKCS11.HSMIPAddress + "Cert.pem",
+					ReadOnly:  true,
+				},
+			}
+			apiVolumeMounts = append(apiVolumeMounts, hsmMountPoint...)
 		}
 	}
 

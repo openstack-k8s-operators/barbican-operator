@@ -74,6 +74,18 @@ spec:
                   files. Those get added to the service config dir in /etc/<service>
                   . TODO: -> implement'
                 type: object
+              enabledSecretStores:
+                items:
+                  enum:
+                  - simple_crypto
+                  - pkcs11
+                  type: string
+                maxItems: 2
+                minItems: 1
+                type: array
+              globalDefaultSecretStore:
+                default: simple_crypto
+                type: string
               networkAttachments:
                 description: NetworkAttachments is a list of NetworkAttachment resource
                   names to expose the services to the given network
@@ -101,6 +113,72 @@ spec:
                     type: string
                   simplecryptokek:
                     default: SimpleCryptoKEK
+                    type: string
+                type: object
+              pkcs11:
+                description: BarbicanPKCS11Template - Includes all common HSM properties
+                properties:
+                  hsmCertificates:
+                    additionalProperties:
+                      type: string
+                    description: 'The HSM certificates. The map''s key is the OpenShift
+                      secret storing the certificate, and the value is the mounting
+                      point (e.g., "luna-certificates": "/usr/local/luna/config/certs").'
+                    type: object
+                  hsmClientAddress:
+                    description: The IP address of the client connecting to the HSM
+                      (X.Y.Z.K)
+                    type: string
+                  hsmEnabled:
+                    default: false
+                    type: boolean
+                  hsmHMACLabel:
+                    description: Label to identify HMAC key in the HSM (must not be
+                      the same as MKEK label)
+                    type: string
+                  hsmIpAddress:
+                    description: The HSM's IPv4 address (X.Y.Z.K)
+                    type: string
+                  hsmLibraryPath:
+                    description: Path to vendor's PKCS11 library
+                    type: string
+                  hsmLoggingLevel:
+                    default: 4
+                    description: Level of logging, where 0 means "no logging" and
+                      7 means "debug".
+                    maximum: 7
+                    minimum: 0
+                    type: integer
+                  hsmLogin:
+                    description: OpenShift secret storing the password to login to
+                      PKCS11 session
+                    type: string
+                  hsmMKEKLabel:
+                    description: Label to identify master KEK in the HSM (must not
+                      be the same as HMAC label)
+                    type: string
+                  hsmMKEKLength:
+                    default: 32
+                    description: Length in bytes of master KEK
+                    type: integer
+                  hsmSlotId:
+                    default: 1
+                    description: HSM Slot ID that contains the token device to be
+                      used
+                    type: integer
+                  hsmTokenLabel:
+                    description: Token label used to identify the token to be used.
+                      Required when token_serial_number is not specified.
+                    type: string
+                  hsmTokenSerialNumber:
+                    default: "12345678"
+                    description: Token serial number used to identify the token to
+                      be used. Required when the device has multiple tokens with the
+                      same label.
+                    type: string
+                  hsmType:
+                    description: 'A string containing the HSM type (currently supported:
+                      "trustway", "luna", "ncipher").'
                     type: string
                 type: object
               rabbitMqClusterName:
@@ -196,6 +274,7 @@ spec:
             - containerImage
             - databaseHostname
             - databaseInstance
+            - enabledSecretStores
             - rabbitMqClusterName
             - serviceAccount
             type: object

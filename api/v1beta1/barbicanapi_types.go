@@ -58,11 +58,26 @@ type APIOverrideSpec struct {
 	Service map[service.Endpoint]service.RoutedOverrideSpec `json:"service,omitempty"`
 }
 
+// +kubebuilder:validation:Enum=simple_crypto;pkcs11
+type SecretStore string
+
 // BarbicanAPISpec defines the desired state of BarbicanAPI
 type BarbicanAPISpec struct {
 	BarbicanTemplate `json:",inline"`
 
 	BarbicanAPITemplate `json:",inline"`
+
+	// +kubebuilder:validation:Optional
+	PKCS11 BarbicanPKCS11Template `json:"pkcs11,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=2
+	EnabledSecretStores []SecretStore `json:"enabledSecretStores,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="simple_crypto"
+	GlobalDefaultSecretStore string `json:"globalDefaultSecretStore"`
 
 	// +kubebuilder:validation:Required
 	// DatabaseHostname - Barbican Database Hostname

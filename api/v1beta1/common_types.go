@@ -101,6 +101,75 @@ type BarbicanComponentTemplate struct {
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
+// BarbicanPKCS11Template - Includes all common HSM properties
+type BarbicanPKCS11Template struct {
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=false
+	HSMEnabled bool `json:"hsmEnabled"`
+
+        // +kubebuilder:validation:Optional
+	// Path to vendor's PKCS11 library
+	HSMLibraryPath string `json:"hsmLibraryPath"`
+
+        // +kubebuilder:validation:Optional
+	// +kubebuilder:default="12345678"
+        // Token serial number used to identify the token to be used. Required
+	// when the device has multiple tokens with the same label.
+	HSMTokenSerialNumber string `json:"hsmTokenSerialNumber"`
+
+        // +kubebuilder:validation:Optional
+	// Token label used to identify the token to be used. Required when
+	// token_serial_number is not specified.
+	HSMTokenLabel string `json:"hsmTokenLabel"`
+
+        // +kubebuilder:validation:Optional
+	// OpenShift secret storing the password to login to PKCS11 session
+	HSMLogin string `json:"hsmLogin"`
+
+        // +kubebuilder:validation:Optional
+	// Label to identify master KEK in the HSM (must not be the same as HMAC label)
+	HSMMKEKLabel string `json:"hsmMKEKLabel"`
+
+        // +kubebuilder:validation:Optional
+	// +kubebuilder:default=32
+	// Length in bytes of master KEK
+	HSMMKEKLength int `json:"hsmMKEKLength"`
+
+        // +kubebuilder:validation:Optional
+	// Label to identify HMAC key in the HSM (must not be the same as MKEK label)
+	HSMHMACLabel string `json:"hsmHMACLabel"`
+
+        // +kubebuilder:validation:Optional
+	// +kubebuilder:default=1
+	// HSM Slot ID that contains the token device to be used
+	HSMSlotId int `json:"hsmSlotId"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=4
+        // +kubebuilder:validation:Maximum=7
+        // +kubebuilder:validation:Minimum=0
+        // Level of logging, where 0 means "no logging" and 7 means "debug".
+        HSMLoggingLevel int `json:"hsmLoggingLevel"`
+
+	// +kubebuilder:validation:Optional
+	// The HSM's IPv4 address (X.Y.Z.K)
+	HSMIPAddress string `json:"hsmIpAddress"`
+
+	// +kubebuilder:validation:Optional
+	// The IP address of the client connecting to the HSM (X.Y.Z.K)
+	HSMClientAddress string `json:"hsmClientAddress"`
+
+        // +kubebuilder:validation:Optional
+        // The HSM certificates. The map's key is the OpenShift secret storing the certificate, and
+	// the value is the mounting point (e.g., "luna-certificates": "/usr/local/luna/config/certs").
+        HSMCertificates map[string]string `json:"hsmCertificates"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:validation:Items:Enum=trustway;luna;ncipher
+        // A string containing the HSM type (currently supported: "trustway", "luna", "ncipher").
+        HSMType string `json:"hsmType"`
+}
+
 // PasswordSelector to identify the DB and AdminUser password from the Secret
 type PasswordSelector struct {
 	// +kubebuilder:validation:Optional
