@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -280,6 +282,20 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 
 	databaseAccount := db.GetAccount()
 	databaseSecret := db.GetSecret()
+	enabledSecretStores := []string{}
+	if len(instance.Spec.EnabledSecretStores) == 0 {
+		enabledSecretStores = []string{"simple_crypto"}
+	} else {
+		for _, value := range instance.Spec.EnabledSecretStores {
+			enabledSecretStores = append(enabledSecretStores, string(value))
+		}
+	}
+	globalDefaultSecretStore := ""
+	if len(instance.Spec.GlobalDefaultSecretStore) == 0 {
+		globalDefaultSecretStore = "simple_crypto"
+	} else {
+		globalDefaultSecretStore = instance.Spec.GlobalDefaultSecretStore
+	}
 
 	templateParameters := map[string]interface{}{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
@@ -292,8 +308,34 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 		//"ServicePassword": string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
 		//"ServiceUser":     instance.Spec.ServiceUser,
 		//"ServiceURL":      "https://barbican.openstack.svc:9311",
-		"TransportURL": string(transportURLSecret.Data["transport_url"]),
-		"LogFile":      fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"TransportURL":             string(transportURLSecret.Data["transport_url"]),
+		"LogFile":                  fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+		"EnabledSecretStores":      strings.Join(enabledSecretStores, ","),
+		"GlobalDefaultSecretStore": globalDefaultSecretStore,
+		"SimpleCryptoEnabled":      slices.Contains(enabledSecretStores, "simple_crypto"),
+		"PKCS11CryptoEnabled":      slices.Contains(enabledSecretStores, "pkcs11"),
+	}
+
+	// Checking if there's an HSM.
+	if slices.Contains(enabledSecretStores, "pkcs11") {
+		pkcs11 := instance.Spec.PKCS11
+		hsmLoginSecret, _, err := secret.GetSecret(ctx, h, pkcs11.HSMLogin, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		templateParameters["HSMEnabled"] = true
+		templateParameters["HSMLibraryPath"] = pkcs11.HSMLibraryPath
+		templateParameters["HSMTokenSerialNumber"] = pkcs11.HSMTokenSerialNumber
+		templateParameters["HSMTokenLabel"] = pkcs11.HSMTokenLabel
+		templateParameters["HSMLogin"] = string(hsmLoginSecret.Data["hsmLogin"])
+		templateParameters["HSMMKEKLabel"] = pkcs11.HSMMKEKLabel
+		templateParameters["HSMMKEKLength"] = pkcs11.HSMMKEKLength
+		templateParameters["HSMHMACLabel"] = pkcs11.HSMHMACLabel
+		templateParameters["HSMSlotId"] = pkcs11.HSMSlotId
+		templateParameters["HSMLoggingLevel"] = pkcs11.HSMLoggingLevel
+		templateParameters["HSMIPAddress"] = pkcs11.HSMIPAddress
+		templateParameters["HSMClientAddress"] = pkcs11.HSMClientAddress
+		templateParameters["HSMType"] = pkcs11.HSMType
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)

@@ -47,6 +47,18 @@ type BarbicanSpec struct {
 	BarbicanWorker BarbicanWorkerTemplate `json:"barbicanWorker"`
 
 	BarbicanKeystoneListener BarbicanKeystoneListenerTemplate `json:"barbicanKeystoneListener"`
+
+        // +kubebuilder:validation:Optional
+        PKCS11 BarbicanPKCS11Template `json:"pkcs11,omitempty"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:validation:MinItems=1
+        // +kubebuilder:validation:MaxItems=2
+        EnabledSecretStores []SecretStore `json:"enabledSecretStores,omitempty"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default="simple_crypto"
+        GlobalDefaultSecretStore string `json:"globalDefaultSecretStore"`
 }
 
 // BarbicanSpecCore defines the desired state of Barbican, for use with the OpenStackControlplane CR (no containerImages)

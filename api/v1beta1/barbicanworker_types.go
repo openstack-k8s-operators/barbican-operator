@@ -44,7 +44,20 @@ type BarbicanWorkerSpec struct {
 	BarbicanTemplate `json:",inline"`
 
 	BarbicanWorkerTemplate `json:",inline"`
-	DatabaseHostname       string `json:"databaseHostname"`
+
+	// +kubebuilder:validation:Optional
+	PKCS11 BarbicanPKCS11Template `json:"pkcs11,omitempty"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=2
+        EnabledSecretStores []SecretStore `json:"enabledSecretStores"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default="simple_crypto"
+        GlobalDefaultSecretStore string `json:"globalDefaultSecretStore"`
+
+	DatabaseHostname   string `json:"databaseHostname"`
 
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 

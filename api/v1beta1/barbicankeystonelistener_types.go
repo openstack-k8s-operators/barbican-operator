@@ -43,6 +43,18 @@ type BarbicanKeystoneListenerTemplateCore struct {
 type BarbicanKeystoneListenerSpec struct {
 	BarbicanTemplate `json:",inline"`
 
+        // +kubebuilder:validation:Optional
+        PKCS11 BarbicanPKCS11Template `json:"pkcs11,omitempty"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:validation:MinItems=1
+        // +kubebuilder:validation:MaxItems=2
+        EnabledSecretStores []SecretStore `json:"enabledSecretStores,omitempty"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default="simple_crypto"
+        GlobalDefaultSecretStore string `json:"globalDefaultSecretStore"`
+
 	BarbicanKeystoneListenerTemplate `json:",inline"`
 	DatabaseHostname                 string `json:"databaseHostname"`
 
