@@ -46,12 +46,6 @@ type BarbicanTemplate struct {
 	// PasswordSelectors - Selectors to identify the ServiceUser password from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
-	// +kubebuilder:validation:Optional
-	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
-	// or overwrite rendered information using raw OpenStack config format. The content gets added to
-	// to /etc/<service>/<service>.conf.d directory as custom.conf file.
-	CustomServiceConfig string `json:"customServiceConfig,omitempty"`
-
 	// +kubebuilder:validation:Required
 	// ServiceAccount - service account name used internally to provide Barbican services the default SA name
 	ServiceAccount string `json:"serviceAccount"`
