@@ -8,15 +8,15 @@
       "perm": "0600"
     },
     {
-      "source": "/var/lib/config-data/default/02-service.conf",
-      "dest": "/etc/barbican/barbican.conf.d/02-service.conf",
+      "source": "/var/lib/config-data/default/02-service-custom.conf",
+      "dest": "/etc/barbican/barbican.conf.d/custom.conf",
       "owner": "barbican",
       "perm": "0600",
       "optional": true
     },
     {
-      "source": "/var/lib/config-data/default/03-secrets.conf",
-      "dest": "/etc/barbican/barbican.conf.d/03-secrets.conf",
+      "source": "/var/lib/config-data/default/03-secrets-custom.conf",
+      "dest": "/etc/barbican/barbican.conf.d/03-secrets-custom.conf",
       "owner": "barbican",
       "perm": "0640",
       "optional": true
