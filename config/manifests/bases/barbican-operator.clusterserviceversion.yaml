@@ -2,7 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: "[]"
+    alm-examples: '[]'
     capabilities: Basic Install
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
@@ -18,33 +18,33 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-      - description: BarbicanAPI is the Schema for the barbicanapis API
-        displayName: Barbican API
-        kind: BarbicanAPI
-        name: barbicanapis.barbican.openstack.org
-        specDescriptors:
-          - description: TLS - Parameters related to the TLS
-            displayName: TLS
-            path: tls
-        version: v1beta1
-      - description: Barbican is the Schema for the barbicans API
-        displayName: Barbican
-        kind: Barbican
-        name: barbicans.barbican.openstack.org
-        specDescriptors:
-          - description: TLS - Parameters related to the TLS
-            displayName: TLS
-            path: barbicanAPI.tls
-        version: v1beta1
-      - description: BarbicanWorker is the Schema for the barbicanworkers API
-        displayName: Barbican Worker
-        kind: BarbicanWorker
-        name: barbicanworkers.barbican.openstack.org
-        specDescriptors:
-          - description: TLS - Parameters related to the TLS
-            displayName: TLS
-            path: tls
-        version: v1beta1
+    - description: BarbicanAPI is the Schema for the barbicanapis API
+      displayName: Barbican API
+      kind: BarbicanAPI
+      name: barbicanapis.barbican.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
+      version: v1beta1
+    - description: Barbican is the Schema for the barbicans API
+      displayName: Barbican
+      kind: Barbican
+      name: barbicans.barbican.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: barbicanAPI.tls
+      version: v1beta1
+    - description: BarbicanWorker is the Schema for the barbicanworkers API
+      displayName: Barbican Worker
+      kind: BarbicanWorker
+      name: barbicanworkers.barbican.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
+      version: v1beta1
   description: Barbican Operator
   displayName: Barbican Operator
   install:
@@ -52,21 +52,21 @@ spec:
       deployments: null
     strategy: ""
   installModes:
-    - supported: true
-      type: OwnNamespace
-    - supported: true
-      type: SingleNamespace
-    - supported: false
-      type: MultiNamespace
-    - supported: true
-      type: AllNamespaces
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
   keywords:
-    - OpenStack
-    - KeyManager
-    - Barbican
+  - OpenStack
+  - KeyManager
+  - Barbican
   links:
-    - name: Barbican Operator
-      url: https://github.com/openstack-k8s-operators/barbican-operator
+  - name: Barbican Operator
+    url: https://github.com/openstack-k8s-operators/barbican-operator
   maturity: beta
   provider:
     name: Red Hat Inc.
