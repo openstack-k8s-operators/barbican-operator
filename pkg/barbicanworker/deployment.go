@@ -104,7 +104,6 @@ func Deployment(
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: instance.Spec.ServiceAccount,
-					NodeSelector:       instance.Spec.NodeSelector,
 					Containers: []corev1.Container{
 						{
 							Name: instance.Name + "-log",
@@ -157,5 +156,10 @@ func Deployment(
 		instance.Name,
 		instance.Spec.CustomServiceConfigSecrets),
 		workerVolumes...)
+
+	if instance.Spec.NodeSelector != nil {
+		deployment.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
+	}
+
 	return deployment
 }
