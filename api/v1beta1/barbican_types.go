@@ -42,10 +42,16 @@ const (
 type BarbicanSpec struct {
 	BarbicanSpecBase `json:",inline"`
 
+	// +kubebuilder:validation:Required
+	// BarbicanAPI - Spec definition for the  API services of this Barbican deployment
 	BarbicanAPI BarbicanAPITemplate `json:"barbicanAPI"`
 
+	// +kubebuilder:validation:Required
+	// BarbicanWorker - Spec definition for the Worker service of this Barbican deployment
 	BarbicanWorker BarbicanWorkerTemplate `json:"barbicanWorker"`
 
+	// +kubebuilder:validation:Required
+	// BarbicanKeystoneListener - Spec definition for the KeystoneListener service of this Barbican deployment
 	BarbicanKeystoneListener BarbicanKeystoneListenerTemplate `json:"barbicanKeystoneListener"`
 }
 
@@ -53,10 +59,16 @@ type BarbicanSpec struct {
 type BarbicanSpecCore struct {
 	BarbicanSpecBase `json:",inline"`
 
+	// +kubebuilder:validation:Required
+	// BarbicanAPI - Spec definition for the  API services of this Barbican deployment
 	BarbicanAPI BarbicanAPITemplateCore `json:"barbicanAPI"`
 
+	// +kubebuilder:validation:Required
+	// BarbicanWorker - Spec definition for the Worker service of this Barbican deployment
 	BarbicanWorker BarbicanWorkerTemplateCore `json:"barbicanWorker"`
 
+	// +kubebuilder:validation:Required
+	// BarbicanKeystoneListener - Spec definition for the KeystoneListener service of this Barbican deployment
 	BarbicanKeystoneListener BarbicanKeystoneListenerTemplateCore `json:"barbicanKeystoneListener"`
 }
 

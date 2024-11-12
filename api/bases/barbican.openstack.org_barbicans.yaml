@@ -45,8 +45,8 @@ spec:
             description: BarbicanSpec defines the desired state of Barbican
             properties:
               barbicanAPI:
-                description: BarbicanAPITemplate defines the input parameters for
-                  the Barbican API service
+                description: BarbicanAPI - Spec definition for the  API services of
+                  this Barbican deployment
                 properties:
                   containerImage:
                     description: ContainerImage - Barbican Container Image URL (will
@@ -367,8 +367,8 @@ spec:
                 - containerImage
                 type: object
               barbicanKeystoneListener:
-                description: BarbicanKeystoneListenerTemplate defines common Spec
-                  elements for the KeystoneListener process
+                description: BarbicanKeystoneListener - Spec definition for the KeystoneListener
+                  service of this Barbican deployment
                 properties:
                   containerImage:
                     description: ContainerImage - Barbican Container Image URL (will
@@ -472,8 +472,8 @@ spec:
                 - containerImage
                 type: object
               barbicanWorker:
-                description: BarbicanWorkerTemplate defines common Spec elements for
-                  the Worker process
+                description: BarbicanWorker - Spec definition for the Worker service
+                  of this Barbican deployment
                 properties:
                   containerImage:
                     description: ContainerImage - Barbican Container Image URL (will
