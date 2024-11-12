@@ -252,8 +252,8 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 	}
 	// customData hold any customization for the service.
 	customData := map[string]string{
-		common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig,
-		"my.cnf":                           db.GetDatabaseClientConfig(tlsCfg), //(mschuppert) for now just get the default my.cnf
+		barbican.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig,
+		"my.cnf":                             db.GetDatabaseClientConfig(tlsCfg), //(mschuppert) for now just get the default my.cnf
 	}
 	Log.Info(fmt.Sprintf("[KeystoneListener] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
 

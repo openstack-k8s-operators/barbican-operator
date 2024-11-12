@@ -33,9 +33,9 @@ const (
 	// CustomConfigFileName -
 	CustomConfigFileName = "01-custom.conf"
 	// CustomServiceConfigFileName -
-	CustomServiceConfigFileName = "02-service.conf"
+	CustomServiceConfigFileName = "02-service-custom.conf"
 	// CustomServiceConfigSecretsFileName -
-	CustomServiceConfigSecretsFileName = "03-secrets.conf"
+	CustomServiceConfigSecretsFileName = "03-secrets-custom.conf"
 	// BarbicanAPI defines the barbican-api group
 	BarbicanAPI storage.PropagationType = "BarbicanAPI"
 	// BarbicanWorker defines the barbican-worker group
