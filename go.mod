@@ -11,7 +11,7 @@ require (
 	github.com/openstack-k8s-operators/barbican-operator/api v0.0.0-00010101000000-000000000000
 	github.com/openstack-k8s-operators/infra-operator/apis v0.5.1-0.20241024081600-3e23dc62002c
 	github.com/openstack-k8s-operators/keystone-operator/api v0.5.1-0.20241023160107-bd8e671350e1
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20241029151503-4878b3fa3333
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20241113144931-ff1fd2dcd04a
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.5.1-0.20241025164019-30baa23bf6f1
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.5.1-0.20241025164019-30baa23bf6f1
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.5.0
