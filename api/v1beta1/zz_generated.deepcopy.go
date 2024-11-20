@@ -242,9 +242,13 @@ func (in *BarbicanComponentTemplate) DeepCopyInto(out *BarbicanComponentTemplate
 	*out = *in
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
+		*out = new(map[string]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string]string, len(*in))
+			for key, val := range *in {
+				(*out)[key] = val
+			}
 		}
 	}
 	if in.Replicas != nil {
@@ -507,9 +511,13 @@ func (in *BarbicanSpecBase) DeepCopyInto(out *BarbicanSpecBase) {
 	out.BarbicanTemplate = in.BarbicanTemplate
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
+		*out = new(map[string]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string]string, len(*in))
+			for key, val := range *in {
+				(*out)[key] = val
+			}
 		}
 	}
 	if in.DefaultConfigOverwrite != nil {
