@@ -114,5 +114,9 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 		dbSyncVolume...,
 	)
 
+	if instance.Spec.NodeSelector != nil {
+		job.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
+	}
+
 	return job
 }

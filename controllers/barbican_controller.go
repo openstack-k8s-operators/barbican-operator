@@ -681,8 +681,8 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 
 	// If NodeSelector is not specified in BarbicanAPITemplate, the current
 	// API instance inherits the value from the top-level CR.
-	if apiSpec.BarbicanAPITemplate.BarbicanAPITemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
-		apiSpec.BarbicanAPITemplate.BarbicanAPITemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
+	if apiSpec.NodeSelector == nil {
+		apiSpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
 	deployment := &barbicanv1beta1.BarbicanAPI{
@@ -725,8 +725,8 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 
 	// If NodeSelector is not specified in BarbicanWorkerTemplate, the current
 	// Worker instance inherits the value from the top-level CR.
-	if workerSpec.BarbicanWorkerTemplate.BarbicanWorkerTemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
-		workerSpec.BarbicanWorkerTemplate.BarbicanWorkerTemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
+	if workerSpec.NodeSelector == nil {
+		workerSpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
 	deployment := &barbicanv1beta1.BarbicanWorker{
@@ -768,8 +768,8 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 
 	// If NodeSelector is not specified in BarbicanKeystoneListenerTemplate, the current
 	// KeystoneListener instance inherits the value from the top-level CR.
-	if keystoneListenerSpec.BarbicanKeystoneListenerTemplate.BarbicanKeystoneListenerTemplateCore.BarbicanComponentTemplate.NodeSelector == nil {
-		keystoneListenerSpec.BarbicanKeystoneListenerTemplate.BarbicanKeystoneListenerTemplateCore.BarbicanComponentTemplate.NodeSelector = instance.Spec.BarbicanSpecBase.NodeSelector
+	if keystoneListenerSpec.NodeSelector == nil {
+		keystoneListenerSpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
 	deployment := &barbicanv1beta1.BarbicanKeystoneListener{
