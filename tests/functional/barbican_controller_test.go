@@ -431,6 +431,77 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	When("A Barbican with HSM is created", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetHSMBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
+			DeferCleanup(th.DeleteInstance, CreateBarbicanAPI(barbicanTest.Instance, GetHSMBarbicanAPISpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateKeystoneAPISecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			//mariadb.SimulateMariaDBTLSDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+		})
+
+		It("Creates BarbicanAPI", func() {
+			/*DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))*/
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			BarbicanAPIExists(barbicanTest.Instance)
+
+			d := th.GetDeployment(barbicanTest.BarbicanAPI)
+			// Check the resulting deployment fields
+			Expect(int(*d.Spec.Replicas)).To(Equal(1))
+
+			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(6))
+			Expect(d.Spec.Template.Spec.Containers).To(HaveLen(2))
+
+			// cert deployment volumes
+			/*th.AssertVolumeExists(barbicanTest.CABundleSecret.Name, d.Spec.Template.Spec.Volumes)
+			th.AssertVolumeExists(barbicanTest.InternalCertSecret.Name, d.Spec.Template.Spec.Volumes)
+			th.AssertVolumeExists(barbicanTest.PublicCertSecret.Name, d.Spec.Template.Spec.Volumes)
+
+			// cert volumeMounts
+			container := d.Spec.Template.Spec.Containers[1]
+			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.key", container.VolumeMounts)
+			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.crt", container.VolumeMounts)
+			th.AssertVolumeMountExists(barbicanTest.PublicCertSecret.Name, "tls.key", container.VolumeMounts)
+			th.AssertVolumeMountExists(barbicanTest.PublicCertSecret.Name, "tls.crt", container.VolumeMounts)
+			th.AssertVolumeMountExists(barbicanTest.CABundleSecret.Name, "tls-ca-bundle.pem", container.VolumeMounts)
+
+			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
+			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))*/
+		})
+
+		It("should create config-data and scripts ConfigMaps", func() {
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := cf.Data["my.cnf"]
+			Expect(conf).To(
+				ContainSubstring("[client]\nssl-ca=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem\nssl=1"))
+		})
+	})
+
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.
