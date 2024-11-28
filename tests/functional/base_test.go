@@ -123,7 +123,6 @@ func BarbicanKeystoneListenerNotExists(name types.NamespacedName) {
 	}, timeout, interval).Should(Succeed())
 }
 
-// ========== TLS Stuff ==============
 func BarbicanAPIConditionGetter(name types.NamespacedName) condition.Conditions {
 	instance := GetBarbicanAPI(name)
 	return instance.Status.Conditions
@@ -145,6 +144,7 @@ func GetBarbicanAPI(name types.NamespacedName) *barbicanv1.BarbicanAPI {
 	return instance
 }
 
+// ========== TLS Stuff ==============
 func GetTLSBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseInstance":          "openstack",
@@ -171,6 +171,39 @@ func GetTLSBarbicanAPISpec() map[string]interface{} {
 	})
 	return spec
 }
+
+// ========== End of TLS Stuff ============
+
+// ========== HSM Stuff ============
+func GetHSMBarbicanSpec() map[string]interface{} {
+	return map[string]interface{}{
+		"databaseInstance":          "openstack",
+		"secret":                    SecretName,
+		"simpleCryptoBackendSecret": SecretName,
+		"barbicanAPI":               GetHSMBarbicanAPISpec(),
+	}
+}
+
+func GetHSMBarbicanAPISpec() map[string]interface{} {
+	spec := GetDefaultBarbicanAPISpec()
+	maps.Copy(spec, map[string]interface{}{
+		"enabledSecretStores":      []string{"pkcs11"},
+		"globalDefaultSecretStore": "pkcs11",
+		"pkcs11": map[string]interface{}{
+			"type":          "luna", // Using them Luna model without any specific selection criteria.
+			"libraryPath":   "/usr/local/luna/libs/64/libCryptoki2.so",
+			"slotId":        "1",
+			"MKEKLabel":     "MKEKLabel",
+			"HMACLabel":     "HMACLabel",
+			"serverAddress": "192.168.0.1",
+			"clientAddress": "192.168.0.2",
+			"loginSecret":   "dummy-secret",
+		},
+	})
+	return spec
+}
+
+// ========== End of HSM Stuff ============
 
 func GetDefaultBarbicanAPISpec() map[string]interface{} {
 	return map[string]interface{}{
