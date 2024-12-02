@@ -54,6 +54,7 @@ type BarbicanTestData struct {
 	BarbicanDatabaseName     types.NamespacedName
 	BarbicanDatabaseAccount  types.NamespacedName
 	BarbicanDBSync           types.NamespacedName
+	BarbicanP11Prep          types.NamespacedName
 	BarbicanAPI              types.NamespacedName
 	BarbicanRole             types.NamespacedName
 	BarbicanRoleBinding      types.NamespacedName
@@ -65,6 +66,8 @@ type BarbicanTestData struct {
 	BarbicanServiceInternal  types.NamespacedName
 	BarbicanConfigSecret     types.NamespacedName
 	BarbicanAPIConfigSecret  types.NamespacedName
+	BarbicanHSMLoginSecret   types.NamespacedName
+	BarbicanHSMCertsSecret   types.NamespacedName
 	BarbicanConfigScripts    types.NamespacedName
 	BarbicanConfigMapData    types.NamespacedName
 	BarbicanScheduler        types.NamespacedName
@@ -96,6 +99,10 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		BarbicanDBSync: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-db-sync", barbicanName.Name),
+		},
+		BarbicanP11Prep: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-p11-prep", barbicanName.Name),
 		},
 		BarbicanAPI: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
@@ -141,6 +148,15 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		BarbicanAPIConfigSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "api-config-data"),
+		// This secret stores the password to connect to the HSM.
+		BarbicanHSMLoginSecret: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      "hsm-login",
+		},
+		// This secret stores the certificates used to interact with the HSM.
+		BarbicanHSMCertsSecret: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      "hsm-certs",
 		},
 		BarbicanConfigScripts: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
