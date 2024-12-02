@@ -450,14 +450,11 @@ var _ = Describe("Barbican controller", func() {
 			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
-			//mariadb.SimulateMariaDBTLSDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
 		It("Creates BarbicanAPI", func() {
-			/*DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
-			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.InternalCertSecret))
-			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))*/
 			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
 
 			th.ExpectCondition(
@@ -473,32 +470,24 @@ var _ = Describe("Barbican controller", func() {
 			// Check the resulting deployment fields
 			Expect(int(*d.Spec.Replicas)).To(Equal(1))
 
-			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(6))
+			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(3))
 			Expect(d.Spec.Template.Spec.Containers).To(HaveLen(2))
 
-			// cert deployment volumes
-			/*th.AssertVolumeExists(barbicanTest.CABundleSecret.Name, d.Spec.Template.Spec.Volumes)
-			th.AssertVolumeExists(barbicanTest.InternalCertSecret.Name, d.Spec.Template.Spec.Volumes)
-			th.AssertVolumeExists(barbicanTest.PublicCertSecret.Name, d.Spec.Template.Spec.Volumes)
-
-			// cert volumeMounts
 			container := d.Spec.Template.Spec.Containers[1]
-			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.key", container.VolumeMounts)
-			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.crt", container.VolumeMounts)
-			th.AssertVolumeMountExists(barbicanTest.PublicCertSecret.Name, "tls.key", container.VolumeMounts)
-			th.AssertVolumeMountExists(barbicanTest.PublicCertSecret.Name, "tls.crt", container.VolumeMounts)
-			th.AssertVolumeMountExists(barbicanTest.CABundleSecret.Name, "tls-ca-bundle.pem", container.VolumeMounts)
 
-			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
-			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))*/
+			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
+			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
 		})
 
-		It("should create config-data and scripts ConfigMaps", func() {
+		It("should have the right configuration contents", func() {
 			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
 			Expect(cf).ShouldNot(BeNil())
-			conf := cf.Data["my.cnf"]
-			Expect(conf).To(
-				ContainSubstring("[client]\nssl-ca=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem\nssl=1"))
+			confChrystoki := cf.Data["Chrystoki.conf"]
+			Expect(confChrystoki).To(
+				ContainSubstring("Luna = {\n  DefaultTimeOut = 500000;\n  PEDTimeout1 = 100000;\n  PEDTimeout2 = 200000;"))
+			confDefault := cf.Data["00-default.conf"]
+			Expect(confDefault).To(
+				ContainSubstring("[secretstore:pkcs11]"))
 		})
 	})
 
