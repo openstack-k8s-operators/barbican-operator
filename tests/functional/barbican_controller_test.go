@@ -12,6 +12,7 @@ import (
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/barbican-operator/controllers"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
@@ -437,6 +438,7 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
 			DeferCleanup(th.DeleteInstance, CreateBarbicanAPI(barbicanTest.Instance, GetHSMBarbicanAPISpec()))
 			DeferCleanup(k8sClient.Delete, ctx, CreateKeystoneAPISecret(barbicanTest.Instance.Namespace, SecretName))
+			// keystoneAPI := keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace)
 			DeferCleanup(
 				mariadb.DeleteDBService,
 				mariadb.CreateDBService(
@@ -452,6 +454,7 @@ var _ = Describe("Barbican controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			// DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPI)
 		})
 
 		It("Creates BarbicanAPI", func() {
@@ -479,7 +482,11 @@ var _ = Describe("Barbican controller", func() {
 			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
 		})
 
-		It("should have the right configuration contents", func() {
+		It("Should have the right configuration contents", func() {
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+
 			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
 			Expect(cf).ShouldNot(BeNil())
 			confChrystoki := cf.Data["Chrystoki.conf"]
@@ -488,6 +495,15 @@ var _ = Describe("Barbican controller", func() {
 			confDefault := cf.Data["00-default.conf"]
 			Expect(confDefault).To(
 				ContainSubstring("[secretstore:pkcs11]"))
+		})
+
+		It("Should have the relevant conditions in the right state", func() {
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				controllers.P11PrepReadyCondition,
+				corev1.ConditionTrue,
+			)
 		})
 	})
 

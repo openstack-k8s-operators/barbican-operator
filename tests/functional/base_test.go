@@ -43,6 +43,17 @@ func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
 	)
 }
 
+func CreateHSMSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"AdminPassword":            []byte("12345678"),
+			"BarbicanPassword":         []byte("12345678"),
+			"KeystoneDatabasePassword": []byte("12345678"),
+		},
+	)
+}
+
 func GetDefaultBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseInstance":          "openstack",
@@ -190,14 +201,14 @@ func GetHSMBarbicanAPISpec() map[string]interface{} {
 		"enabledSecretStores":      []string{"pkcs11"},
 		"globalDefaultSecretStore": "pkcs11",
 		"pkcs11": map[string]interface{}{
-			"type":          "luna", // Using them Luna model without any specific selection criteria.
-			"libraryPath":   "/usr/local/luna/libs/64/libCryptoki2.so",
-			"slotId":        "1",
-			"MKEKLabel":     "MKEKLabel",
-			"HMACLabel":     "HMACLabel",
-			"serverAddress": "192.168.0.1",
-			"clientAddress": "192.168.0.2",
-			"loginSecret":   "dummy-secret",
+			"type":          HSMType,
+			"libraryPath":   HSMLibraryPath,
+			"slotId":        HSMSlotId,
+			"MKEKLabel":     HSMMKEKLabel,
+			"HMACLabel":     HSMHMACLabel,
+			"serverAddress": HSMServerAddress,
+			"clientAddress": HSMClientAddress,
+			"loginSecret":   HSMLoginSecret,
 		},
 	})
 	return spec
