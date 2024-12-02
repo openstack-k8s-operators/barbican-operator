@@ -71,15 +71,14 @@ const (
 	interval = time.Millisecond * 200
 
 	// HSM Constants
-	HSMSecret = "hsm-secret"
-	HSMType = "luna" // Using them Luna model without any specific selection criteria.
-        HSMLibraryPath = "/usr/local/luna/libs/64/libCryptoki2.so"
-        HSMSlotId = "1"
-        HSMMKEKLabel = "MKEKLabel"
-        HSMHMACLabel = "HMACLabel"
-        HSMServerAddress = "192.168.0.1"
-        HSMClientAddress = "192.168.0.2"
-        HSMLoginSecret = "dummy-secret"
+	HSMType          = "luna" // Using them Luna model without any specific selection criteria.
+	HSMLibraryPath   = "/usr/local/luna/libs/64/libCryptoki2.so"
+	HSMSlotID        = "1"
+	HSMMKEKLabel     = "MKEKLabel"
+	HSMHMACLabel     = "HMACLabel"
+	HSMServerAddress = "192.168.0.1"
+	HSMClientAddress = "192.168.0.2"
+	HSMLoginSecret   = "hsm-secret"
 )
 
 func TestAPIs(t *testing.T) {
