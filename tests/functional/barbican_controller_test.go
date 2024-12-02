@@ -483,9 +483,9 @@ var _ = Describe("Barbican controller", func() {
 		})
 
 		It("Should have the right configuration contents", func() {
-			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+			/*keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
-			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)*/
 
 			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
 			Expect(cf).ShouldNot(BeNil())

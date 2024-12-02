@@ -203,7 +203,7 @@ func GetHSMBarbicanAPISpec() map[string]interface{} {
 		"pkcs11": map[string]interface{}{
 			"type":          HSMType,
 			"libraryPath":   HSMLibraryPath,
-			"slotId":        HSMSlotId,
+			"slotId":        HSMSlotID,
 			"MKEKLabel":     HSMMKEKLabel,
 			"HMACLabel":     HSMHMACLabel,
 			"serverAddress": HSMServerAddress,
@@ -212,6 +212,15 @@ func GetHSMBarbicanAPISpec() map[string]interface{} {
 		},
 	})
 	return spec
+}
+
+func CreateHSMLoginSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"hsmLogin": []byte("12345678"),
+		},
+	)
 }
 
 // ========== End of HSM Stuff ============
