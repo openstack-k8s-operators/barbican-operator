@@ -48,6 +48,9 @@ type BarbicanWorkerSpec struct {
 
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 
+	// BarbicanTrustwayTemplate - Representing the presence of an Eviden Trustway HSM
+        BarbicanTrustwayTemplate `json:",inline"`
+
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// TLS - Parameters related to the TLS

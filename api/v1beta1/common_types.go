@@ -95,6 +95,44 @@ type BarbicanComponentTemplate struct {
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
+// BarbicanHSMTemplate - Variables used by the operator to interact with an HSM
+type BarbicanHSMTemplate struct {
+        // +kubebuilder:validation:Optional
+        // IP address(es) of the HSM(s)
+        IPAddress []string `json:"ipAddress"`
+
+        // +kubebuilder:validation:Optional
+        // The OpenShift secret storing the PKCS#11 HSM's password
+        Pin string `json:"pin"`
+}
+
+// BarbicanTrustwayTemplate - Variables specific to Eviden's Trustway Proteccio HSMs
+type BarbicanTrustwayTemplate struct {
+        BarbicanHSMTemplate `json:",inline"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=4
+        // +kubebuilder:validation:Maximum=7
+        // +kubebuilder:validation:Minimum=0
+        // Level of logging, where 0 means "no logging" and 7 means "debug".
+        LoggingLevel int `json:"loggingLevel"`
+
+        // +kubebuilder:validation:Optional
+        // The HSM certificates. The map's key is the HSM's IP address and
+        // the value is the OpenShift secret storing the certificate.
+        HSMCertificates map[string]string `json:"hsmCertificates"`
+
+        // +kubebuilder:validation:Optional
+        // The OpenShift secret storing the client certificate plus its key
+        ClientCertificate string `json:"clientCertificate"`
+
+        // +kubebuilder:validation:Optional
+        // +kubebuilder:default=0
+        // +kubebuilder:validation:Enum=0;2
+        // Working mode for the HSM
+        Mode int `json:"mode"`
+}
+
 // PasswordSelector to identify the DB and AdminUser password from the Secret
 type PasswordSelector struct {
 	// +kubebuilder:validation:Optional
