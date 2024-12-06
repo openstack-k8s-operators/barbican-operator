@@ -47,7 +47,12 @@ const (
 	Barbican storage.PropagationType = "Barbican"
 	// BarbicanLogPath is the path used by BarbicanAPI to stream/store its logs
 	BarbicanLogPath = "/var/log/barbican/"
-	// LogVolume is the default logVolume name used to mount logs on both
-	// BarbicanAPI and the sidecar container
+	// LogVolume is the default volume name used to mount logs
 	LogVolume = "logs"
+	// ConfigVolume is the default volume name used to mount service config
+	ConfigVolume = "config-data"
+	// ScriptVolume is the default volume name used to mount scripts
+	ScriptVolume = "scripts"
+	// LunaVolume is the volume used to mount Luna certificates
+	LunaVolume = "hsm-luna-certificates"
 )

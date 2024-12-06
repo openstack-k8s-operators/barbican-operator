@@ -2,6 +2,7 @@ package barbicanapi
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
@@ -70,20 +71,13 @@ func Deployment(
 				},
 			},
 		},
+		barbican.GetLogVolume(),
 	}
 
-	apiVolumes = append(apiVolumes, barbican.GetLogVolume()...)
 	apiVolumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "barbican-api-config.json",
-			ReadOnly:  true,
-		},
+		barbican.GetKollaConfigVolumeMount(instance.Name),
+		barbican.GetLogVolumeMount(),
 	}
-	// Append LogVolume to the apiVolumes: this will be used to stream
-	// logging
-	apiVolumeMounts = append(apiVolumeMounts, barbican.GetLogVolumeMount()...)
 
 	// add CA cert if defined
 	if instance.Spec.TLS.CaBundleSecretName != "" {
@@ -108,6 +102,12 @@ func Deployment(
 			apiVolumes = append(apiVolumes, svc.CreateVolume(endpt.String()))
 			apiVolumeMounts = append(apiVolumeMounts, svc.CreateVolumeMounts(endpt.String())...)
 		}
+	}
+
+	// Add PKCS11 volumes
+	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
+		apiVolumes = append(apiVolumes, barbican.GetHSMVolumes(*instance.Spec.PKCS11)...)
+		apiVolumeMounts = append(apiVolumeMounts, barbican.GetHSMVolumeMounts(*instance.Spec.PKCS11)...)
 	}
 
 	deployment := &appsv1.Deployment{
@@ -147,7 +147,7 @@ func Deployment(
 								RunAsUser: &runAsUser,
 							},
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   barbican.GetLogVolumeMount(),
+							VolumeMounts:   []corev1.VolumeMount{barbican.GetLogVolumeMount()},
 							Resources:      instance.Spec.Resources,
 							ReadinessProbe: readinessProbe,
 							LivenessProbe:  livenessProbe,
