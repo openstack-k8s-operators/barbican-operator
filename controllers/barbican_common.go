@@ -119,7 +119,7 @@ func GeneratePKCS11TemplateMap(
 
 	// Checking if a supported HSM type has been provided.
 	if !slices.Contains(barbicanv1beta1.HSMTypes, strings.ToLower(pkcs11.Type)) {
-		return nil, errors.New("no valid HSM type provided!map[string]interface{}")
+		return nil, errors.New("no valid HSM type provided")
 	}
 
 	tempMap["P11Enabled"] = true
