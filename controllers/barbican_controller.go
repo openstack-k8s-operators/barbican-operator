@@ -63,6 +63,7 @@ const (
 	P11PrepReadyMessage        = "P11 Prep job completed"
 	P11PrepReadyErrorMessage   = "P11 Prep job error occurred %s"
 	P11PrepReadyRunningMessage = "P11 Prep job is still running"
+	P11PrepReadyNotRunMessage  = "P11 Prep job not run"
 )
 
 // BarbicanReconciler reconciles a Barbican object
@@ -989,6 +990,8 @@ func (r *BarbicanReconciler) reconcileInit(
 			Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[barbicanv1beta1.P11PrepHash]))
 		}
 		instance.Status.Conditions.MarkTrue(P11PrepReadyCondition, P11PrepReadyMessage)
+	} else {
+		instance.Status.Conditions.MarkTrue(P11PrepReadyCondition, P11PrepReadyNotRunMessage)
 	}
 
 	// run Barbican p11 prep - end
