@@ -107,7 +107,7 @@ func GetLogVolume() corev1.Volume {
 func GetScriptVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      ScriptVolume,
-		MountPath: "/var/lib/openstack/bin",
+		MountPath: "/usr/local/bin/container-scripts",
 		ReadOnly:  true,
 	}
 }
