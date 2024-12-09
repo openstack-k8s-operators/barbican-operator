@@ -11,7 +11,7 @@ import (
 
 const (
 	// P11PrepCommand -
-	P11PrepCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
+	P11PrepCommand = "/usr/local/bin/kolla_start"
 	P11PrepConfig  = "p11-prep-config-data"
 )
 
@@ -49,7 +49,6 @@ func P11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, an
 	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
-	envVars["KOLLA_BOOTSTRAP"] = env.SetValue("TRUE")
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
