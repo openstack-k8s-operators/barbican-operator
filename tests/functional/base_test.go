@@ -43,6 +43,17 @@ func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
 	)
 }
 
+func CreateHSMSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"AdminPassword":            []byte("12345678"),
+			"BarbicanPassword":         []byte("12345678"),
+			"KeystoneDatabasePassword": []byte("12345678"),
+		},
+	)
+}
+
 func GetDefaultBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseInstance":          "openstack",
@@ -123,7 +134,6 @@ func BarbicanKeystoneListenerNotExists(name types.NamespacedName) {
 	}, timeout, interval).Should(Succeed())
 }
 
-// ========== TLS Stuff ==============
 func BarbicanAPIConditionGetter(name types.NamespacedName) condition.Conditions {
 	instance := GetBarbicanAPI(name)
 	return instance.Status.Conditions
@@ -145,6 +155,7 @@ func GetBarbicanAPI(name types.NamespacedName) *barbicanv1.BarbicanAPI {
 	return instance
 }
 
+// ========== TLS Stuff ==============
 func GetTLSBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseInstance":          "openstack",
@@ -171,6 +182,48 @@ func GetTLSBarbicanAPISpec() map[string]interface{} {
 	})
 	return spec
 }
+
+// ========== End of TLS Stuff ============
+
+// ========== HSM Stuff ============
+func GetHSMBarbicanSpec() map[string]interface{} {
+	return map[string]interface{}{
+		"databaseInstance":          "openstack",
+		"secret":                    SecretName,
+		"simpleCryptoBackendSecret": SecretName,
+		"barbicanAPI":               GetHSMBarbicanAPISpec(),
+	}
+}
+
+func GetHSMBarbicanAPISpec() map[string]interface{} {
+	spec := GetDefaultBarbicanAPISpec()
+	maps.Copy(spec, map[string]interface{}{
+		"enabledSecretStores":      []string{"pkcs11"},
+		"globalDefaultSecretStore": "pkcs11",
+		"pkcs11": map[string]interface{}{
+			"type":          HSMType,
+			"libraryPath":   HSMLibraryPath,
+			"slotId":        HSMSlotID,
+			"MKEKLabel":     HSMMKEKLabel,
+			"HMACLabel":     HSMHMACLabel,
+			"serverAddress": HSMServerAddress,
+			"clientAddress": HSMClientAddress,
+			"loginSecret":   HSMLoginSecret,
+		},
+	})
+	return spec
+}
+
+func CreateHSMLoginSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"hsmLogin": []byte("12345678"),
+		},
+	)
+}
+
+// ========== End of HSM Stuff ============
 
 func GetDefaultBarbicanAPISpec() map[string]interface{} {
 	return map[string]interface{}{

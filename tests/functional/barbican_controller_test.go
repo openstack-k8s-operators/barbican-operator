@@ -12,6 +12,7 @@ import (
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/barbican-operator/controllers"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
@@ -419,6 +420,81 @@ var _ = Describe("Barbican controller", func() {
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
 			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("A Barbican with HSM is created", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetHSMBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
+			DeferCleanup(th.DeleteInstance, CreateBarbicanAPI(barbicanTest.Instance, GetHSMBarbicanAPISpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateKeystoneAPISecret(barbicanTest.Instance.Namespace, SecretName))
+			// keystoneAPI := keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace)
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			// DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPI)
+		})
+
+		It("Creates BarbicanAPI", func() {
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			BarbicanAPIExists(barbicanTest.Instance)
+
+			d := th.GetDeployment(barbicanTest.BarbicanAPI)
+			// Check the resulting deployment fields
+			Expect(int(*d.Spec.Replicas)).To(Equal(1))
+
+			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(3))
+			Expect(d.Spec.Template.Spec.Containers).To(HaveLen(2))
+
+			container := d.Spec.Template.Spec.Containers[1]
+
+			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
+			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
+		})
+
+		It("Should have the right configuration contents", func() {
+			/*keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)*/
+
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			confChrystoki := cf.Data["Chrystoki.conf"]
+			Expect(confChrystoki).To(
+				ContainSubstring("Luna = {\n  DefaultTimeOut = 500000;\n  PEDTimeout1 = 100000;\n  PEDTimeout2 = 200000;"))
+			confDefault := cf.Data["00-default.conf"]
+			Expect(confDefault).To(
+				ContainSubstring("[secretstore:pkcs11]"))
+		})
+
+		It("Should have the relevant conditions in the right state", func() {
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				controllers.P11PrepReadyCondition,
+				corev1.ConditionTrue,
+			)
 		})
 	})
 
