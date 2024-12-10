@@ -42,6 +42,7 @@ type BarbicanDefaults struct {
 	APIContainerImageURL              string
 	WorkerContainerImageURL           string
 	KeystoneListenerContainerImageURL string
+	BarbicanAPITimeout                int
 }
 
 var barbicanDefaults BarbicanDefaults
@@ -135,21 +136,20 @@ func (r *BarbicanSpec) ValidateCreate(basePath *field.Path) field.ErrorList {
 		r.BarbicanAPI.Override.Service)...)
 
 	// pkcs11 verifications
-        if slices.Contains(r.EnabledSecretStores, "pkcs11") {
-                if r.PKCS11 == nil {
+	if slices.Contains(r.EnabledSecretStores, "pkcs11") {
+		if r.PKCS11 == nil {
 			allErrs = append(allErrs, field.Required(basePath.Child("PKCS11"),
 				"PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
 			)
-                } else {
+		} else {
 			// Checking that at least one of the following parameters has been provided.
 			if len(r.PKCS11.TokenSerialNumber) == 0 && len(r.PKCS11.TokenLabels) == 0 && len(r.PKCS11.SlotId) == 0 {
 				allErrs = append(allErrs, field.Required(basePath.Child("PKCS11"),
 					"No token identifier provided. One of TokenSerialNumber, TokenLabels or SlotId needed"),
 				)
 			}
-                }
-        }
-
+		}
+	}
 
 	return allErrs
 }
@@ -220,4 +220,34 @@ func (r *Barbican) ValidateDelete() (admission.Warnings, error) {
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
+}
+
+func (spec *BarbicanSpecCore) GetDefaultRouteAnnotations() (annotations map[string]string) {
+	return map[string]string{
+		"haproxy.router.openshift.io/timeout": fmt.Sprintf("%ds", barbicanDefaults.BarbicanAPITimeout),
+	}
+}
+
+// SetDefaultRouteAnnotations sets HAProxy timeout values for Barbican API routes
+func (spec *BarbicanAPITemplateCore) SetDefaultRouteAnnotations(annotations map[string]string) {
+	const haProxyAnno = "haproxy.router.openshift.io/timeout"
+	// Use a custom annotation to flag when the operator has set the default HAProxy timeout
+	// With the annotation func determines when to overwrite existing HAProxy timeout with the APITimeout
+	const barbicanAnno = "api.Barbican.openstack.org/timeout"
+	valBarbicanAPI, okBarbicanAPI := annotations[barbicanAnno]
+	valHAProxy, okHAProxy := annotations[haProxyAnno]
+
+	// Human operator set the HAProxy timeout manually
+	if !okBarbicanAPI && okHAProxy {
+		return
+	}
+	// Human operator modified the HAProxy timeout manually without removing the Barbican flag
+	if okBarbicanAPI && okHAProxy && valBarbicanAPI != valHAProxy {
+		delete(annotations, barbicanAnno)
+		return
+	}
+
+	timeout := fmt.Sprintf("%ds", spec.APITimeout)
+	annotations[barbicanAnno] = timeout
+	annotations[haProxyAnno] = timeout
 }

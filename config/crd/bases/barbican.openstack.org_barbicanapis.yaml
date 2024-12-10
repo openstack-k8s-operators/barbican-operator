@@ -48,6 +48,10 @@ spec:
           spec:
             description: BarbicanAPISpec defines the desired state of BarbicanAPI
             properties:
+              apiTimeout:
+                description: APITimeout for HAProxy and Apache defaults to Barbican
+                  APITimeout (seconds)
+                type: integer
               containerImage:
                 description: ContainerImage - Barbican Container Image URL (will be
                   set to environmental default if empty)

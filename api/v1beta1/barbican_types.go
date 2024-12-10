@@ -42,6 +42,9 @@ const (
 
 	// BarbicanKeystoneListenerContainerImage is the fall-back container image for BarbicanAPI
 	BarbicanKeystoneListenerContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener:current-podified"
+
+	// Barbican API timeout
+	APITimeout = 90
 )
 
 // BarbicanSpec defines the desired state of Barbican
@@ -106,6 +109,11 @@ type BarbicanSpecBase struct {
 
 	// +kubebuilder:validation:Required
 	// BarbicanAPIInternal - Spec definition for the internal and admin API service of this Barbican deployment
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=90
+	// Barbican API timeout
+	APITimeout int `json:"apiTimeout"`
 }
 
 // BarbicanStatus defines the observed state of Barbican
@@ -195,6 +203,7 @@ func SetupDefaults() {
 		APIContainerImageURL:              util.GetEnvVar("RELATED_IMAGE_BARBICAN_API_IMAGE_URL_DEFAULT", BarbicanAPIContainerImage),
 		WorkerContainerImageURL:           util.GetEnvVar("RELATED_IMAGE_BARBICAN_WORKER_IMAGE_URL_DEFAULT", BarbicanWorkerContainerImage),
 		KeystoneListenerContainerImageURL: util.GetEnvVar("RELATED_IMAGE_BARBICAN_KEYSTONE_LISTENER_IMAGE_URL_DEFAULT", BarbicanKeystoneListenerContainerImage),
+		BarbicanAPITimeout:                APITimeout,
 	}
 
 	SetupBarbicanDefaults(barbicanDefaults)

@@ -64,6 +64,7 @@ type BarbicanTestData struct {
 	BarbicanServicePublic    types.NamespacedName
 	BarbicanServiceInternal  types.NamespacedName
 	BarbicanConfigSecret     types.NamespacedName
+	BarbicanAPIConfigSecret  types.NamespacedName
 	BarbicanConfigScripts    types.NamespacedName
 	BarbicanConfigMapData    types.NamespacedName
 	BarbicanScheduler        types.NamespacedName
@@ -136,6 +137,10 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		BarbicanConfigSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "config-data"),
+		},
+		BarbicanAPIConfigSecret: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "api-config-data"),
 		},
 		BarbicanConfigScripts: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
