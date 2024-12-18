@@ -69,6 +69,18 @@ const (
 	SecretName = "test-osp-secret"
 
 	interval = time.Millisecond * 200
+
+	// HSM Constants
+	HSMType                   = "luna" // Using them Luna model without any specific selection criteria.
+	HSMLibraryPath            = "/usr/local/luna/libs/64/libCryptoki2.so"
+	HSMCertificatesMountPoint = "/usr/local/luna/config/certs"
+	HSMSlotID                 = "1"
+	HSMMKEKLabel              = "MKEKLabel"
+	HSMHMACLabel              = "HMACLabel"
+	HSMServerAddress          = "192.168.0.1"
+	HSMClientAddress          = "192.168.0.2"
+	HSMLoginSecret            = "hsm-login"
+	HSMCertsSecret            = "hsm-certs"
 )
 
 func TestAPIs(t *testing.T) {
