@@ -1,11 +1,11 @@
 {
-    "command": "generate_p11_keys.sh",
+    "command": "/bin/generate_p11_keys.sh",
     "config_files": [
       {
-        "source": "/var/lib/openstack/bin/generate_p11_keys.sh",
-        "dest": "/bin/",
+        "source": "/usr/local/bin/container-scripts/generate_p11_keys.sh",
+        "dest": "/bin/generate_p11_keys.sh",
         "owner": "barbican",
-        "perm": "0700"
+        "perm": "0755"
       },
       {
         "source": "/var/lib/config-data/default/00-default.conf",
@@ -15,11 +15,18 @@
       },
       {
         "source": "/var/lib/config-data/default/Chrystoki.conf",
-        "dest": "//usr/local/luna/Chrystoki.conf",
+        "dest": "/usr/local/luna/Chrystoki.conf",
         "owner": "barbican",
         "perm": "0600",
         "optional": true,
         "merge": true
       }
+    ],
+    "permissions": [
+        {
+            "path": "/var/log/barbican",
+            "owner": "barbican:barbican",
+            "recurse": true
+        }
     ]
 }
