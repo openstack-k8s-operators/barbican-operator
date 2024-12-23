@@ -482,6 +482,20 @@ var _ = Describe("Barbican controller", func() {
 
 			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
 			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTP))
+
+			// Checking the HSM container
+			Expect(container.Name).To(Equal(barbican.ComponentAPI))
+			foundMount := false
+			indexMount := 0
+			for index, volumeMount := range container.VolumeMounts {
+				if volumeMount.Name == barbican.LunaVolume {
+					foundMount = true
+					indexMount = index
+					break
+				}
+			}
+			Expect(foundMount).To(BeTrue())
+			Expect(container.VolumeMounts[indexMount].MountPath).To(Equal(HSMCertificatesMountPoint))
 		})
 
 		It("Verifies the PKCS11 struct is in good shape", func() {
@@ -517,6 +531,7 @@ var _ = Describe("Barbican controller", func() {
 			confServer := certsSecret.Data[HSMServerAddress+"Server.pem"]
 			Expect(confServer).To(
 				ContainSubstring("dummy-data"))
+
 			confClient := certsSecret.Data[HSMClientAddress+"Client.pem"]
 			Expect(confClient).To(
 				ContainSubstring("dummy-data"))
@@ -525,7 +540,7 @@ var _ = Describe("Barbican controller", func() {
 				ContainSubstring("dummy-data"))
 		})
 
-		It("Verifies if Chrystoki.conf and 00-default.conf have the right contents.", func() {
+		It("Verifies if 00-default.conf, barbican-api-config.json and Chrystoki.conf have the right contents.", func() {
 			confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
 			Expect(confSecret).ShouldNot(BeNil())
 
@@ -536,6 +551,12 @@ var _ = Describe("Barbican controller", func() {
 				ContainSubstring("LunaSA Client"))
 			Expect(conf).To(
 				ContainSubstring("ProtectedAuthenticationPathFlagStatus = 0"))
+			Expect(conf).To(
+				ContainSubstring("ClientPrivKeyFile = " + HSMCertificatesMountPoint + "/" + HSMClientAddress + "Key.pem"))
+			Expect(conf).To(
+				ContainSubstring("ClientCertFile = " + HSMCertificatesMountPoint + "/" + HSMClientAddress + ".pem"))
+			Expect(conf).To(
+				ContainSubstring("ServerCAFile = " + HSMCertificatesMountPoint + "/CACert.pem"))
 
 			conf = confSecret.Data["00-default.conf"]
 			Expect(conf).To(
@@ -544,6 +565,12 @@ var _ = Describe("Barbican controller", func() {
 				ContainSubstring("plugin_name = PKCS11"))
 			Expect(conf).To(
 				ContainSubstring("slot_id = " + HSMSlotID))
+
+			conf = confSecret.Data["barbican-api-config.json"]
+			Expect(conf).To(
+				ContainSubstring("/var/lib/config-data/default/Chrystoki.conf"))
+			Expect(conf).To(
+				ContainSubstring("/usr/local/luna/Chrystoki.conf"))
 		})
 
 		It("Checks if the P11PreJob successfully executed", func() {
@@ -557,21 +584,29 @@ var _ = Describe("Barbican controller", func() {
 			)
 
 			// Checking if both, the volume mount name and its mount path match the specified values.
-			volumeMounts := th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts
-			elemNum := 0
-			for index, mount := range volumeMounts {
+			var elemLuna, elemScript = 0, 0
+			for index, mount := range th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts {
 				if mount.Name == barbican.LunaVolume {
-					elemNum = index
-					break
+					elemLuna = index
+				} else if mount.Name == barbican.ScriptVolume {
+					elemScript = index
 				}
 			}
 
-			volume := th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts[elemNum].Name
-			mountPath := th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts[elemNum].MountPath
+			volume := th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts[elemLuna].Name
+			mountPath := th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts[elemLuna].MountPath
 
 			Eventually(func(g Gomega) {
 				g.Expect(volume).To(Equal(barbican.LunaVolume))
 				g.Expect(mountPath).To(Equal(HSMCertificatesMountPoint))
+			}, timeout, interval).Should(Succeed())
+
+			volume = th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts[elemScript].Name
+			mountPath = th.GetJob(barbicanTest.BarbicanP11Prep).Spec.Template.Spec.Containers[0].VolumeMounts[elemScript].MountPath
+
+			Eventually(func(g Gomega) {
+				g.Expect(volume).To(Equal(barbican.ScriptVolume))
+				g.Expect(mountPath).To(Equal(P11PrepMountPoint))
 			}, timeout, interval).Should(Succeed())
 		})
 	})

@@ -81,6 +81,7 @@ const (
 	HSMClientAddress          = "192.168.0.2"
 	HSMLoginSecret            = "hsm-login"
 	HSMCertsSecret            = "hsm-certs"
+	P11PrepMountPoint         = "/usr/local/bin/container-scripts"
 )
 
 func TestAPIs(t *testing.T) {

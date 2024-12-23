@@ -148,6 +148,7 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		BarbicanAPIConfigSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "api-config-data"),
+		},
 		// This secret stores the password to connect to the HSM.
 		BarbicanHSMLoginSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
