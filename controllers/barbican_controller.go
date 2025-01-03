@@ -722,6 +722,9 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 		apiSpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
+	// Note: The top-level .spec.apiTimeout ALWAYS overrides .spec.barbicanAPI.apiTimeout
+	apiSpec.BarbicanAPITemplate.APITimeout = instance.Spec.APITimeout
+
 	deployment := &barbicanv1beta1.BarbicanAPI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-api", instance.Name),

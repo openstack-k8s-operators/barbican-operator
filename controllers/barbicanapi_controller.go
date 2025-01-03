@@ -362,6 +362,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		httpdVhostConfig[endpt.String()] = endptConfig
 	}
 	templateParameters["VHosts"] = httpdVhostConfig
+	templateParameters["TimeOut"] = instance.Spec.APITimeout
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }

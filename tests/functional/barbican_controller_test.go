@@ -208,6 +208,15 @@ var _ = Describe("Barbican controller", func() {
 				corev1.ConditionTrue,
 			)
 		})
+
+		It("checks the 10-barbican_wsgi_main.conf contains the correct TimeOut", func() {
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			httpdConfData := string(cf.Data["10-barbican_wsgi_main.conf"])
+			Expect(httpdConfData).To(
+				ContainSubstring("TimeOut 90"),
+			)
+		})
 	})
 	When("A Barbican with TLS is created", func() {
 		BeforeEach(func() {
