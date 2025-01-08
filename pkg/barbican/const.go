@@ -51,8 +51,14 @@ const (
 	LogVolume = "logs"
 	// ConfigVolume is the default volume name used to mount service config
 	ConfigVolume = "config-data"
+	// ConfigMountPoint is the mount point for service config
+	ConfigMountPoint = "/var/lib/config-data/default"
 	// ScriptVolume is the default volume name used to mount scripts
 	ScriptVolume = "scripts"
-	// LunaVolume is the volume used to mount Luna certificates
-	LunaVolume = "hsm-luna-certificates"
+	// ScriptMountPoint is the mount point for scripts
+	ScriptMountPoint = "/usr/local/bin/container-scripts"
+	// PKCS11DataVolume is the volume used to mount PKCS11 client Data
+	PKCS11ClientDataVolume = "pkcs11-client-data"
+	// PKCS11DataVolume is the mount point used for PKCS11 client Data
+	PKCS11ClientDataMountPoint = "/var/lib/config-data/hsm"
 )

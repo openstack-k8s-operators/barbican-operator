@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -27,7 +26,6 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
-	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -92,56 +90,5 @@ func GenerateSecretStoreTemplateMap(
 		"SimpleCryptoEnabled":      slices.Contains(stores, "simple_crypto"),
 		"PKCS11CryptoEnabled":      slices.Contains(stores, "pkcs11"),
 	}
-	return tempMap, nil
-}
-
-func GeneratePKCS11TemplateMap(
-	ctx context.Context,
-	h *helper.Helper,
-	pkcs11 barbicanv1beta1.BarbicanPKCS11Template,
-	namespace string,
-) (map[string]interface{}, error) {
-	tempMap := map[string]interface{}{}
-	hsmLoginSecret, _, err := oko_secret.GetSecret(ctx, h, pkcs11.LoginSecret, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(pkcs11.TokenSerialNumber) > 0 {
-		tempMap["P11TokenSerialNumber"] = pkcs11.TokenSerialNumber
-	}
-	if len(pkcs11.TokenLabels) > 0 {
-		tempMap["P11TokenLabels"] = pkcs11.TokenLabels
-	}
-	if len(pkcs11.SlotId) > 0 {
-		tempMap["P11SlotId"] = pkcs11.SlotId
-	}
-
-	// Checking if a supported HSM type has been provided.
-	if !slices.Contains(barbicanv1beta1.HSMTypes, strings.ToLower(pkcs11.Type)) {
-		return nil, errors.New("no valid HSM type provided")
-	}
-
-	tempMap["P11Enabled"] = true
-	tempMap["P11LibraryPath"] = pkcs11.LibraryPath
-	tempMap["P11CertificatesMountPoint"] = pkcs11.CertificatesMountPoint
-	tempMap["P11Login"] = string(hsmLoginSecret.Data["hsmLogin"])
-	tempMap["P11MKEKLabel"] = pkcs11.MKEKLabel
-	tempMap["P11MKEKLength"] = pkcs11.MKEKLength
-	tempMap["P11HMACLabel"] = pkcs11.HMACLabel
-	tempMap["P11HMACKeyType"] = pkcs11.HMACKeyType
-	tempMap["P11HMACKeygenMechanism"] = pkcs11.HMACKeygenMechanism
-	tempMap["P11HMACMechanism"] = pkcs11.HMACMechanism
-	tempMap["P11LoggingLevel"] = pkcs11.LoggingLevel
-	tempMap["P11ServerAddress"] = pkcs11.ServerAddress
-	tempMap["P11ClientAddress"] = pkcs11.ClientAddress
-	tempMap["P11Type"] = strings.ToLower(pkcs11.Type)
-	tempMap["P11EncryptionMechanism"] = pkcs11.EncryptionMechanism
-	tempMap["P11KeyWrapMechanism"] = pkcs11.KeyWrapMechanism
-	tempMap["P11AESGCMGenerateIV"] = pkcs11.AESGCMGenerateIV
-	tempMap["P11KeyWrapGenerateIV"] = pkcs11.KeyWrapGenerateIV
-	tempMap["P11AlwaysSetCKASensitive"] = pkcs11.AlwaysSetCKASensitive
-	tempMap["P11OSLockingOK"] = pkcs11.OSLockingOK
-
 	return tempMap, nil
 }

@@ -112,120 +112,32 @@ type BarbicanComponentTemplate struct {
 // This SecretStore type is used by the EnabledSecretStores variable inside the specification.
 type SecretStore string
 
-// BarbicanPKCS11Template - Includes all common HSM properties
+const (
+	// SecretStoreSimpleCrypto -
+	SecretStoreSimpleCrypto SecretStore = "simple_crypto"
+
+	// SecretStorePKCS11 -
+	SecretStorePKCS11 SecretStore = "pkcs11"
+
+	// DefaultPKCS11ClientDataPath
+	DefaultPKCS11ClientDataPath = "/etc/hsm-client"
+)
+
+// BarbicanPKCS11Template - Includes common HSM properties
 type BarbicanPKCS11Template struct {
-        // +kubebuilder:validation:Required
-        // +kubebuilder:validation:Items:Enum=luna
-        // A string containing the HSM type (currently supported: "luna").
-        Type string `json:"type"`
-
-        // +kubebuilder:validation:Required
-	// Path to vendor's PKCS11 library
-	LibraryPath string `json:"libraryPath"`
-
-        // +kubebuilder:validation:Optional
-        // Token serial number used to identify the token to be used.
-	// One of TokenSerialNumber, TokenLabels or SlotId must
-	// be defined.  TokenSerialNumber takes priority over
-	// TokenLabels and SlotId
-	TokenSerialNumber string `json:"tokenSerialNumber,omitempty"`
-
-        // +kubebuilder:validation:Optional
-	// Token labels used to identify the token to be used.
-	// One of TokenSerialNumber, TokenLabels or SlotId must
-	// be specified. TokenLabels takes priority over SlotId.
-	// This can be a comma separated string of labels
-	TokenLabels string `json:"tokenLabels,omitempty"`
-
-        // +kubebuilder:validation:Optional
-	// One of TokenSerialNumber, TokenLabels or SlotId must
-	// be defined.  SlotId is used if none of the others is defined
-        SlotId string `json:"slotId,omitempty"`
-
-        // +kubebuilder:validation:Required
-	// Label to identify master KEK in the HSM (must not be the same as HMAC label)
-	MKEKLabel string `json:"MKEKLabel"`
-
-        // +kubebuilder:validation:Optional
-	// +kubebuilder:default=32
-	// Length in bytes of master KEK
-	MKEKLength int `json:"MKEKLength"`
-
-        // +kubebuilder:validation:Required
-        // Label to identify HMAC key in the HSM (must not be the same as MKEK label)
-        HMACLabel string `json:"HMACLabel"`
-
-        // +kubebuilder:validation:Optional
-	// +kubebuilder:default=CKK_GENERIC_SECRET
-	// HMAC Key Type
-	HMACKeyType string `json:"HMACKeyType"`
-
-        // +kubebuilder:validation:Optional
-	// +kubebuilder:default=CKM_GENERIC_SECRET_KEY_GEN
-	// HMAC Keygen Mechanism
-	HMACKeygenMechanism string `json:"HMACKeygenMechanism"`
-
-        // +kubebuilder:validation:Optional
-	// +kubebuilder:default=CKM_SHA256_HMAC
-	// HMAC Mechanism. This replaces hsm_keywrap_mechanism
-	HMACMechanism string `json:"HMACMechanism"`
-
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default=4
-        // +kubebuilder:validation:Maximum=7
-        // +kubebuilder:validation:Minimum=0
-        // Level of logging, where 0 means "no logging" and 7 means "debug".
-        LoggingLevel int `json:"loggingLevel"`
-
-	// +kubebuilder:validation:Required
-	// The HSM's IPv4 address (X.Y.Z.K)
-	ServerAddress string `json:"serverAddress"`
-
-	// +kubebuilder:validation:Optional
-	// The IP address of the client connecting to the HSM (X.Y.Z.K)
-	ClientAddress string `json:"clientAddress,omitempty"`
-
         // +kubebuilder:validation:Required
         // OpenShift secret that stores the password to login to the PKCS11 session
         LoginSecret string `json:"loginSecret"`
 
-        // +kubebuilder:validation:Optional
-        // The OpenShift secret that stores the HSM certificates.
-        CertificatesSecret string `json:"certificatesSecret,omitempty"`
+        // +kubebuilder:validation:Required
+        // The OpenShift secret that stores the HSM client data.
+        // These will be mounted to /var/lib/config-data/hsm
+        ClientDataSecret string `json:"clientDataSecret"`
 
         // +kubebuilder:validation:Optional
-        // The mounting point where the certificates will be copied to (e.g., /usr/local/luna/config/certs).
-	CertificatesMountPoint string `json:"certificatesMountPoint,omitempty"`
-
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default=CKM_AES_GCM
-        // Secret encryption mechanism
-	EncryptionMechanism string `json:"encryptionMechanism"`
-
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default=CKM_AES_KEY_WRAP_KWP
-        // Key wrap mechanism
-	KeyWrapMechanism string `json:"keyWrapMechanism"`
-
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default=true
-        // Generate IVs for the key wrap mechanism
-	KeyWrapGenerateIV bool `json:"keyWrapGenerateIV"`
-
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default=true
-        // Generate IVs for CKM_AES_GCM mechanism
-	AESGCMGenerateIV bool `json:"AESGCMGenerateIV"`
-
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default=true
-        // Always set cka_sensitive
-	AlwaysSetCKASensitive bool `json:"alwaysSetCKASensitive"`
-
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default=false
-        // Set os_locking_ok
-	OSLockingOK  bool `json:"OSLockingOK"`
+	// +kubebuilder:default="/etc/hsm-client"
+        // Location to which kolla will copy the data in ClientDataSecret.
+        ClientDataPath string `json:"clientDataPath"`
 }
 
 // PasswordSelector to identify the DB and AdminUser password from the Secret
@@ -237,4 +149,7 @@ type PasswordSelector struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="SimpleCryptoKEK"
 	SimpleCryptoKEK string `json:"simplecryptokek"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="PKCS11Pin"
+	PKCS11Pin string `json:"pkcs11pin"`
 }

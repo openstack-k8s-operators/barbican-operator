@@ -2,7 +2,6 @@ package barbican
 
 import (
 	"strconv"
-	"strings"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +39,7 @@ func GetVolumeMounts(secretNames []string) []corev1.VolumeMount {
 	vm := []corev1.VolumeMount{
 		{
 			Name:      ConfigVolume,
-			MountPath: "/var/lib/config-data/default",
+			MountPath: ConfigMountPoint,
 			ReadOnly:  true,
 		},
 		{
@@ -107,7 +106,7 @@ func GetLogVolume() corev1.Volume {
 func GetScriptVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      ScriptVolume,
-		MountPath: "/usr/local/bin/container-scripts",
+		MountPath: ScriptMountPoint,
 		ReadOnly:  true,
 	}
 }
@@ -137,33 +136,26 @@ func GetKollaConfigVolumeMount(serviceName string) corev1.VolumeMount {
 
 // GetHSMVolume - Returns Volumes for HSM secrets
 func GetHSMVolumes(pkcs11 barbicanv1beta1.BarbicanPKCS11Template) []corev1.Volume {
-	var config0644AccessMode int32 = 0644
-	if strings.ToLower(pkcs11.Type) == "luna" {
-		return []corev1.Volume{
-			{
-				Name: LunaVolume,
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						DefaultMode: &config0644AccessMode,
-						SecretName:  pkcs11.CertificatesSecret,
-					},
+	return []corev1.Volume{
+		{
+			Name: PKCS11ClientDataVolume,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					DefaultMode: &configMode,
+					SecretName:  pkcs11.ClientDataSecret,
 				},
 			},
-		}
+		},
 	}
-	return nil
 }
 
 // GetHSMVolumeMount - Returns Volume Mounts for HSM secrets
-func GetHSMVolumeMounts(pkcs11 barbicanv1beta1.BarbicanPKCS11Template) []corev1.VolumeMount {
-	if strings.ToLower(pkcs11.Type) == "luna" {
-		return []corev1.VolumeMount{
-			{
-				Name:      LunaVolume,
-				MountPath: pkcs11.CertificatesMountPoint,
-				ReadOnly:  true,
-			},
-		}
+func GetHSMVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      PKCS11ClientDataVolume,
+			MountPath: PKCS11ClientDataMountPoint,
+			ReadOnly:  true,
+		},
 	}
-	return nil
 }

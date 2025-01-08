@@ -165,7 +165,7 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return r.reconcileNormal(ctx, instance, helper)
 }
 
-func (r *BarbicanWorkerReconciler) getSecret(
+func (r *BarbicanWorkerReconciler) verifySecret(
 	ctx context.Context,
 	h *helper.Helper,
 	instance *barbicanv1beta1.BarbicanWorker,
@@ -248,15 +248,22 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 		"my.cnf":                             db.GetDatabaseClientConfig(tlsCfg), //(mschuppert) for now just get the default my.cnf
 	}
 
+	// Fetch the service config snippet (CustomConfigFileName) from the top
+	// level barbican controller, and add them to this service specific Secret.
+	owner := barbican.GetOwningBarbicanName(instance)
+	if owner != "" {
+		barbicanSecretName := owner + "-config-data"
+		barbicanSecret, _, err := secret.GetSecret(ctx, h, barbicanSecretName, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		customData[barbican.CustomConfigFileName] = string(barbicanSecret.Data[barbican.CustomConfigFileName])
+	}
+
 	Log.Info(fmt.Sprintf("[Worker] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
-	}
-
-	simpleCryptoSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
-	if err != nil {
-		return err
 	}
 
 	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.TransportURLSecret, instance.Namespace)
@@ -276,9 +283,21 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 			instance.Spec.DatabaseHostname,
 			barbican.DatabaseName,
 		),
-		"TransportURL":    string(transportURLSecret.Data["transport_url"]),
-		"LogFile":         fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
-		"SimpleCryptoKEK": string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK]),
+		"TransportURL": string(transportURLSecret.Data["transport_url"]),
+		"LogFile":      fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+	}
+
+	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
+	// This gets overridden in the PKCS11 section below if needed.
+	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
+
+	// handle simple crypto secret
+	if len(instance.Spec.EnabledSecretStores) == 0 || slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreSimpleCrypto) {
+		simpleCryptoSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		templateParameters["SimpleCryptoKEK"] = string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK])
 	}
 
 	// Set secret store parameters
@@ -291,13 +310,14 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 	maps.Copy(templateParameters, secretStoreTemplateMap)
 
 	// Set pkcs11 parameters
-	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
-		pkcs11TemplateMap, err := GeneratePKCS11TemplateMap(
-			ctx, h, *instance.Spec.PKCS11, instance.Namespace)
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
+		hsmLoginSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.PKCS11.LoginSecret, instance.Namespace)
 		if err != nil {
 			return err
 		}
-		maps.Copy(templateParameters, pkcs11TemplateMap)
+		templateParameters["PKCS11Login"] = string(hsmLoginSecret.Data[instance.Spec.PasswordSelectors.PKCS11Pin])
+		templateParameters["PKCS11Enabled"] = true
+		templateParameters["PKCS11ClientDataPath"] = instance.Spec.PKCS11.ClientDataPath
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
@@ -351,29 +371,45 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 
 	configVars := make(map[string]env.Setter)
 
-	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
-	//
-	Log.Info(fmt.Sprintf("[API] Get secret 1 '%s'", instance.Spec.Secret))
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
+	Log.Info(fmt.Sprintf("[API] Verify secret '%s'", instance.Spec.Secret))
+	ctrlResult, err := r.verifySecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
 
-	//
 	// check for required TransportURL secret holding transport URL string
-	//
-	Log.Info(fmt.Sprintf("[Worker] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
-	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, []string{TransportURL}, &configVars)
+	Log.Info(fmt.Sprintf("[Worker] Verify secret '%s'", instance.Spec.TransportURLSecret))
+	ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.TransportURLSecret, []string{TransportURL}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
 
-	// TODO (alee) cinder has some code here to retrieve secrets from the parent CR
-	// Seems like we may  want this instead
+	// check for Simple Crypto Backend secret holding the KEK
+	if len(instance.Spec.EnabledSecretStores) == 0 || slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreSimpleCrypto) {
+		Log.Info(fmt.Sprintf("[Worker] Verify secret '%s'", instance.Spec.SimpleCryptoBackendSecret))
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.SimpleCryptoBackendSecret, []string{instance.Spec.PasswordSelectors.SimpleCryptoKEK}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+	}
 
-	// TODO (alee) cinder has some code to retrieve CustomServiceConfigSecrets
-	// This seems like a great place to store things like HSM passwords
+	// check PKCS11 secrets
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
+		// check pkcs11 login secret
+		Log.Info(fmt.Sprintf("[Worker] Verify secret '%s'", instance.Spec.PKCS11.LoginSecret))
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.PKCS11.LoginSecret, []string{instance.Spec.PasswordSelectors.PKCS11Pin}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+
+		// check for PKCS11 secret holding the PKCS11 Client Data
+		Log.Info(fmt.Sprintf("[Worker] Verify secret '%s'", instance.Spec.PKCS11.ClientDataSecret))
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.PKCS11.ClientDataSecret, []string{}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+	}
 
 	Log.Info(fmt.Sprintf("[Worker] Got secrets '%s'", instance.Name))
 
@@ -611,6 +647,31 @@ func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}); err != nil {
 		return err
 	}
+
+	// index pkcs11LoginSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanWorker{}, pkcs11LoginSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*barbicanv1beta1.BarbicanWorker)
+		if cr.Spec.PKCS11 == nil || cr.Spec.PKCS11.LoginSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.PKCS11.LoginSecret}
+	}); err != nil {
+		return err
+	}
+
+	// index pkcs11ClientDataSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanWorker{}, pkcs11ClientDataSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*barbicanv1beta1.BarbicanWorker)
+		if cr.Spec.PKCS11 == nil || cr.Spec.PKCS11.ClientDataSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.PKCS11.ClientDataSecret}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanWorker{}).
 		// Owns(&corev1.Service{}).
@@ -630,7 +691,7 @@ func (r *BarbicanWorkerReconciler) findObjectsForSrc(ctx context.Context, src cl
 
 	l := log.FromContext(ctx).WithName("Controllers").WithName("BarbicanWorker")
 
-	for _, field := range commonWatchFields {
+	for _, field := range workerWatchFields {
 		crList := &barbicanv1beta1.BarbicanWorkerList{}
 		listOps := &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),

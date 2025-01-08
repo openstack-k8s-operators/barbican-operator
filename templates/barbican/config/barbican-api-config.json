@@ -8,8 +8,15 @@
       "perm": "0600"
     },
     {
+      "source": "/var/lib/config-data/default/01-custom.conf",
+      "dest": "/etc/barbican/barbican.conf.d/01-custom.conf",
+      "owner": "barbican",
+      "perm": "0600",
+      "optional": true
+    },
+    {
       "source": "/var/lib/config-data/default/02-service-custom.conf",
-      "dest": "/etc/barbican/barbican.conf.d/custom.conf",
+      "dest": "/etc/barbican/barbican.conf.d/02-service-custom.conf",
       "owner": "barbican",
       "perm": "0600",
       "optional": true
@@ -79,10 +86,10 @@
       "merge": true
     },
     {
-      "source": "/var/lib/config-data/default/Chrystoki.conf",
-      "dest": "/usr/local/luna/Chrystoki.conf",
+      "source": "/var/lib/config-data/hsm",
+      "dest": "{{ .PKCS11ClientDataPath }}",
       "owner": "barbican",
-      "perm": "0600",
+      "perm": "0550",
       "optional": true,
       "merge": true
     }

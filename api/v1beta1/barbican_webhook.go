@@ -138,22 +138,19 @@ func (r *BarbicanSpec) ValidateCreate(basePath *field.Path) field.ErrorList {
 		r.BarbicanAPI.Override.Service)...)
 
 	// pkcs11 verifications
-	if slices.Contains(r.EnabledSecretStores, "pkcs11") {
-		if r.PKCS11 == nil {
-			allErrs = append(allErrs, field.Required(basePath.Child("PKCS11"),
-				"PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
-			)
-		} else {
-			// Checking that at least one of the following parameters has been provided.
-			if len(r.PKCS11.TokenSerialNumber) == 0 && len(r.PKCS11.TokenLabels) == 0 && len(r.PKCS11.SlotId) == 0 {
-				allErrs = append(allErrs, field.Required(basePath.Child("PKCS11"),
-					"No token identifier provided. One of TokenSerialNumber, TokenLabels or SlotId needed"),
-				)
-			}
-		}
-	}
+	r.ValidatePKCS11(basePath, &allErrs)
 
 	return allErrs
+}
+
+func (r *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.ErrorList) {
+	if slices.Contains(r.EnabledSecretStores, SecretStorePKCS11) {
+                if r.PKCS11 == nil {
+                        *allErrs = append(*allErrs, field.Required(basePath.Child("PKCS11"),
+                                "PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
+                        )
+                }
+        }
 }
 
 func (r *BarbicanSpecCore) ValidateCreate(basePath *field.Path) field.ErrorList {
@@ -201,6 +198,9 @@ func (r *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path) fi
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		r.BarbicanAPI.Override.Service)...)
+
+	// pkcs11 verifications
+	r.ValidatePKCS11(basePath, &allErrs)
 
 	return allErrs
 }

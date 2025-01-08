@@ -19,31 +19,42 @@ spec:
     database: BarbicanDatabasePassword
     service: BarbicanPassword
     simplecryptokek: BarbicanSimpleCryptoKEK
+    pkcs11pin: BarbicanPKCS11Pin
   preserveJobs: true
   customServiceConfig: |
     [DEFAULT]
     debug = True
+
+    [secretstore:pkcs11]
+    secret_store_plugin = store_crypto
+    crypto_plugin = p11_crypto
+
+    [p11_crypto_plugin]
+    plugin_name = PKCS11
+    library_path = /usr/local/luna/libs/64/libCryptoki2.so
+    token_labels = some_token_label
+    mkek_label = some_mkek_label
+    mkek_length = 123455
+    hmac_label = some_hmac_label
+    encryption_mechanism = CKM_AES_GCM
+    aes_gcm_generate_iv = true
+    hmac_key_type = CKK_GENERIC_SECRET
+    hmac_keygen_mechanism = CKM_GENERIC_SECRET_KEY_GEN
+    hmac_mechanism = CKM_SHA256_HMAC
+    key_wrap_mechanism = CKM_AES_CBC_PAD
+    key_wrap_generate_iv = true
+    always_set_cka_sensitive = true
+    os_locking_ok = false
   globalDefaultSecretStore: pkcs11
   enabledSecretStores:
     - simple_crypto
     - pkcs11
   pkcs11:
-    hsmType: luna
-    hsmLibraryPath: /usr/local/luna/libs/64/libCryptoki2.so
-    hsmTokenLabels: my_hsm_partition_label
-    hsmMKEKLabel: my_mkek_label
-    hsmHMACLabel: my_hmac_label
-    hsmIpAddress: my_hsm_server_ip_address
-    hsmClientAddress: my_hsm_client_ip_address
-    hsmLoginSecret: my_luna_login_secret
-    hsmCertificatesSecret: my_luna_certs_secret
-    hsmCertificatesMountPoint: /usr/local/luna/config/certs
-    hsmKeyWrapMechanism: CKM_AES_CBC_PAD
+    loginSecret: my_luna_login_secret
+    clientDataSecret: my_luna_data_secret
+    clientDataPatth: /usr/local/luna
   barbicanAPI:
     containerImage: my_custom_barbican_api_image
-    passwordSelectors:
-      database: BarbicanDatabasePassword
-      service: BarbicanPassword
     replicas: 1
   barbicanWorker:
     containerImage: my_custom_barbican_worker_image

@@ -1,9 +1,9 @@
 {
-    "command": "/bin/generate_p11_keys.sh",
+    "command": "/bin/generate_pkcs11_keys.sh",
     "config_files": [
       {
-        "source": "/usr/local/bin/container-scripts/generate_p11_keys.sh",
-        "dest": "/bin/generate_p11_keys.sh",
+        "source": "/usr/local/bin/container-scripts/generate_pkcs11_keys.sh",
+        "dest": "/bin/generate_pkcs11_keys.sh",
         "owner": "barbican",
         "perm": "0755"
       },
@@ -14,10 +14,17 @@
 	"perm": "0600"
       },
       {
-        "source": "/var/lib/config-data/default/Chrystoki.conf",
-        "dest": "/usr/local/luna/Chrystoki.conf",
+        "source": "/var/lib/config-data/default/01-custom.conf",
+        "dest": "/etc/barbican/barbican.conf.d/01-custom.conf",
         "owner": "barbican",
         "perm": "0600",
+        "optional": true
+      },
+      {
+        "source": "/var/lib/config-data/hsm",
+        "dest": "{{ .PKCS11ClientDataPath }}",
+        "owner": "barbican",
+        "perm": "0550",
         "optional": true,
         "merge": true
       }

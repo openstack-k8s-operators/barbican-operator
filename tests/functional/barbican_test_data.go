@@ -42,39 +42,39 @@ const (
 
 // BarbicanTestData is the data structure used to provide input data to envTest
 type BarbicanTestData struct {
-	BarbicanPassword         string
-	BarbicanServiceUser      string
-	ContainerImage           string
-	DatabaseHostname         string
-	DatabaseInstance         string
-	RabbitmqClusterName      string
-	RabbitmqSecretName       string
-	Instance                 types.NamespacedName
-	Barbican                 types.NamespacedName
-	BarbicanDatabaseName     types.NamespacedName
-	BarbicanDatabaseAccount  types.NamespacedName
-	BarbicanDBSync           types.NamespacedName
-	BarbicanP11Prep          types.NamespacedName
-	BarbicanAPI              types.NamespacedName
-	BarbicanRole             types.NamespacedName
-	BarbicanRoleBinding      types.NamespacedName
-	BarbicanTransportURL     types.NamespacedName
-	BarbicanSA               types.NamespacedName
-	BarbicanKeystoneService  types.NamespacedName
-	BarbicanKeystoneEndpoint types.NamespacedName
-	BarbicanServicePublic    types.NamespacedName
-	BarbicanServiceInternal  types.NamespacedName
-	BarbicanConfigSecret     types.NamespacedName
-	BarbicanAPIConfigSecret  types.NamespacedName
-	BarbicanHSMLoginSecret   types.NamespacedName
-	BarbicanHSMCertsSecret   types.NamespacedName
-	BarbicanConfigScripts    types.NamespacedName
-	BarbicanConfigMapData    types.NamespacedName
-	BarbicanScheduler        types.NamespacedName
-	InternalAPINAD           types.NamespacedName
-	CABundleSecret           types.NamespacedName
-	InternalCertSecret       types.NamespacedName
-	PublicCertSecret         types.NamespacedName
+	BarbicanPassword               string
+	BarbicanServiceUser            string
+	ContainerImage                 string
+	DatabaseHostname               string
+	DatabaseInstance               string
+	RabbitmqClusterName            string
+	RabbitmqSecretName             string
+	Instance                       types.NamespacedName
+	Barbican                       types.NamespacedName
+	BarbicanDatabaseName           types.NamespacedName
+	BarbicanDatabaseAccount        types.NamespacedName
+	BarbicanDBSync                 types.NamespacedName
+	BarbicanPKCS11Prep             types.NamespacedName
+	BarbicanAPI                    types.NamespacedName
+	BarbicanRole                   types.NamespacedName
+	BarbicanRoleBinding            types.NamespacedName
+	BarbicanTransportURL           types.NamespacedName
+	BarbicanSA                     types.NamespacedName
+	BarbicanKeystoneService        types.NamespacedName
+	BarbicanKeystoneEndpoint       types.NamespacedName
+	BarbicanServicePublic          types.NamespacedName
+	BarbicanServiceInternal        types.NamespacedName
+	BarbicanConfigSecret           types.NamespacedName
+	BarbicanAPIConfigSecret        types.NamespacedName
+	BarbicanPKCS11LoginSecret      types.NamespacedName
+	BarbicanPKCS11ClientDataSecret types.NamespacedName
+	BarbicanConfigScripts          types.NamespacedName
+	BarbicanConfigMapData          types.NamespacedName
+	BarbicanScheduler              types.NamespacedName
+	InternalAPINAD                 types.NamespacedName
+	CABundleSecret                 types.NamespacedName
+	InternalCertSecret             types.NamespacedName
+	PublicCertSecret               types.NamespacedName
 }
 
 // GetBarbicanTestData is a function that initialize the BarbicanTestData
@@ -100,9 +100,9 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-db-sync", barbicanName.Name),
 		},
-		BarbicanP11Prep: types.NamespacedName{
+		BarbicanPKCS11Prep: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
-			Name:      fmt.Sprintf("%s-p11-prep", barbicanName.Name),
+			Name:      fmt.Sprintf("%s-pkcs11-prep", barbicanName.Name),
 		},
 		BarbicanAPI: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
@@ -149,15 +149,13 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "api-config-data"),
 		},
-		// This secret stores the password to connect to the HSM.
-		BarbicanHSMLoginSecret: types.NamespacedName{
+		BarbicanPKCS11LoginSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
-			Name:      "hsm-login",
+			Name:      PKCS11LoginSecret,
 		},
-		// This secret stores the certificates used to interact with the HSM.
-		BarbicanHSMCertsSecret: types.NamespacedName{
+		BarbicanPKCS11ClientDataSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
-			Name:      "hsm-certs",
+			Name:      PKCS11ClientDataSecret,
 		},
 		BarbicanConfigScripts: types.NamespacedName{
 			Namespace: barbicanName.Namespace,

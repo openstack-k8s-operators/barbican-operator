@@ -105,9 +105,9 @@ func Deployment(
 	}
 
 	// Add PKCS11 volumes
-	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
 		apiVolumes = append(apiVolumes, barbican.GetHSMVolumes(*instance.Spec.PKCS11)...)
-		apiVolumeMounts = append(apiVolumeMounts, barbican.GetHSMVolumeMounts(*instance.Spec.PKCS11)...)
+		apiVolumeMounts = append(apiVolumeMounts, barbican.GetHSMVolumeMounts()...)
 	}
 
 	deployment := &appsv1.Deployment{

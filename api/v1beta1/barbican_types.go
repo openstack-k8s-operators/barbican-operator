@@ -22,15 +22,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Supported HSM models
-var HSMTypes = []string{"luna"}
-
 const (
 	// DbSyncHash hash
 	DbSyncHash = "dbsync"
 
-	// P11PrepHash hash
-	P11PrepHash = "p11prep"
+	// PKCS11PrepHash hash
+	PKCS11PrepHash = "pkcs11prep"
 
 	// Container image fall-back defaults
 
