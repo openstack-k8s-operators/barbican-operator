@@ -229,7 +229,7 @@ func (spec *BarbicanSpecCore) GetDefaultRouteAnnotations() (annotations map[stri
 }
 
 // SetDefaultRouteAnnotations sets HAProxy timeout values for Barbican API routes
-func (spec *BarbicanAPITemplateCore) SetDefaultRouteAnnotations(annotations map[string]string) {
+func (spec *BarbicanSpecCore) SetDefaultRouteAnnotations(annotations map[string]string) {
 	const haProxyAnno = "haproxy.router.openshift.io/timeout"
 	// Use a custom annotation to flag when the operator has set the default HAProxy timeout
 	// With the annotation func determines when to overwrite existing HAProxy timeout with the APITimeout
