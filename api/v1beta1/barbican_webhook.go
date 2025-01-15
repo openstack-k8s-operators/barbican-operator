@@ -97,7 +97,9 @@ func (spec *BarbicanSpecBase) Default() {
 
 // Default - set defaults for this BarbicanSpecBase. NOTE: this version is used by the OpenStackControlplane webhook
 func (spec *BarbicanSpecCore) Default() {
-	// no validations
+	if spec.APITimeout == 0 {
+		spec.APITimeout = barbicanDefaults.BarbicanAPITimeout
+	}
 	spec.BarbicanSpecBase.Default()
 }
 
@@ -233,7 +235,7 @@ func (spec *BarbicanSpecCore) SetDefaultRouteAnnotations(annotations map[string]
 	const haProxyAnno = "haproxy.router.openshift.io/timeout"
 	// Use a custom annotation to flag when the operator has set the default HAProxy timeout
 	// With the annotation func determines when to overwrite existing HAProxy timeout with the APITimeout
-	const barbicanAnno = "api.Barbican.openstack.org/timeout"
+	const barbicanAnno = "api.barbican.openstack.org/timeout"
 	valBarbicanAPI, okBarbicanAPI := annotations[barbicanAnno]
 	valHAProxy, okHAProxy := annotations[haProxyAnno]
 
