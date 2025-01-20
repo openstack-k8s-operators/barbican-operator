@@ -320,7 +320,7 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 		templateParameters["PKCS11ClientDataPath"] = instance.Spec.PKCS11.ClientDataPath
 	}
 
-	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false, map[string]string{})
 }
 
 func (r *BarbicanWorkerReconciler) reconcileInit(

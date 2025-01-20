@@ -14,6 +14,7 @@ import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	controllers "github.com/openstack-k8s-operators/barbican-operator/controllers"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 	corev1 "k8s.io/api/core/v1"
@@ -633,6 +634,65 @@ var _ = Describe("Barbican controller", func() {
 				g.Expect(volume).To(Equal(barbican.ConfigVolume))
 				g.Expect(mountPath).To(Equal(barbican.ConfigMountPoint))
 			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("A BarbicanAPI is created with HttpdCustomization.CustomConfigSecret", func() {
+		BeforeEach(func() {
+			customServiceConfigSecretName := types.NamespacedName{Name: "foo", Namespace: barbicanTest.Instance.Namespace}
+			customConfig := []byte(`CustomParam "foo"
+CustomKeystoneAuthURL "{{ .KeystoneAuthURL }}"`)
+			th.CreateSecret(
+				customServiceConfigSecretName,
+				map[string][]byte{
+					"bar.conf": customConfig,
+				},
+			)
+			spec := GetDefaultBarbicanSpec()
+			apiSpec := GetDefaultBarbicanAPISpec()
+			apiSpec["httpdCustomization"] = map[string]interface{}{
+				"customConfigSecret": customServiceConfigSecretName.Name,
+			}
+			spec["barbicanAPI"] = apiSpec
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+
+			DeferCleanup(
+				k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, "test-osp-secret-barbican"))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+		})
+
+		It("it renders the custom template and adds it to the barbicanapi-config-data secret", func() {
+			scrt := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(scrt).ShouldNot(BeNil())
+			Expect(scrt.Data).Should(HaveKey(common.TemplateParameters))
+			configData := string(scrt.Data[common.TemplateParameters])
+			keystoneAuthURL := "http://keystone-internal.openstack.svc:5000"
+
+			Expect(configData).Should(ContainSubstring(fmt.Sprintf("KeystoneAuthURL: %s", keystoneAuthURL)))
+
+			for _, cfg := range []string{"httpd_custom_internal_bar.conf", "httpd_custom_public_bar.conf"} {
+				Expect(scrt.Data).Should(HaveKey(cfg))
+				configData := string(scrt.Data[cfg])
+				Expect(configData).Should(ContainSubstring("CustomParam \"foo\""))
+				Expect(configData).Should(ContainSubstring(fmt.Sprintf("CustomKeystoneAuthURL \"%s\"", keystoneAuthURL)))
+			}
 		})
 	})
 

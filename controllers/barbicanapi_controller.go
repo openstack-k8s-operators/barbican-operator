@@ -367,7 +367,16 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		templateParameters["PKCS11ClientDataPath"] = instance.Spec.PKCS11.ClientDataPath
 	}
 
+	httpdOverrideSecret := &corev1.Secret{}
+	if instance.Spec.HttpdCustomization.CustomConfigSecret != nil && *instance.Spec.HttpdCustomization.CustomConfigSecret != "" {
+		httpdOverrideSecret, _, err = secret.GetSecret(ctx, h, *instance.Spec.HttpdCustomization.CustomConfigSecret, instance.Namespace)
+		if err != nil {
+			return err
+		}
+	}
+
 	// create httpd  vhost template parameters
+	customTemplates := map[string]string{}
 	httpdVhostConfig := map[string]interface{}{}
 	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
 		endptConfig := map[string]interface{}{}
@@ -378,12 +387,22 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 			endptConfig["SSLCertificateFile"] = fmt.Sprintf("/etc/pki/tls/certs/%s.crt", endpt.String())
 			endptConfig["SSLCertificateKeyFile"] = fmt.Sprintf("/etc/pki/tls/private/%s.key", endpt.String())
 		}
+
+		endptConfig["Override"] = false
+		if len(httpdOverrideSecret.Data) > 0 {
+			endptConfig["Override"] = true
+			for key, data := range httpdOverrideSecret.Data {
+				if len(data) > 0 {
+					customTemplates["httpd_custom_"+endpt.String()+"_"+key] = string(data)
+				}
+			}
+		}
 		httpdVhostConfig[endpt.String()] = endptConfig
 	}
 	templateParameters["VHosts"] = httpdVhostConfig
 	templateParameters["TimeOut"] = instance.Spec.APITimeout
 
-	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false, customTemplates)
 }
 
 func (r *BarbicanAPIReconciler) reconcileInit(
@@ -963,6 +982,18 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 		return []string{cr.Spec.PKCS11.ClientDataSecret}
+	}); err != nil {
+		return err
+	}
+
+	// index httpdOverrideSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanAPI{}, httpdCustomServiceConfigSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*barbicanv1beta1.BarbicanAPI)
+		if cr.Spec.HttpdCustomization.CustomConfigSecret == nil {
+			return nil
+		}
+		return []string{*cr.Spec.HttpdCustomization.CustomConfigSecret}
 	}); err != nil {
 		return err
 	}
