@@ -58,12 +58,12 @@ import (
 )
 
 const (
-	P11PrepReadyCondition      = "P11PrepReady"
-	P11PrepReadyInitMessage    = "P11 Prep job not started"
-	P11PrepReadyMessage        = "P11 Prep job completed"
-	P11PrepReadyErrorMessage   = "P11 Prep job error occurred %s"
-	P11PrepReadyRunningMessage = "P11 Prep job is still running"
-	P11PrepReadyNotRunMessage  = "P11 Prep job not run"
+	PKCS11PrepReadyCondition      = "PKCS11PrepReady"
+	PKCS11PrepReadyInitMessage    = "PKCS11 Prep job not started"
+	PKCS11PrepReadyMessage        = "PKCS11 Prep job completed"
+	PKCS11PrepReadyErrorMessage   = "PKCS11 Prep job error occurred %s"
+	PKCS11PrepReadyRunningMessage = "PKCS11 Prep job is still running"
+	PKCS11PrepReadyNotRunMessage  = "PKCS11 Prep job not run"
 )
 
 // BarbicanReconciler reconciles a Barbican object
@@ -174,7 +174,7 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 		// failure/in-progress operation
 		condition.UnknownCondition(condition.ReadyCondition, condition.InitReason, condition.ReadyInitMessage),
 		condition.UnknownCondition(condition.DBReadyCondition, condition.InitReason, condition.DBReadyInitMessage),
-		condition.UnknownCondition(P11PrepReadyCondition, condition.InitReason, P11PrepReadyInitMessage),
+		condition.UnknownCondition(PKCS11PrepReadyCondition, condition.InitReason, PKCS11PrepReadyInitMessage),
 		condition.UnknownCondition(condition.DBSyncReadyCondition, condition.InitReason, condition.DBSyncReadyInitMessage),
 		condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 		condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
@@ -252,52 +252,34 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
 	instance.Status.Conditions.MarkTrue(barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition, barbicanv1beta1.BarbicanRabbitMQTransportURLReadyMessage)
 
-	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
-	//
-	ospSecret, hash, err := oko_secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
+	ctrlResult, err := r.verifySecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
 	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			Log.Info(fmt.Sprintf("OpenStack secret %s not found", instance.Spec.Secret))
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
-		}
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.InputReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.InputReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
+		return ctrlResult, err
 	}
-	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
-	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
 	// check for Simple Crypto Backend secret holding the KEK
-	kekSecret, hash, err := oko_secret.GetSecret(ctx, helper, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
-	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			Log.Info(fmt.Sprintf("simple Crypto backend secret %s not found", instance.Spec.SimpleCryptoBackendSecret))
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+	if len(instance.Spec.EnabledSecretStores) == 0 || slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreSimpleCrypto) {
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.SimpleCryptoBackendSecret, []string{instance.Spec.PasswordSelectors.SimpleCryptoKEK}, &configVars)
+		if err != nil {
+			return ctrlResult, err
 		}
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.InputReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.InputReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
 	}
-	configVars["secret-"+kekSecret.Name] = env.SetValue(hash)
+
+	// check PKCS11 secrets
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
+		// check pkcs11 login secret
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.PKCS11.LoginSecret, []string{instance.Spec.PasswordSelectors.PKCS11Pin}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+
+		// check for PKCS11 secret holding the PKCS11 Client Data
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.PKCS11.ClientDataSecret, []string{}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+	}
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// Setting this here at the top level
@@ -364,7 +346,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	}
 
 	// Handle service init
-	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels, serviceAnnotations)
+	ctrlResult, err = r.reconcileInit(ctx, instance, helper, serviceLabels, serviceAnnotations)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -555,22 +537,32 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 
 // fields to index to reconcile when change
 const (
-	passwordSecretField     = ".spec.secret"
-	caBundleSecretNameField = ".spec.tls.caBundleSecretName"
-	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
-	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
+	passwordSecretField         = ".spec.secret"
+	caBundleSecretNameField     = ".spec.tls.caBundleSecretName"
+	tlsAPIInternalField         = ".spec.tls.api.internal.secretName"
+	tlsAPIPublicField           = ".spec.tls.api.public.secretName"
+	pkcs11LoginSecretField      = ".spec.pkcs11.loginSecret"
+	pkcs11ClientDataSecretField = ".spec.pkcs11.clientDataSecret"
 )
 
 var (
-	commonWatchFields = []string{
+	workerWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
+		pkcs11LoginSecretField,
+		pkcs11ClientDataSecretField,
 	}
 	apinWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
 		tlsAPIInternalField,
 		tlsAPIPublicField,
+		pkcs11LoginSecretField,
+		pkcs11ClientDataSecretField,
+	}
+	listenerWatchFields = []string{
+		passwordSecretField,
+		caBundleSecretNameField,
 	}
 )
 
@@ -659,6 +651,10 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
 	}
 
+	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
+	// This gets overridden in the PKCS11 section below if needed.
+	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
+
 	// Set secret store parameters
 	secretStoreTemplateMap, err := GenerateSecretStoreTemplateMap(
 		instance.Spec.EnabledSecretStores,
@@ -669,13 +665,14 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	maps.Copy(templateParameters, secretStoreTemplateMap)
 
 	// Set pkcs11 parameters
-	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
-		pkcs11TemplateMap, err := GeneratePKCS11TemplateMap(
-			ctx, h, *instance.Spec.PKCS11, instance.Namespace)
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
+		hsmLoginSecret, _, err := oko_secret.GetSecret(ctx, h, instance.Spec.PKCS11.LoginSecret, instance.Namespace)
 		if err != nil {
 			return err
 		}
-		maps.Copy(templateParameters, pkcs11TemplateMap)
+		templateParameters["PKCS11Login"] = string(hsmLoginSecret.Data[instance.Spec.PasswordSelectors.PKCS11Pin])
+		templateParameters["PKCS11Enabled"] = true
+		templateParameters["PKCS11ClientDataPath"] = instance.Spec.PKCS11.ClientDataPath
 	}
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true)
@@ -954,55 +951,95 @@ func (r *BarbicanReconciler) reconcileInit(
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
 	//
-	// run Barbican p11-prep if needed
+	// run Barbican pkcs11-prep if needed
 	//
-	if slices.Contains(instance.Spec.EnabledSecretStores, "pkcs11") {
-		p11Hash := instance.Status.Hash[barbicanv1beta1.P11PrepHash]
-		jobDef := barbican.P11PrepJob(instance, serviceLabels, serviceAnnotations)
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
+		pkcs11Hash := instance.Status.Hash[barbicanv1beta1.PKCS11PrepHash]
+		jobDef := barbican.PKCS11PrepJob(instance, serviceLabels, serviceAnnotations)
 
-		p11job := job.NewJob(
+		pkcs11job := job.NewJob(
 			jobDef,
-			barbicanv1beta1.P11PrepHash,
+			barbicanv1beta1.PKCS11PrepHash,
 			instance.Spec.PreserveJobs,
 			time.Duration(5)*time.Second,
-			p11Hash,
+			pkcs11Hash,
 		)
-		ctrlResult, err = p11job.DoJob(
+		ctrlResult, err = pkcs11job.DoJob(
 			ctx,
 			helper,
 		)
 		if (ctrlResult != ctrl.Result{}) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
-				P11PrepReadyCondition,
+				PKCS11PrepReadyCondition,
 				condition.RequestedReason,
 				condition.SeverityInfo,
-				P11PrepReadyRunningMessage))
+				PKCS11PrepReadyRunningMessage))
 			return ctrlResult, nil
 		}
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
-				P11PrepReadyCondition,
+				PKCS11PrepReadyCondition,
 				condition.ErrorReason,
 				condition.SeverityWarning,
-				P11PrepReadyErrorMessage,
+				PKCS11PrepReadyErrorMessage,
 				err.Error()))
 			return ctrl.Result{}, err
 		}
-		if p11job.HasChanged() {
-			instance.Status.Hash[barbicanv1beta1.P11PrepHash] = p11job.GetHash()
-			Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[barbicanv1beta1.P11PrepHash]))
+		if pkcs11job.HasChanged() {
+			instance.Status.Hash[barbicanv1beta1.PKCS11PrepHash] = pkcs11job.GetHash()
+			Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[barbicanv1beta1.PKCS11PrepHash]))
 		}
-		instance.Status.Conditions.MarkTrue(P11PrepReadyCondition, P11PrepReadyMessage)
+		instance.Status.Conditions.MarkTrue(PKCS11PrepReadyCondition, PKCS11PrepReadyMessage)
 	} else {
-		instance.Status.Conditions.MarkTrue(P11PrepReadyCondition, P11PrepReadyNotRunMessage)
+		instance.Status.Conditions.MarkTrue(PKCS11PrepReadyCondition, PKCS11PrepReadyNotRunMessage)
 	}
 
-	// run Barbican p11 prep - end
+	// run Barbican pkcs11 prep - end
 
 	// when job passed, mark NetworkAttachmentsReadyCondition ready
 	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	return ctrl.Result{}, nil
+}
+
+func (r *BarbicanReconciler) verifySecret(
+	ctx context.Context,
+	h *helper.Helper,
+	instance *barbicanv1beta1.Barbican,
+	secretName string,
+	expectedFields []string,
+	envVars *map[string]env.Setter,
+) (ctrl.Result, error) {
+	Log := r.GetLogger(ctx)
+	hash, result, err := oko_secret.VerifySecret(
+		ctx,
+		types.NamespacedName{Name: secretName, Namespace: instance.Namespace},
+		expectedFields,
+		h.GetClient(),
+		time.Second*10)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.InputReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	} else if (result != ctrl.Result{}) {
+		Log.Info(fmt.Sprintf("OpenStack secret %s not found", secretName))
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.InputReadyWaitingMessage))
+		return result, nil
+	}
+
+	// Add a prefix to the var name to avoid accidental collision with other non-secret
+	// vars. The secret names themselves will be unique.
+	(*envVars)["secret-"+secretName] = env.SetValue(hash)
+
 	return ctrl.Result{}, nil
 }
 

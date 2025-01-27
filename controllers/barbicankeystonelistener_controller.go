@@ -173,7 +173,7 @@ func (r *BarbicanKeystoneListenerReconciler) Reconcile(ctx context.Context, req 
 	return r.reconcileNormal(ctx, instance, helper)
 }
 
-func (r *BarbicanKeystoneListenerReconciler) getSecret(
+func (r *BarbicanKeystoneListenerReconciler) verifySecret(
 	ctx context.Context,
 	h *helper.Helper,
 	instance *barbicanv1beta1.BarbicanKeystoneListener,
@@ -255,6 +255,19 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 		barbican.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig,
 		"my.cnf":                             db.GetDatabaseClientConfig(tlsCfg), //(mschuppert) for now just get the default my.cnf
 	}
+
+	// Fetch the service config snippet (CustomConfigFileName) from the top
+	// level barbican controller, and add them to this service specific Secret.
+	owner := barbican.GetOwningBarbicanName(instance)
+	if owner != "" {
+		barbicanSecretName := owner + "-config-data"
+		barbicanSecret, _, err := secret.GetSecret(ctx, h, barbicanSecretName, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		customData[barbican.CustomConfigFileName] = string(barbicanSecret.Data[barbican.CustomConfigFileName])
+	}
+
 	Log.Info(fmt.Sprintf("[KeystoneListener] instance type %s", instance.GetObjectKind().GroupVersionKind().Kind))
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
@@ -295,6 +308,10 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 		"TransportURL": string(transportURLSecret.Data["transport_url"]),
 		"LogFile":      fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 	}
+
+	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
+	// TODO(alee) Fix this by deduplicating the template paths
+	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }
@@ -370,8 +387,8 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 1 '%s'", instance.Spec.Secret))
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
+	Log.Info(fmt.Sprintf("[KeystoneListener] Verify secret '%s'", instance.Spec.Secret))
+	ctrlResult, err := r.verifySecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
@@ -379,17 +396,11 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	//
 	// check for required TransportURL secret holding transport URL string
 	//
-	Log.Info(fmt.Sprintf("[KeystoneListener] Get secret 2 '%s'", instance.Spec.TransportURLSecret))
-	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, []string{TransportURL}, &configVars)
+	Log.Info(fmt.Sprintf("[KeystoneListener] Verify secret '%s'", instance.Spec.TransportURLSecret))
+	ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.TransportURLSecret, []string{TransportURL}, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
-
-	// TODO (alee) cinder has some code here to retrieve secrets from the parent CR
-	// Seems like we may  want this instead
-
-	// TODO (alee) cinder has some code to retrieve CustomServiceConfigSecrets
-	// This seems like a great place to store things like HSM passwords
 
 	Log.Info(fmt.Sprintf("[KeystoneListener] Got secrets '%s'", instance.Name))
 
@@ -647,7 +658,7 @@ func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(ctx context.Conte
 
 	l := log.FromContext(ctx).WithName("Controllers").WithName("BarbicanKeystoneListener")
 
-	for _, field := range commonWatchFields {
+	for _, field := range listenerWatchFields {
 		crList := &barbicanv1beta1.BarbicanKeystoneListenerList{}
 		listOps := &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),

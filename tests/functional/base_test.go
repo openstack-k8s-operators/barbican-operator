@@ -32,13 +32,14 @@ import (
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 )
 
-func CreateKeystoneAPISecret(namespace string, name string) *corev1.Secret {
+func CreateBarbicanSecret(namespace string, name string) *corev1.Secret {
 	return th.CreateSecret(
 		types.NamespacedName{Namespace: namespace, Name: name},
 		map[string][]byte{
 			"AdminPassword":            []byte("12345678"),
 			"BarbicanPassword":         []byte("12345678"),
 			"KeystoneDatabasePassword": []byte("12345678"),
+			"BarbicanSimpleCryptoKEK":  []byte("sEFmdFjDUqRM2VemYslV5yGNWjokioJXsg8Nrlc3drU="),
 		},
 	)
 }
@@ -81,17 +82,6 @@ func CreateBarbicanMessageBusSecret(namespace string, name string) *corev1.Secre
 	)
 	logger.Info("Secret created", "name", name)
 	return s
-}
-
-func CreateBarbicanSecret(namespace string, name string) *corev1.Secret {
-	return th.CreateSecret(
-		types.NamespacedName{Namespace: namespace, Name: name},
-		map[string][]byte{
-			"BarbicanDatabasePassword": []byte("12345678"),
-			"BarbicanPassword":         []byte("12345678"),
-			"BarbicanSimpleCryptoKEK":  []byte("sEFmdFjDUqRM2VemYslV5yGNWjokioJXsg8Nrlc3drU="),
-		},
-	)
 }
 
 func BarbicanConditionGetter(name types.NamespacedName) condition.Conditions {
@@ -182,54 +172,68 @@ func GetTLSBarbicanAPISpec() map[string]interface{} {
 
 // ========== End of TLS Stuff ============
 
-// ========== HSM Stuff ============
-func GetHSMBarbicanSpec() map[string]interface{} {
+// ========== PKCS11 Stuff ============
+const PKCS11CustomData = `
+[p11_crypto_plugin]
+plugin_name = PKCS11
+library_path = some_library_path
+token_labels = some_partition_label
+mkek_label = my_mkek_label
+hmac_label = my_hmac_label
+encryption_mechanism = CKM_AES_GCM
+aes_gcm_generate_iv = true
+hmac_key_type = CKK_GENERIC_SECRET
+hmac_keygen_mechanism = CKM_GENERIC_SECRET_KEY_GEN
+hmac_mechanism = CKM_SHA256_HMAC
+key_wrap_mechanism = CKM_AES_CBC_PAD
+key_wrap_generate_iv = true
+always_set_cka_sensitive = true
+os_locking_ok = false`
+
+func GetPKCS11BarbicanSpec() map[string]interface{} {
 	spec := GetDefaultBarbicanSpec()
 	maps.Copy(spec, map[string]interface{}{
+		"customServiceConfig":      PKCS11CustomData,
 		"enabledSecretStores":      []string{"pkcs11"},
 		"globalDefaultSecretStore": "pkcs11",
 		"pkcs11": map[string]interface{}{
-			"slotId":                 HSMSlotID,
-			"libraryPath":            HSMLibraryPath,
-			"certificatesMountPoint": HSMCertificatesMountPoint,
-			"loginSecret":            HSMLoginSecret,
-			"certificatesSecret":     HSMCertsSecret,
-			"MKEKLabel":              HSMMKEKLabel,
-			"HMACLabel":              HSMHMACLabel,
-			"serverAddress":          HSMServerAddress,
-			"clientAddress":          HSMClientAddress,
-			"type":                   HSMType,
+			"clientDataPath":   PKCS11ClientDataPath,
+			"loginSecret":      PKCS11LoginSecret,
+			"clientDataSecret": PKCS11ClientDataSecret,
 		},
 	})
 	return spec
 }
 
-func GetHSMBarbicanAPISpec() map[string]interface{} {
-	return GetDefaultBarbicanAPISpec()
+func GetPKCS11BarbicanAPISpec() map[string]interface{} {
+	spec := GetPKCS11BarbicanSpec()
+	maps.Copy(spec, GetDefaultBarbicanAPISpec())
+	return spec
 }
 
-func CreateHSMLoginSecret(namespace string, name string) *corev1.Secret {
+func CreatePKCS11LoginSecret(namespace string, name string) *corev1.Secret {
 	return th.CreateSecret(
 		types.NamespacedName{Namespace: namespace, Name: name},
 		map[string][]byte{
-			"hsmLogin": []byte("12345678"),
+			"PKCS11Pin": []byte("12345678"),
 		},
 	)
 }
 
-func CreateHSMCertsSecret(namespace string, name string) *corev1.Secret {
+func CreatePKCS11ClientDataSecret(namespace string, name string) *corev1.Secret {
 	return th.CreateSecret(
 		types.NamespacedName{Namespace: namespace, Name: name},
 		map[string][]byte{
-			"CACert.pem":                    []byte("dummy-data"),
-			HSMServerAddress + "Server.pem": []byte("dummy-data"),
-			HSMClientAddress + "Client.pem": []byte("dummy-data"),
-			HSMClientAddress + "Client.key": []byte("dummy-data"),
+			"Client.cfg": []byte("dummy-data"),
+			"CACert.pem": []byte("dummy-data"),
+			"Server.pem": []byte("dummy-data"),
+			"Client.pem": []byte("dummy-data"),
+			"Client.key": []byte("dummy-data"),
 		},
 	)
 }
 
-// ========== End of HSM Stuff ============
+// ========== End of PKCS11 Stuff ============
 
 func GetDefaultBarbicanAPISpec() map[string]interface{} {
 	return map[string]interface{}{

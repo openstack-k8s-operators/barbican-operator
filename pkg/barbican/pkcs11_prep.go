@@ -10,41 +10,40 @@ import (
 )
 
 const (
-	// P11PrepCommand -
-	P11PrepCommand = "/usr/local/bin/kolla_start"
-	P11PrepConfig  = "p11-prep-config-data"
+	// PKCS11PrepCommand -
+	PKCS11PrepCommand = "/usr/local/bin/kolla_start"
 )
 
-// P11PrepJob func
-func P11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
+// PKCS11PrepJob func
+func PKCS11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
 	secretNames := []string{}
 
-	// The P11 Prep job just needs the main barbican config files, and the files
+	// The PKCS11 Prep job just needs the main barbican config files, and the files
 	// needed to communicate with the relevant HSM.
-	p11Volumes := []corev1.Volume{
+	pkcs11Volumes := []corev1.Volume{
 		GetScriptVolume(instance.Name + "-scripts"),
 	}
-	p11Volumes = append(p11Volumes, GetVolumes(instance.Name, secretNames)...)
+	pkcs11Volumes = append(pkcs11Volumes, GetVolumes(instance.Name, secretNames)...)
 
-	p11Mounts := []corev1.VolumeMount{
-		GetKollaConfigVolumeMount(instance.Name + "-p11-prep"),
+	pkcs11Mounts := []corev1.VolumeMount{
+		GetKollaConfigVolumeMount(instance.Name + "-pkcs11-prep"),
 		GetScriptVolumeMount(),
 	}
-	p11Mounts = append(p11Mounts, GetVolumeMounts(secretNames)...)
+	pkcs11Mounts = append(pkcs11Mounts, GetVolumeMounts(secretNames)...)
 
 	// add CA cert if defined
 	if instance.Spec.BarbicanAPI.TLS.CaBundleSecretName != "" {
-		p11Volumes = append(p11Volumes, instance.Spec.BarbicanAPI.TLS.CreateVolume())
-		p11Mounts = append(p11Mounts, instance.Spec.BarbicanAPI.TLS.CreateVolumeMounts(nil)...)
+		pkcs11Volumes = append(pkcs11Volumes, instance.Spec.BarbicanAPI.TLS.CreateVolume())
+		pkcs11Mounts = append(pkcs11Mounts, instance.Spec.BarbicanAPI.TLS.CreateVolumeMounts(nil)...)
 	}
 
 	// add any HSM volumes
-	p11Volumes = append(p11Volumes, GetHSMVolumes(*instance.Spec.PKCS11)...)
-	p11Mounts = append(p11Mounts, GetHSMVolumeMounts(*instance.Spec.PKCS11)...)
+	pkcs11Volumes = append(pkcs11Volumes, GetHSMVolumes(*instance.Spec.PKCS11)...)
+	pkcs11Mounts = append(pkcs11Mounts, GetHSMVolumeMounts()...)
 
 	// add luna specific config files
 
-	args := []string{"-c", P11PrepCommand}
+	args := []string{"-c", PKCS11PrepCommand}
 
 	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
@@ -52,7 +51,7 @@ func P11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, an
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-p11-prep",
+			Name:      instance.Name + "-pkcs11-prep",
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
@@ -66,7 +65,7 @@ func P11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, an
 					ServiceAccountName: instance.RbacResourceName(),
 					Containers: []corev1.Container{
 						{
-							Name: instance.Name + "-p11-prep",
+							Name: instance.Name + "-pkcs11-prep",
 							Command: []string{
 								"/bin/bash",
 							},
@@ -76,7 +75,7 @@ func P11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, an
 								RunAsUser: &runAsUser,
 							},
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: p11Mounts,
+							VolumeMounts: pkcs11Mounts,
 						},
 					},
 				},
@@ -84,7 +83,7 @@ func P11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, an
 		},
 	}
 
-	job.Spec.Template.Spec.Volumes = p11Volumes
+	job.Spec.Template.Spec.Volumes = pkcs11Volumes
 
 	return job
 }
