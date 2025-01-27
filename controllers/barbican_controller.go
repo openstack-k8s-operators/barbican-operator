@@ -537,12 +537,13 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 
 // fields to index to reconcile when change
 const (
-	passwordSecretField         = ".spec.secret"
-	caBundleSecretNameField     = ".spec.tls.caBundleSecretName"
-	tlsAPIInternalField         = ".spec.tls.api.internal.secretName"
-	tlsAPIPublicField           = ".spec.tls.api.public.secretName"
-	pkcs11LoginSecretField      = ".spec.pkcs11.loginSecret"
-	pkcs11ClientDataSecretField = ".spec.pkcs11.clientDataSecret"
+	passwordSecretField                 = ".spec.secret"
+	caBundleSecretNameField             = ".spec.tls.caBundleSecretName"
+	tlsAPIInternalField                 = ".spec.tls.api.internal.secretName"
+	tlsAPIPublicField                   = ".spec.tls.api.public.secretName"
+	pkcs11LoginSecretField              = ".spec.pkcs11.loginSecret"
+	pkcs11ClientDataSecretField         = ".spec.pkcs11.clientDataSecret"
+	httpdCustomServiceConfigSecretField = ".spec.httpdCustomization.customServiceConfigSecret"
 )
 
 var (
@@ -559,6 +560,7 @@ var (
 		tlsAPIPublicField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
+		httpdCustomServiceConfigSecretField,
 	}
 	listenerWatchFields = []string{
 		passwordSecretField,
@@ -675,7 +677,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		templateParameters["PKCS11ClientDataPath"] = instance.Spec.PKCS11.ClientDataPath
 	}
 
-	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true)
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true, map[string]string{})
 }
 
 func (r *BarbicanReconciler) transportURLCreateOrUpdate(

@@ -313,7 +313,7 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 	// TODO(alee) Fix this by deduplicating the template paths
 	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
 
-	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false, map[string]string{})
 }
 
 func (r *BarbicanKeystoneListenerReconciler) reconcileInit(
