@@ -17,11 +17,11 @@ set -xe
 
 {{- if and (index . "PKCS11Enabled") .PKCS11Enabled }}
 
-mkek_label=$(crudini --get /etc/barbican/barbican.conf.d/01-custom.conf p11_crypto_plugin mkek_label)
+eval mkek_label=$(crudini --get /etc/barbican/barbican.conf.d/01-custom.conf p11_crypto_plugin mkek_label)
 echo "Creating  MKEK label $mkek_label"
 barbican-manage hsm check_mkek --label $mkek_label || barbican-manage hsm gen_mkek --label $mkek_label
 
-hmac_label=$(crudini --get /etc/barbican/barbican.conf.d/01-custom.conf p11_crypto_plugin hmac_label)
+eval hmac_label=$(crudini --get /etc/barbican/barbican.conf.d/01-custom.conf p11_crypto_plugin hmac_label)
 echo "Creating  HMAC label $hmac_label"
 barbican-manage hsm check_hmac --label $hmac_label || barbican-manage hsm gen_hmac --label $hmac_label
 {{- end }}
