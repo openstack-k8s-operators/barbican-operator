@@ -254,7 +254,7 @@ var _ = Describe("Barbican controller", func() {
 
 			BarbicanAPIExists(barbicanTest.Instance)
 
-			d := th.GetDeployment(barbicanTest.BarbicanAPI)
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
 			// Check the resulting deployment fields
 			Expect(int(*d.Spec.Replicas)).To(Equal(1))
 
@@ -284,6 +284,132 @@ var _ = Describe("Barbican controller", func() {
 			conf := cf.Data["my.cnf"]
 			Expect(conf).To(
 				ContainSubstring("[client]\nssl-ca=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem\nssl=1"))
+		})
+	})
+
+	When("Barbican is created with topologyRef", func() {
+		BeforeEach(func() {
+			// Build the topology Spec
+			topologySpec := GetSampleTopologySpec()
+			// Create Test Topologies
+			for _, t := range barbicanTest.BarbicanTopologies {
+				CreateTopology(t, topologySpec)
+			}
+			spec := GetDefaultBarbicanSpec()
+			spec["topologyRef"] = map[string]interface{}{
+				"name": barbicanTest.BarbicanTopologies[0].Name,
+			}
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+		})
+		It("sets topology in CR status", func() {
+			Eventually(func(g Gomega) {
+				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
+				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
+				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("sets topology in the resulting deployments", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.Affinity).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.Affinity).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.Affinity).To(BeNil())
+			}, timeout, interval).Should(Succeed())
+		})
+		It("updates topology when the reference changes", func() {
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				barbican.Spec.TopologyRef.Name = barbicanTest.BarbicanTopologies[1].Name
+				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("overrides topology when the reference changes", func() {
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				//Patch BarbicanAPI Spec
+				newAPI := GetBarbicanAPISpec(barbicanTest.BarbicanAPI)
+				newAPI.TopologyRef.Name = barbicanTest.BarbicanTopologies[1].Name
+				barbican.Spec.BarbicanAPI = newAPI
+				//Patch BarbicanKeystoneListener Spec
+				newKl := GetBarbicanKeystoneListenerSpec(barbicanTest.BarbicanKeystoneListener)
+				newKl.TopologyRef.Name = barbicanTest.BarbicanTopologies[2].Name
+				barbican.Spec.BarbicanKeystoneListener = newKl
+				//Patch BarbicanWorker Spec
+				newWorker := GetBarbicanWorkerSpec(barbicanTest.BarbicanWorker)
+				newWorker.TopologyRef.Name = barbicanTest.BarbicanTopologies[3].Name
+				barbican.Spec.BarbicanWorker = newWorker
+				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+
+				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[2].Name))
+				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).To(Equal(barbicanTest.BarbicanTopologies[3].Name))
+			}, timeout, interval).Should(Succeed())
+		})
+		It("removes topologyRef from the spec", func() {
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				// Remove the TopologyRef from the existing Barbican .Spec
+				barbican.Spec.TopologyRef = nil
+				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).Should(BeEmpty())
+				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).Should(BeEmpty())
+				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).Should(BeEmpty())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.Affinity).ToNot(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.Affinity).ToNot(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.Affinity).ToNot(BeNil())
+			}, timeout, interval).Should(Succeed())
 		})
 	})
 
@@ -318,14 +444,14 @@ var _ = Describe("Barbican controller", func() {
 		It("sets nodeSelector in resource specs", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
 			}, timeout, interval).Should(Succeed())
 		})
 
 		It("updates nodeSelector in resource specs when changed", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -340,14 +466,14 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
 			}, timeout, interval).Should(Succeed())
 		})
 
 		It("removes nodeSelector from resource specs when cleared", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -360,14 +486,14 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(BeNil())
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(BeNil())
 			}, timeout, interval).Should(Succeed())
 		})
 
 		It("removes nodeSelector from resource specs when nilled", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -379,14 +505,14 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(BeNil())
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(BeNil())
 			}, timeout, interval).Should(Succeed())
 		})
 
 		It("allows nodeSelector service override", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -401,14 +527,14 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "api"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "api"}))
 			}, timeout, interval).Should(Succeed())
 		})
 
 		It("allows nodeSelector service override to empty", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -421,7 +547,7 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 				g.Expect(th.GetJob(barbicanTest.BarbicanDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.NodeSelector).To(BeNil())
 			}, timeout, interval).Should(Succeed())
 		})
 	})
@@ -465,7 +591,7 @@ var _ = Describe("Barbican controller", func() {
 
 			BarbicanAPIExists(barbicanTest.Instance)
 
-			d := th.GetDeployment(barbicanTest.BarbicanAPI)
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
 			// Check the resulting deployment fields
 			Expect(int(*d.Spec.Replicas)).To(Equal(1))
 
@@ -758,6 +884,32 @@ var _ = Describe("Barbican Webhook", func() {
 			ContainSubstring(
 				"invalid: spec.barbicanAPI.override.service[wrooong]: " +
 					"Invalid value: \"wrooong\": invalid endpoint type: wrooong"),
+		)
+	})
+	It("rejects a wrong TopologyRef on a different namespace", func() {
+		spec := GetDefaultBarbicanSpec()
+		// Inject a topologyRef that points to a different namespace
+		spec["topologyRef"] = map[string]interface{}{
+			"name":      "foo",
+			"namespace": "bar",
+		}
+		raw := map[string]interface{}{
+			"apiVersion": "barbican.openstack.org/v1beta1",
+			"kind":       "Barbican",
+			"metadata": map[string]interface{}{
+				"name":      barbicanTest.Instance.Name,
+				"namespace": barbicanTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(
+			ContainSubstring(
+				"Invalid value: \"namespace\": Customizing namespace field is not supported"),
 		)
 	})
 })

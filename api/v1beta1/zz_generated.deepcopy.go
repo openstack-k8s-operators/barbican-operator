@@ -23,6 +23,7 @@ package v1beta1
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/topology"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -273,6 +274,11 @@ func (in *BarbicanComponentTemplate) DeepCopyInto(out *BarbicanComponentTemplate
 		in, out := &in.NetworkAttachments, &out.NetworkAttachments
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.TopologyRef != nil {
+		in, out := &in.TopologyRef, &out.TopologyRef
+		*out = new(topology.TopoRef)
+		**out = **in
 	}
 }
 
@@ -542,6 +548,11 @@ func (in *BarbicanSpecBase) DeepCopyInto(out *BarbicanSpecBase) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.TopologyRef != nil {
+		in, out := &in.TopologyRef, &out.TopologyRef
+		*out = new(topology.TopoRef)
+		**out = **in
 	}
 }
 

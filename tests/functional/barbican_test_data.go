@@ -42,39 +42,45 @@ const (
 
 // BarbicanTestData is the data structure used to provide input data to envTest
 type BarbicanTestData struct {
-	BarbicanPassword               string
-	BarbicanServiceUser            string
-	ContainerImage                 string
-	DatabaseHostname               string
-	DatabaseInstance               string
-	RabbitmqClusterName            string
-	RabbitmqSecretName             string
-	Instance                       types.NamespacedName
-	Barbican                       types.NamespacedName
-	BarbicanDatabaseName           types.NamespacedName
-	BarbicanDatabaseAccount        types.NamespacedName
-	BarbicanDBSync                 types.NamespacedName
-	BarbicanPKCS11Prep             types.NamespacedName
-	BarbicanAPI                    types.NamespacedName
-	BarbicanRole                   types.NamespacedName
-	BarbicanRoleBinding            types.NamespacedName
-	BarbicanTransportURL           types.NamespacedName
-	BarbicanSA                     types.NamespacedName
-	BarbicanKeystoneService        types.NamespacedName
-	BarbicanKeystoneEndpoint       types.NamespacedName
-	BarbicanServicePublic          types.NamespacedName
-	BarbicanServiceInternal        types.NamespacedName
-	BarbicanConfigSecret           types.NamespacedName
-	BarbicanAPIConfigSecret        types.NamespacedName
-	BarbicanPKCS11LoginSecret      types.NamespacedName
-	BarbicanPKCS11ClientDataSecret types.NamespacedName
-	BarbicanConfigScripts          types.NamespacedName
-	BarbicanConfigMapData          types.NamespacedName
-	BarbicanScheduler              types.NamespacedName
-	InternalAPINAD                 types.NamespacedName
-	CABundleSecret                 types.NamespacedName
-	InternalCertSecret             types.NamespacedName
-	PublicCertSecret               types.NamespacedName
+	BarbicanPassword                   string
+	BarbicanServiceUser                string
+	ContainerImage                     string
+	DatabaseHostname                   string
+	DatabaseInstance                   string
+	RabbitmqClusterName                string
+	RabbitmqSecretName                 string
+	Instance                           types.NamespacedName
+	Barbican                           types.NamespacedName
+	BarbicanDatabaseName               types.NamespacedName
+	BarbicanDatabaseAccount            types.NamespacedName
+	BarbicanDBSync                     types.NamespacedName
+	BarbicanPKCS11Prep                 types.NamespacedName
+	BarbicanAPI                        types.NamespacedName
+	BarbicanWorker                     types.NamespacedName
+	BarbicanWorkerDeployment           types.NamespacedName
+	BarbicanKeystoneListener           types.NamespacedName
+	BarbicanKeystoneListenerDeployment types.NamespacedName
+	BarbicanAPIDeployment              types.NamespacedName
+	BarbicanRole                       types.NamespacedName
+	BarbicanRoleBinding                types.NamespacedName
+	BarbicanTransportURL               types.NamespacedName
+	BarbicanSA                         types.NamespacedName
+	BarbicanKeystoneService            types.NamespacedName
+	BarbicanKeystoneEndpoint           types.NamespacedName
+	BarbicanServicePublic              types.NamespacedName
+	BarbicanServiceInternal            types.NamespacedName
+	BarbicanConfigSecret               types.NamespacedName
+	BarbicanAPIConfigSecret            types.NamespacedName
+	BarbicanPKCS11LoginSecret          types.NamespacedName
+	BarbicanPKCS11ClientDataSecret     types.NamespacedName
+	BarbicanConfigScripts              types.NamespacedName
+	BarbicanConfigMapData              types.NamespacedName
+	BarbicanScheduler                  types.NamespacedName
+	InternalAPINAD                     types.NamespacedName
+	CABundleSecret                     types.NamespacedName
+	InternalCertSecret                 types.NamespacedName
+	PublicCertSecret                   types.NamespacedName
+	BarbicanTopologies                 []types.NamespacedName
 }
 
 // GetBarbicanTestData is a function that initialize the BarbicanTestData
@@ -104,9 +110,29 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-pkcs11-prep", barbicanName.Name),
 		},
-		BarbicanAPI: types.NamespacedName{
+		BarbicanAPIDeployment: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-api-api", barbicanName.Name),
+		},
+		BarbicanAPI: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-api", barbicanName.Name),
+		},
+		BarbicanKeystoneListener: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-keystone-listener", barbicanName.Name),
+		},
+		BarbicanKeystoneListenerDeployment: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-keystone-listener-keystone-listener", barbicanName.Name),
+		},
+		BarbicanWorker: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-worker", barbicanName.Name),
+		},
+		BarbicanWorkerDeployment: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-worker-worker", barbicanName.Name),
 		},
 		BarbicanRole: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
@@ -193,5 +219,26 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		BarbicanServiceUser: "barbican",
 		ContainerImage:      "test://barbican",
 		DatabaseHostname:    "database-hostname",
+		// A set of topologies to Test how the reference is propagated to the
+		// resulting StatefulSets and if a potential override produces the
+		// expected values
+		BarbicanTopologies: []types.NamespacedName{
+			{
+				Namespace: barbicanName.Namespace,
+				Name:      fmt.Sprintf("%s-global-topology", barbicanName.Name),
+			},
+			{
+				Namespace: barbicanName.Namespace,
+				Name:      fmt.Sprintf("%s-api-topology", barbicanName.Name),
+			},
+			{
+				Namespace: barbicanName.Namespace,
+				Name:      fmt.Sprintf("%s-klistener-topology", barbicanName.Name),
+			},
+			{
+				Namespace: barbicanName.Namespace,
+				Name:      fmt.Sprintf("%s-worker-topology", barbicanName.Name),
+			},
+		},
 	}
 }

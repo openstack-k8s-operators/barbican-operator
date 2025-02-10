@@ -543,6 +543,7 @@ const (
 	tlsAPIPublicField           = ".spec.tls.api.public.secretName"
 	pkcs11LoginSecretField      = ".spec.pkcs11.loginSecret"
 	pkcs11ClientDataSecretField = ".spec.pkcs11.clientDataSecret"
+	topologyField               = ".spec.topologyRef.Name"
 )
 
 var (
@@ -551,6 +552,7 @@ var (
 		caBundleSecretNameField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
+		topologyField,
 	}
 	apinWatchFields = []string{
 		passwordSecretField,
@@ -559,10 +561,12 @@ var (
 		tlsAPIPublicField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
+		topologyField,
 	}
 	listenerWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
+		topologyField,
 	}
 )
 
@@ -719,6 +723,12 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 		apiSpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
+	// If topology is not present in the underlying BarbicanAPITemplate,
+	// inherit from the top-level CR
+	if apiSpec.TopologyRef == nil {
+		apiSpec.TopologyRef = instance.Spec.TopologyRef
+	}
+
 	// Note: The top-level .spec.apiTimeout ALWAYS overrides .spec.barbicanAPI.apiTimeout
 	apiSpec.BarbicanAPITemplate.APITimeout = instance.Spec.APITimeout
 
@@ -766,6 +776,12 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 		workerSpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
+	// If topology is not present in the underlying BarbicanWorkerTemplate,
+	// inherit from the top-level CR
+	if workerSpec.TopologyRef == nil {
+		workerSpec.TopologyRef = instance.Spec.TopologyRef
+	}
+
 	deployment := &barbicanv1beta1.BarbicanWorker{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-worker", instance.Name),
@@ -807,6 +823,12 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 	// KeystoneListener instance inherits the value from the top-level CR.
 	if keystoneListenerSpec.NodeSelector == nil {
 		keystoneListenerSpec.NodeSelector = instance.Spec.NodeSelector
+	}
+
+	// If topology is not present in the underlying BarbicanKeystoneListenerTemplate,
+	// inherit from the top-level CR
+	if keystoneListenerSpec.TopologyRef == nil {
+		keystoneListenerSpec.TopologyRef = instance.Spec.TopologyRef
 	}
 
 	deployment := &barbicanv1beta1.BarbicanKeystoneListener{
