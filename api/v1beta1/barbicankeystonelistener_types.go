@@ -73,6 +73,9 @@ type BarbicanKeystoneListenerStatus struct {
 
 	// Barbican Database Hostname
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
+
+	// LastAppliedTopology - the last applied Topology
+	LastAppliedTopology string `json:"lastAppliedTopology,omitempty"`
 }
 
 //+kubebuilder:object:root=true

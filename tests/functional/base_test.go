@@ -134,8 +134,27 @@ func BarbicanAPIExists(name types.NamespacedName) {
 	}, timeout, interval).Should(Succeed())
 }
 
+// GetBarbicanAPI - Returns BarbicanAPI subCR
 func GetBarbicanAPI(name types.NamespacedName) *barbicanv1.BarbicanAPI {
 	instance := &barbicanv1.BarbicanAPI{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance
+}
+
+// GetBarbicanKeystoneListener - Returns BarbicanKeystoneListener subCR
+func GetBarbicanKeystoneListener(name types.NamespacedName) *barbicanv1.BarbicanKeystoneListener {
+	instance := &barbicanv1.BarbicanKeystoneListener{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance
+}
+
+// GetBarbicanWorker - Returns BarbicanWorker subCR
+func GetBarbicanWorker(name types.NamespacedName) *barbicanv1.BarbicanWorker {
+	instance := &barbicanv1.BarbicanWorker{}
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
 	}, timeout, interval).Should(Succeed())
@@ -264,4 +283,66 @@ func CreateBarbicanAPI(name types.NamespacedName, spec map[string]interface{}) c
 	}
 
 	return th.CreateUnstructured(raw)
+}
+
+// GetSampleTopologySpec - A sample (and opinionated) Topology Spec used to
+// test Service components
+func GetSampleTopologySpec() map[string]interface{} {
+	// Build the topology Spec
+	topologySpec := map[string]interface{}{
+		"topologySpreadConstraints": []map[string]interface{}{
+			{
+				"maxSkew":           1,
+				"topologyKey":       corev1.LabelHostname,
+				"whenUnsatisfiable": "ScheduleAnyway",
+				"labelSelector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"service": barbicanName.Name,
+					},
+				},
+			},
+		},
+	}
+	return topologySpec
+}
+
+// CreateTopology - Creates a Topology CR based on the spec passed as input
+func CreateTopology(topology types.NamespacedName, spec map[string]interface{}) client.Object {
+	raw := map[string]interface{}{
+		"apiVersion": "topology.openstack.org/v1beta1",
+		"kind":       "Topology",
+		"metadata": map[string]interface{}{
+			"name":      topology.Name,
+			"namespace": topology.Namespace,
+		},
+		"spec": spec,
+	}
+	return th.CreateUnstructured(raw)
+}
+
+// GetBarbicanAPISpec -
+func GetBarbicanAPISpec(name types.NamespacedName) barbicanv1.BarbicanAPITemplate {
+	instance := &barbicanv1.BarbicanAPI{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance.Spec.BarbicanAPITemplate
+}
+
+// GetBarbicanKeystoneListenerSpec -
+func GetBarbicanKeystoneListenerSpec(name types.NamespacedName) barbicanv1.BarbicanKeystoneListenerTemplate {
+	instance := &barbicanv1.BarbicanKeystoneListener{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance.Spec.BarbicanKeystoneListenerTemplate
+}
+
+// GetBarbicanWorkerSpec -
+func GetBarbicanWorkerSpec(name types.NamespacedName) barbicanv1.BarbicanWorkerTemplate {
+	instance := &barbicanv1.BarbicanWorker{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance.Spec.BarbicanWorkerTemplate
 }

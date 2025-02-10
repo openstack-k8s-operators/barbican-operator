@@ -35,6 +35,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 )
 
 // BarbicanDefaults -
@@ -114,6 +115,9 @@ func (r *Barbican) ValidateCreate() (admission.Warnings, error) {
 
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
+
+	allErrs = r.Spec.ValidateBarbicanTopology(basePath, r.Namespace)
+
 	if err := r.Spec.ValidateCreate(basePath); err != nil {
 		allErrs = append(allErrs, err...)
 	}
@@ -175,6 +179,8 @@ func (r *Barbican) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
+
+	allErrs = r.Spec.ValidateBarbicanTopology(basePath, r.Namespace)
 
 	if err := r.Spec.ValidateUpdate(oldBarbican.Spec, basePath); err != nil {
 		allErrs = append(allErrs, err...)
@@ -252,4 +258,44 @@ func (spec *BarbicanSpecCore) SetDefaultRouteAnnotations(annotations map[string]
 	timeout := fmt.Sprintf("%ds", spec.APITimeout)
 	annotations[barbicanAnno] = timeout
 	annotations[haProxyAnno] = timeout
+}
+
+// ValidateBarbicanTopology - Returns an ErrorList if the Topology is referenced
+// on a different namespace
+func (spec *BarbicanSpec) ValidateBarbicanTopology(basePath *field.Path, namespace string) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// When a TopologyRef CR is referenced, fail if a different Namespace is
+	// referenced because is not supported
+	if spec.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to BarbicanAPI, fail
+	// if a different Namespace is referenced because not supported
+	if spec.BarbicanAPI.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.BarbicanAPI.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to BarbicanKeystoneListener,
+	// fail if a different Namespace is referenced because not supported
+	if spec.BarbicanKeystoneListener.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.BarbicanKeystoneListener.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to an instance of
+	// BarbicanWorker, fail if a different Namespace is referenced because not
+	// supported
+	if spec.BarbicanWorker.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.BarbicanWorker.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
 }

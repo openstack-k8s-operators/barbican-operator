@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/topology"
 )
 
 // BarbicanTemplate defines common Spec elements for all Barbican components
@@ -50,18 +51,18 @@ type BarbicanTemplate struct {
 	// ServiceAccount - service account name used internally to provide Barbican services the default SA name
 	ServiceAccount string `json:"serviceAccount"`
 
-        // +kubebuilder:validation:Optional
-        PKCS11 *BarbicanPKCS11Template `json:"pkcs11,omitempty"`
+	// +kubebuilder:validation:Optional
+	PKCS11 *BarbicanPKCS11Template `json:"pkcs11,omitempty"`
 
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:validation:MinItems=1
-        // +kubebuilder:validation:MaxItems=2
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=2
 	// +listType:=set
-        EnabledSecretStores []SecretStore `json:"enabledSecretStores,omitempty"`
+	EnabledSecretStores []SecretStore `json:"enabledSecretStores,omitempty"`
 
-        // +kubebuilder:validation:Optional
-        // +kubebuilder:default="simple_crypto"
-        GlobalDefaultSecretStore SecretStore `json:"globalDefaultSecretStore" yaml:"globalDefaultSecretStore"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="simple_crypto"
+	GlobalDefaultSecretStore SecretStore `json:"globalDefaultSecretStore" yaml:"globalDefaultSecretStore"`
 }
 
 // BarbicanComponentTemplate - Variables used by every sub-component of Barbican
@@ -106,6 +107,11 @@ type BarbicanComponentTemplate struct {
 	// +kubebuilder:validation:Optional
 	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// TopologyRef to apply the Topology defined by the associated CR referenced
+	// by name
+	TopologyRef *topology.TopoRef `json:"topologyRef,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=simple_crypto;pkcs11
