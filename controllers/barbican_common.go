@@ -29,7 +29,6 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/topology"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -103,8 +102,8 @@ func GenerateSecretStoreTemplateMap(
 func ensureBarbicanTopology(
 	ctx context.Context,
 	helper *helper.Helper,
-	tpRef *topology.TopoRef,
-	lastAppliedTopology *topology.TopoRef,
+	tpRef *topologyv1.TopoRef,
+	lastAppliedTopology *topologyv1.TopoRef,
 	finalizer string,
 	selector string,
 ) (*topologyv1.Topology, error) {
@@ -122,7 +121,7 @@ func ensureBarbicanTopology(
 	//    referenced topology (tpRef.Name != lastAppliedTopology.Name)
 	if (tpRef == nil && lastAppliedTopology.Name != "") ||
 		(tpRef != nil && tpRef.Name != lastAppliedTopology.Name) {
-		_, err = topology.EnsureDeletedTopologyRef(
+		_, err = topologyv1.EnsureDeletedTopologyRef(
 			ctx,
 			helper,
 			lastAppliedTopology,
@@ -144,7 +143,7 @@ func ensureBarbicanTopology(
 			selector,
 		)
 		// Retrieve the referenced Topology
-		podTopology, _, err = topology.EnsureTopologyRef(
+		podTopology, _, err = topologyv1.EnsureTopologyRef(
 			ctx,
 			helper,
 			tpRef,

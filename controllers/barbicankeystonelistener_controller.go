@@ -34,7 +34,6 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/topology"
 
 	//"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
@@ -380,10 +379,10 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileDelete(ctx context.Context
 	*/
 
 	// Remove finalizer on the Topology CR
-	if ctrlResult, err := topology.EnsureDeletedTopologyRef(
+	if ctrlResult, err := topologyv1.EnsureDeletedTopologyRef(
 		ctx,
 		helper,
-		&topology.TopoRef{
+		&topologyv1.TopoRef{
 			Name:      instance.Status.LastAppliedTopology,
 			Namespace: instance.Namespace,
 		},
@@ -572,7 +571,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	//
 	// Handle Topology
 	//
-	lastTopologyRef := topology.TopoRef{
+	lastTopologyRef := topologyv1.TopoRef{
 		Name:      instance.Status.LastAppliedTopology,
 		Namespace: instance.Namespace,
 	}
