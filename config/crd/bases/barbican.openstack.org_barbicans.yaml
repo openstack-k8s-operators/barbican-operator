@@ -51,6 +51,8 @@ spec:
               apiTimeout:
                 default: 90
                 description: Barbican API timeout
+                maximum: 180
+                minimum: 5
                 type: integer
               barbicanAPI:
                 description: BarbicanAPI - Spec definition for the  API services of
@@ -638,6 +640,7 @@ spec:
                   CustomServiceConfig - customize the service config using this parameter to change service defaults,
                   or overwrite rendered information using raw OpenStack config format. The content gets added to
                   to /etc/<service>/<service>.conf.d directory as custom.conf file.
+                maxLength: 65536
                 type: string
               databaseAccount:
                 default: barbican
@@ -785,14 +788,17 @@ spec:
               barbicanAPIReadyCount:
                 description: ReadyCount of Barbican API instances
                 format: int32
+                minimum: 0
                 type: integer
               barbicanKeystoneListenerReadyCount:
                 description: ReadyCount of Barbican KeystoneListener instances
                 format: int32
+                minimum: 0
                 type: integer
               barbicanWorkerReadyCount:
                 description: ReadyCount of Barbican Worker instances
                 format: int32
+                minimum: 0
                 type: integer
               conditions:
                 description: Conditions
@@ -838,6 +844,8 @@ spec:
                 type: array
               databaseHostname:
                 description: Barbican Database Hostname
+                maxLength: 256
+                pattern: ^([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$
                 type: string
               hash:
                 additionalProperties:
@@ -851,12 +859,17 @@ spec:
                   then the controller has not processed the latest changes injected by
                   the opentack-operator in the top-level CR (e.g. the ContainerImage)
                 format: int64
+                minimum: 1
                 type: integer
               serviceID:
                 description: ServiceID
+                maxLength: 256
+                pattern: ^([a-z\d])*$
                 type: string
               transportURLSecret:
                 description: TransportURLSecret - Secret containing RabbitMQ transportURL
+                maxLength: 253
+                pattern: ^([a-z\d\.\-])*$
                 type: string
             type: object
         type: object
