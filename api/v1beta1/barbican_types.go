@@ -90,17 +90,20 @@ type BarbicanSpecBase struct {
 	PreserveJobs bool `json:"preserveJobs"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Values=`^.{1,65536}$`
 	// NodeSelector to target subset of worker nodes running this component. Setting here overrides
 	// any global NodeSelector settings within the Barbican CR.
 	NodeSelector *map[string]string `json:"nodeSelector,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxLength=65536
 	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
 	// or overwrite rendered information using raw OpenStack config format. The content gets added to
 	// to /etc/<service>/<service>.conf.d directory as custom.conf file.
 	CustomServiceConfig string `json:"customServiceConfig,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Values=`^.{1,65536}$`
 	// ConfigOverwrite - interface to overwrite default config files like e.g. logging.conf or policy.json.
 	// But can also be used to add additional files. Those get added to the service config dir in /etc/<service> .
 	// TODO(dmendiza): -> implement
@@ -110,6 +113,8 @@ type BarbicanSpecBase struct {
 	// BarbicanAPIInternal - Spec definition for the internal and admin API service of this Barbican deployment
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=5
+	// +kubebuilder:validation:Maximum=180
 	// +kubebuilder:default=90
 	// Barbican API timeout
 	APITimeout int `json:"apiTimeout"`
@@ -123,33 +128,44 @@ type BarbicanSpecBase struct {
 // BarbicanStatus defines the observed state of Barbican
 type BarbicanStatus struct {
 	// Map of hashes to track e.g. job status
+	// +kubebuilder:validation:Values=`^.{1,65536}$`
 	Hash map[string]string `json:"hash,omitempty"`
 
 	// ServiceID
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern=`^([a-z\d])*$`
 	ServiceID string `json:"serviceID,omitempty"`
 
 	// Conditions
 	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
 	// ReadyCount of Barbican API instances
+	// +kubebuilder:validation:Minimum=0
 	BarbicanAPIReadyCount int32 `json:"barbicanAPIReadyCount,omitempty"`
 
 	// ReadyCount of Barbican Worker instances
+	// +kubebuilder:validation:Minimum=0
 	BarbicanWorkerReadyCount int32 `json:"barbicanWorkerReadyCount,omitempty"`
 
 	// ReadyCount of Barbican KeystoneListener instances
+	// +kubebuilder:validation:Minimum=0
 	BarbicanKeystoneListenerReadyCount int32 `json:"barbicanKeystoneListenerReadyCount,omitempty"`
 
 	// TransportURLSecret - Secret containing RabbitMQ transportURL
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^([a-z\d\.\-])*$`
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 
 	// Barbican Database Hostname
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$`
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
 
 	// ObservedGeneration - the most recent generation observed for this
 	// service. If the observed generation is less than the spec generation,
 	// then the controller has not processed the latest changes injected by
 	// the opentack-operator in the top-level CR (e.g. the ContainerImage)
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
