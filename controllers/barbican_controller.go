@@ -260,7 +260,9 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 
 	// check for Simple Crypto Backend secret holding the KEK
 	if len(instance.Spec.EnabledSecretStores) == 0 || slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreSimpleCrypto) {
-		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.SimpleCryptoBackendSecret, []string{instance.Spec.PasswordSelectors.SimpleCryptoKEK}, &configVars)
+		fields := []string{instance.Spec.PasswordSelectors.SimpleCryptoKEK}
+		fields = append(fields, instance.Spec.PasswordSelectors.SimpleCryptoAdditionalKEKs...)
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.SimpleCryptoBackendSecret, fields, &configVars)
 		if err != nil {
 			return ctrlResult, err
 		}
