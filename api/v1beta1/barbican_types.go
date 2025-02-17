@@ -111,6 +111,7 @@ type BarbicanSpecBase struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=90
+	// +kubebuilder:validation:Minimum=10
 	// Barbican API timeout
 	APITimeout int `json:"apiTimeout"`
 

@@ -51,6 +51,7 @@ spec:
               apiTimeout:
                 default: 90
                 description: Barbican API timeout
+                minimum: 10
                 type: integer
               barbicanAPI:
                 description: BarbicanAPI - Spec definition for the  API services of
