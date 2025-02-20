@@ -36,4 +36,7 @@ const (
 	BarbicanRabbitMQTransportURLReadyMessage = "BarbicanRabbitMQTransportURL successfully created"
 	// BarbicanRabbitMQTransportURLReadyErrorMessage -
 	BarbicanRabbitMQTransportURLReadyErrorMessage = "BarbicanRabbitMQTransportURL error occured %s"
+
+	// BarbicanNetworkAttachmentsReadyErrorMessage -
+	BarbicanNetworkAttachmentsReadyErrorMessage = "NetworkAttachments error occurred; not all pods have interfaces with IPs as configured in NetworkAttachments: %s"
 )
