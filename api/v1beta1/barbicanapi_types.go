@@ -21,6 +21,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 )
 
 // BarbicanAPITemplate defines the input parameters for the Barbican API service
@@ -98,7 +99,7 @@ type BarbicanAPIStatus struct {
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
 
 	// LastAppliedTopology - the last applied Topology
-	LastAppliedTopology string `json:"lastAppliedTopology,omitempty"`
+	LastAppliedTopology *topologyv1.TopoRef `json:"lastAppliedTopology,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -126,4 +127,19 @@ type BarbicanAPIList struct {
 
 func init() {
 	SchemeBuilder.Register(&BarbicanAPI{}, &BarbicanAPIList{})
+}
+
+// GetSpecTopologyRef - Returns the LastAppliedTopology Set in the Status
+func (instance *BarbicanAPI) GetSpecTopologyRef() *topologyv1.TopoRef {
+	return instance.Spec.TopologyRef
+}
+
+// GetLastAppliedTopology - Returns the LastAppliedTopology Set in the Status
+func (instance *BarbicanAPI) GetLastAppliedTopology() *topologyv1.TopoRef {
+	return instance.Status.LastAppliedTopology
+}
+
+// SetLastAppliedTopology - Sets the LastAppliedTopology value in the Status
+func (instance *BarbicanAPI) SetLastAppliedTopology(topologyRef *topologyv1.TopoRef) {
+	instance.Status.LastAppliedTopology = topologyRef
 }
