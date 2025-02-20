@@ -382,10 +382,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileDelete(ctx context.Context
 	if ctrlResult, err := topologyv1.EnsureDeletedTopologyRef(
 		ctx,
 		helper,
-		&topologyv1.TopoRef{
-			Name:      instance.Status.LastAppliedTopology,
-			Namespace: instance.Namespace,
-		},
+		instance.Status.LastAppliedTopology,
 		instance.Name,
 	); err != nil {
 		return ctrlResult, err
@@ -572,17 +569,16 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	//
 	// Handle Topology
 	//
-	lastTopologyRef := topologyv1.TopoRef{
-		Name:      instance.Status.LastAppliedTopology,
-		Namespace: instance.Namespace,
-	}
-	topology, err := ensureBarbicanTopology(
+	topology, err := topologyv1.EnsureServiceTopology(
 		ctx,
 		helper,
 		instance.Spec.TopologyRef,
-		&lastTopologyRef,
+		GetLastAppliedTopologyRef(instance, instance.Namespace),
 		instance.Name,
-		barbican.ComponentKeystoneListener,
+		labels.GetSingleLabelSelector(
+			common.ComponentSelector,
+			barbican.ComponentKeystoneListener,
+		),
 	)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -599,12 +595,12 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	// and mark the condition as true
 	if instance.Spec.TopologyRef != nil {
 		// update the Status with the last retrieved Topology name
-		instance.Status.LastAppliedTopology = instance.Spec.TopologyRef.Name
+		instance.Status.LastAppliedTopology = instance.Spec.TopologyRef
 		// update the TopologyRef associated condition
 		instance.Status.Conditions.MarkTrue(condition.TopologyReadyCondition, condition.TopologyReadyMessage)
 	} else {
 		// remove LastAppliedTopology from the .Status
-		instance.Status.LastAppliedTopology = ""
+		instance.Status.LastAppliedTopology = nil
 	}
 
 	Log.Info(fmt.Sprintf("[KeystoneListener] Defining deployment '%s'", instance.Name))

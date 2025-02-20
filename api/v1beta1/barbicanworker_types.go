@@ -20,6 +20,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 )
 
 // BarbicanWorkerTemplate defines common Spec elements for the Worker process
@@ -78,7 +79,7 @@ type BarbicanWorkerStatus struct {
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
 
 	// LastAppliedTopology - the last applied Topology
-	LastAppliedTopology string `json:"lastAppliedTopology,omitempty"`
+	LastAppliedTopology *topologyv1.TopoRef `json:"lastAppliedTopology,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -106,4 +107,9 @@ type BarbicanWorkerList struct {
 
 func init() {
 	SchemeBuilder.Register(&BarbicanWorker{}, &BarbicanWorkerList{})
+}
+
+// GetLastAppliedTopology - Returns the LastAppliedTopology Set in the Status
+func (instance BarbicanWorker) GetLastAppliedTopology() *topologyv1.TopoRef {
+	return instance.Status.LastAppliedTopology
 }

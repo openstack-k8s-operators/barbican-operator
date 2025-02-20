@@ -116,9 +116,7 @@ func (r *Barbican) ValidateCreate() (admission.Warnings, error) {
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
 
-	allErrs = r.Spec.ValidateBarbicanTopology(basePath, r.Namespace)
-
-	if err := r.Spec.ValidateCreate(basePath); err != nil {
+	if err := r.Spec.ValidateCreate(basePath, r.Namespace); err != nil {
 		allErrs = append(allErrs, err...)
 	}
 
@@ -133,7 +131,7 @@ func (r *Barbican) ValidateCreate() (admission.Warnings, error) {
 
 // ValidateCreate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an barbican spec.
-func (r *BarbicanSpec) ValidateCreate(basePath *field.Path) field.ErrorList {
+func (r *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
@@ -143,6 +141,8 @@ func (r *BarbicanSpec) ValidateCreate(basePath *field.Path) field.ErrorList {
 
 	// pkcs11 verifications
 	r.ValidatePKCS11(basePath, &allErrs)
+
+	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
 
 	return allErrs
 }
@@ -157,7 +157,7 @@ func (r *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.Error
         }
 }
 
-func (r *BarbicanSpecCore) ValidateCreate(basePath *field.Path) field.ErrorList {
+func (r *BarbicanSpecCore) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
@@ -165,6 +165,7 @@ func (r *BarbicanSpecCore) ValidateCreate(basePath *field.Path) field.ErrorList 
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		r.BarbicanAPI.Override.Service)...)
 
+	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
 	return allErrs
 }
 
@@ -180,9 +181,7 @@ func (r *Barbican) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
 
-	allErrs = r.Spec.ValidateBarbicanTopology(basePath, r.Namespace)
-
-	if err := r.Spec.ValidateUpdate(oldBarbican.Spec, basePath); err != nil {
+	if err := r.Spec.ValidateUpdate(oldBarbican.Spec, basePath, r.Namespace); err != nil {
 		allErrs = append(allErrs, err...)
 	}
 
@@ -197,7 +196,7 @@ func (r *Barbican) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 
 // ValidateUpdate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an barbican spec.
-func (r *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path) field.ErrorList {
+func (r *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
@@ -208,10 +207,11 @@ func (r *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path) fi
 	// pkcs11 verifications
 	r.ValidatePKCS11(basePath, &allErrs)
 
+	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
 	return allErrs
 }
 
-func (r *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *field.Path) field.ErrorList {
+func (r *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
@@ -219,6 +219,7 @@ func (r *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *field.
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		r.BarbicanAPI.Override.Service)...)
 
+	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
 	return allErrs
 }
 
@@ -260,6 +261,45 @@ func (spec *BarbicanSpecCore) SetDefaultRouteAnnotations(annotations map[string]
 	annotations[haProxyAnno] = timeout
 }
 
+// ValidateBarbicanTopology - Returns an ErrorList if the Topology is referenced
+// on a different namespace
+func (spec *BarbicanSpecCore) ValidateBarbicanTopology(basePath *field.Path, namespace string) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// When a TopologyRef CR is referenced, fail if a different Namespace is
+	// referenced because is not supported
+	if spec.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to BarbicanAPI, fail
+	// if a different Namespace is referenced because not supported
+	if spec.BarbicanAPI.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.BarbicanAPI.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to BarbicanKeystoneListener,
+	// fail if a different Namespace is referenced because not supported
+	if spec.BarbicanKeystoneListener.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.BarbicanKeystoneListener.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to an instance of
+	// BarbicanWorker, fail if a different Namespace is referenced because not
+	// supported
+	if spec.BarbicanWorker.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.BarbicanWorker.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
 // ValidateBarbicanTopology - Returns an ErrorList if the Topology is referenced
 // on a different namespace
 func (spec *BarbicanSpec) ValidateBarbicanTopology(basePath *field.Path, namespace string) field.ErrorList {
