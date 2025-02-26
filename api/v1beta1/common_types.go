@@ -159,4 +159,9 @@ type PasswordSelector struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="PKCS11Pin"
 	PKCS11Pin string `json:"pkcs11pin"`
+	// +kubebuilder:validation:Optional
+	// +listType:=set
+	// Fields containing additional Key Encryption Keys(KEK) used for the Simple Crypto backend
+	// It is expected that these fields will exist in the secret referenced in SimpleCryptoBackendSecret
+	SimpleCryptoAdditionalKEKs []string `json:"simplecryptoadditionalkeks,omitempty"`
 }

@@ -305,7 +305,11 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 		if err != nil {
 			return err
 		}
-		templateParameters["SimpleCryptoKEK"] = string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK])
+		keks := []string{string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK])}
+		for _, secretField := range instance.Spec.PasswordSelectors.SimpleCryptoAdditionalKEKs {
+			keks = append(keks, string(simpleCryptoSecret.Data[secretField]))
+		}
+		templateParameters["SimpleCryptoKEKs"] = keks
 	}
 
 	// Set secret store parameters
