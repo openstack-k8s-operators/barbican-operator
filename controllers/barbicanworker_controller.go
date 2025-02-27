@@ -590,10 +590,7 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 		instance,      // topologyHandler
 		instance.Name, // finalizer
 		&instance.Status.Conditions,
-		labels.GetSingleLabelSelector(
-			common.ComponentSelector,
-			barbican.ComponentWorker,
-		),
+		labels.GetLabelSelector(serviceLabels),
 	)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(

@@ -575,10 +575,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 		instance,      // topologyHandler
 		instance.Name, // finalizer
 		&instance.Status.Conditions,
-		labels.GetSingleLabelSelector(
-			common.ComponentSelector,
-			barbican.ComponentKeystoneListener,
-		),
+		labels.GetLabelSelector(serviceLabels),
 	)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
