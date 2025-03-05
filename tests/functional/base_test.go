@@ -44,11 +44,19 @@ func CreateBarbicanSecret(namespace string, name string) *corev1.Secret {
 	)
 }
 
+func CreateCustomConfigSecret(namespace string, name string, contents map[string][]byte) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		contents,
+	)
+}
+
 func GetDefaultBarbicanSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseInstance":          "openstack",
 		"secret":                    SecretName,
 		"simpleCryptoBackendSecret": SecretName,
+		"customServiceConfig":       barbicanTest.BaseCustomServiceConfig,
 	}
 }
 
@@ -168,6 +176,8 @@ func GetTLSBarbicanSpec() map[string]interface{} {
 		"secret":                    SecretName,
 		"simpleCryptoBackendSecret": SecretName,
 		"barbicanAPI":               GetTLSBarbicanAPISpec(),
+		"customServiceConfig":       barbicanTest.BaseCustomServiceConfig,
+		"defaultConfigOverwrite":    barbicanTest.BaseDefaultConfigOverwrite,
 	}
 }
 
@@ -185,6 +195,7 @@ func GetTLSBarbicanAPISpec() map[string]interface{} {
 			},
 			"caBundleSecretName": CABundleSecretName,
 		},
+		"customServiceConfigSecrets": barbicanTest.APICustomServiceConfigSecrets,
 	})
 	return spec
 }
@@ -264,6 +275,8 @@ func GetDefaultBarbicanAPISpec() map[string]interface{} {
 		"containerImage":            barbicanTest.ContainerImage,
 		"serviceAccount":            barbicanTest.BarbicanSA.Name,
 		"transportURLSecret":        barbicanTest.RabbitmqSecretName,
+		"customServiceConfig":       barbicanTest.APICustomServiceConfig,
+		"defaultConfigOverwrite":    barbicanTest.APIDefaultConfigOverwrite,
 	}
 }
 

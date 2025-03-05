@@ -2,11 +2,9 @@ package barbicanapi
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +29,6 @@ func Deployment(
 	topology *topologyv1.Topology,
 ) (*appsv1.Deployment, error) {
 	runAsUser := int64(0)
-	var config0644AccessMode int32 = 0644
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
@@ -63,53 +60,9 @@ func Deployment(
 	}
 	readinessProbe.HTTPGet = livenessProbe.HTTPGet
 
-	apiVolumes := []corev1.Volume{
-		{
-			Name: "config-data-custom",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
-					SecretName:  instance.Name + "-config-data",
-				},
-			},
-		},
-		barbican.GetLogVolume(),
-	}
-
-	apiVolumeMounts := []corev1.VolumeMount{
-		barbican.GetKollaConfigVolumeMount(instance.Name),
-		barbican.GetLogVolumeMount(),
-	}
-
-	// add CA cert if defined
-	if instance.Spec.TLS.CaBundleSecretName != "" {
-		apiVolumes = append(apiVolumes, instance.Spec.TLS.CreateVolume())
-		apiVolumeMounts = append(apiVolumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
-	}
-
-	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
-		if instance.Spec.TLS.API.Enabled(endpt) {
-			var tlsEndptCfg tls.GenericService
-			switch endpt {
-			case service.EndpointPublic:
-				tlsEndptCfg = instance.Spec.TLS.API.Public
-			case service.EndpointInternal:
-				tlsEndptCfg = instance.Spec.TLS.API.Internal
-			}
-
-			svc, err := tlsEndptCfg.ToService()
-			if err != nil {
-				return nil, err
-			}
-			apiVolumes = append(apiVolumes, svc.CreateVolume(endpt.String()))
-			apiVolumeMounts = append(apiVolumeMounts, svc.CreateVolumeMounts(endpt.String())...)
-		}
-	}
-
-	// Add PKCS11 volumes
-	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
-		apiVolumes = append(apiVolumes, barbican.GetHSMVolumes(*instance.Spec.PKCS11)...)
-		apiVolumeMounts = append(apiVolumeMounts, barbican.GetHSMVolumeMounts()...)
+	apiVolumes, apiVolumeMounts, err := GetVolumesAndMounts(instance)
+	if err != nil {
+		return nil, err
 	}
 
 	deployment := &appsv1.Deployment{
@@ -130,6 +83,7 @@ func Deployment(
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: instance.Spec.ServiceAccount,
+					Volumes:            apiVolumes,
 					Containers: []corev1.Container{
 						{
 							Name: instance.Name + "-log",
@@ -164,11 +118,8 @@ func Deployment(
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
-							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: append(barbican.GetVolumeMounts(
-								instance.Spec.CustomServiceConfigSecrets),
-								apiVolumeMounts...,
-							),
+							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:   apiVolumeMounts,
 							Resources:      instance.Spec.Resources,
 							ReadinessProbe: readinessProbe,
 							LivenessProbe:  livenessProbe,
@@ -178,11 +129,6 @@ func Deployment(
 			},
 		},
 	}
-
-	deployment.Spec.Template.Spec.Volumes = append(barbican.GetVolumes(
-		instance.Name,
-		instance.Spec.CustomServiceConfigSecrets),
-		apiVolumes...)
 
 	if instance.Spec.NodeSelector != nil {
 		deployment.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
