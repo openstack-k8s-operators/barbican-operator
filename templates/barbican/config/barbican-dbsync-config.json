@@ -1,3 +1,18 @@
 {
-    "command": "barbican-manage db upgrade"
+    "command": "barbican-manage db upgrade",
+    "config_files": [
+      {
+        "source": "/var/lib/config-data/default/00-default.conf",
+        "dest": "/etc/barbican/barbican.conf.d/00-default.conf",
+        "owner": "barbican",
+        "perm": "0600"
+      },
+      {
+        "source": "/var/lib/config-data/default/01-custom.conf",
+        "dest": "/etc/barbican/barbican.conf.d/01-custom.conf",
+        "owner": "barbican",
+        "perm": "0600",
+        "optional": true
+      }
+    ]
 }

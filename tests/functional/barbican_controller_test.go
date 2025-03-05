@@ -32,6 +32,7 @@ var _ = Describe("Barbican controller", func() {
 			Expect(Barbican.Spec.ServiceUser).Should(Equal("barbican"))
 			Expect(Barbican.Spec.DatabaseInstance).Should(Equal("openstack"))
 			Expect(Barbican.Spec.DatabaseAccount).Should(Equal("barbican"))
+			Expect(Barbican.Spec.CustomServiceConfig).Should(Equal(barbicanTest.BaseCustomServiceConfig))
 		})
 
 		It("should have the Status fields initialized", func() {
@@ -208,12 +209,33 @@ var _ = Describe("Barbican controller", func() {
 		})
 
 		It("checks the 10-barbican_wsgi_main.conf contains the correct TimeOut", func() {
-			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
 			Expect(cf).ShouldNot(BeNil())
 			httpdConfData := string(cf.Data["10-barbican_wsgi_main.conf"])
 			Expect(httpdConfData).To(
 				ContainSubstring("TimeOut 90"),
 			)
+		})
+		It("checks the relevant secrets contain the customServiceConfig", func() {
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			customData := string(cf.Data["01-custom.conf"])
+			Expect(customData).To(Equal(barbicanTest.BaseCustomServiceConfig))
+
+			cf = th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			customData = string(cf.Data["01-custom.conf"])
+			Expect(customData).To(Equal(barbicanTest.BaseCustomServiceConfig))
+
+			cf = th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			customData = string(cf.Data["01-custom.conf"])
+			Expect(customData).To(Equal(barbicanTest.BaseCustomServiceConfig))
+
+			cf = th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			customData = string(cf.Data["01-custom.conf"])
+			Expect(customData).To(Equal(barbicanTest.BaseCustomServiceConfig))
 		})
 	})
 	When("A Barbican with TLS is created", func() {
@@ -237,6 +259,16 @@ var _ = Describe("Barbican controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
 			mariadb.SimulateMariaDBTLSDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			DeferCleanup(k8sClient.Delete, ctx, CreateCustomConfigSecret(
+				barbicanTest.Instance.Namespace,
+				APICustomConfigSecret1Name,
+				barbicanTest.APICustomConfigSecret1Contents),
+			)
+			DeferCleanup(k8sClient.Delete, ctx, CreateCustomConfigSecret(
+				barbicanTest.Instance.Namespace,
+				APICustomConfigSecret2Name,
+				barbicanTest.APICustomConfigSecret2Contents),
+			)
 		})
 
 		It("Creates BarbicanAPI", func() {
@@ -261,13 +293,20 @@ var _ = Describe("Barbican controller", func() {
 			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(6))
 			Expect(d.Spec.Template.Spec.Containers).To(HaveLen(2))
 
+			// Check the default volumes
+			th.AssertVolumeExists("config-data", d.Spec.Template.Spec.Volumes)
+			th.AssertVolumeExists("config-data-custom", d.Spec.Template.Spec.Volumes)
+
 			// cert deployment volumes
 			th.AssertVolumeExists(barbicanTest.CABundleSecret.Name, d.Spec.Template.Spec.Volumes)
 			th.AssertVolumeExists(barbicanTest.InternalCertSecret.Name, d.Spec.Template.Spec.Volumes)
 			th.AssertVolumeExists(barbicanTest.PublicCertSecret.Name, d.Spec.Template.Spec.Volumes)
 
-			// cert volumeMounts
+			// default and cert volumeMounts
 			container := d.Spec.Template.Spec.Containers[1]
+			th.AssertVolumeMountExists("config-data", "", container.VolumeMounts)
+			th.AssertVolumeMountExists("config-data-custom", "", container.VolumeMounts)
+
 			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.key", container.VolumeMounts)
 			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.crt", container.VolumeMounts)
 			th.AssertVolumeMountExists(barbicanTest.PublicCertSecret.Name, "tls.key", container.VolumeMounts)
@@ -284,6 +323,76 @@ var _ = Describe("Barbican controller", func() {
 			conf := cf.Data["my.cnf"]
 			Expect(conf).To(
 				ContainSubstring("[client]\nssl-ca=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem\nssl=1"))
+		})
+
+		It("checks the relevant secrets contain the base and API customServiceConfig", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			customData := string(cf.Data["01-custom.conf"])
+			Expect(customData).To(Equal(barbicanTest.BaseCustomServiceConfig))
+
+			cf = th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			customData = string(cf.Data["01-custom.conf"])
+			Expect(customData).To(Equal(barbicanTest.BaseCustomServiceConfig))
+
+			customData = string(cf.Data["02-service-custom.conf"])
+			Expect(customData).To(Equal(barbicanTest.APICustomServiceConfig))
+		})
+
+		It("checks the relevant secrets contain the base and API defaultConfigOverwrite", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			for fname, val := range barbicanTest.BaseDefaultConfigOverwrite {
+				customData := string(cf.Data[fname])
+				Expect(customData).To(Equal(val))
+			}
+
+			cf = th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			for fname, val := range barbicanTest.APIDefaultConfigOverwrite {
+				// all the API custom values should be there
+				customData := string(cf.Data[fname])
+				Expect(customData).To(Equal(val))
+			}
+			for fname, val := range barbicanTest.BaseDefaultConfigOverwrite {
+				_, ok := barbicanTest.APIDefaultConfigOverwrite[fname]
+				if ok {
+					// we've already checked this value
+					continue
+				}
+				customData := string(cf.Data[fname])
+				Expect(customData).To(Equal(val))
+			}
+
+		})
+		It("checks the relevant secrets contain the API CustomServiceConfigSecrets", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			customData := string(cf.Data["03-secrets-custom.conf"])
+
+			secret1 := th.GetSecret(barbicanTest.APICustomConfigSecret1)
+			Expect(secret1).ShouldNot(BeNil())
+
+			secret2 := th.GetSecret(barbicanTest.APICustomConfigSecret2)
+			Expect(secret1).ShouldNot(BeNil())
+
+			Expect(customData).To(Equal(string(secret1.Data["secret1"]) + "\n" + string(secret2.Data["secret2"]) + "\n"))
 		})
 	})
 
@@ -701,7 +810,7 @@ var _ = Describe("Barbican controller", func() {
 				ContainSubstring("\"dest\": \"/usr/local/luna\""))
 		})
 
-		It("Verifies if 00-default.conf, barbican-api-config.json and 01-custom.conf have the right contents for BarbicanAPI.", func() {
+		It("Verifies if 00-default.conf and 01-custom.conf have the right contents for BarbicanAPI.", func() {
 			confSecret := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
 			Expect(confSecret).ShouldNot(BeNil())
 
@@ -716,8 +825,13 @@ var _ = Describe("Barbican controller", func() {
 			conf = confSecret.Data["01-custom.conf"]
 			Expect(conf).To(
 				ContainSubstring(PKCS11CustomData))
+		})
 
-			conf = confSecret.Data["barbican-api-config.json"]
+		It("Verifies if barbican-api-config.json has the right contents for BarbicanAPI.", func() {
+			confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(confSecret).ShouldNot(BeNil())
+
+			conf := confSecret.Data["barbican-api-config.json"]
 			Expect(conf).To(
 				ContainSubstring("\"source\": \"/var/lib/config-data/hsm\""))
 			Expect(conf).To(
