@@ -323,18 +323,12 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
 				g.Expect(barbicanAPI.Status.LastAppliedTopology).ToNot(BeNil())
-				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
-				g.Expect(barbicanWorker.Status.LastAppliedTopology).ToNot(BeNil())
-				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
-				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).ToNot(BeNil())
-			}, timeout, interval).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
 				g.Expect(barbicanAPI.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
 				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanWorker.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
 				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
 			}, timeout, interval).Should(Succeed())
 		})
@@ -359,10 +353,13 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 				keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
 				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanAPI.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
 				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanWorker.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
 				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
 			}, timeout, interval).Should(Succeed())
 		})
@@ -388,10 +385,13 @@ var _ = Describe("Barbican controller", func() {
 			Eventually(func(g Gomega) {
 
 				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanAPI.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
 				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[2].Name))
 				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(barbicanWorker.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[3].Name))
 			}, timeout, interval).Should(Succeed())
 		})
