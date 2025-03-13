@@ -1,8 +1,6 @@
 package barbicankeystonelistener
 
 import (
-	"fmt"
-
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -59,7 +57,7 @@ func Deployment(
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-keystone-listener", instance.Name),
+			Name:      instance.Name,
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
