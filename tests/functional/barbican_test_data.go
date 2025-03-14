@@ -112,7 +112,7 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		},
 		BarbicanAPIDeployment: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
-			Name:      fmt.Sprintf("%s-api-api", barbicanName.Name),
+			Name:      fmt.Sprintf("%s-api", barbicanName.Name),
 		},
 		BarbicanAPI: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
@@ -124,7 +124,7 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		},
 		BarbicanKeystoneListenerDeployment: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
-			Name:      fmt.Sprintf("%s-keystone-listener-keystone-listener", barbicanName.Name),
+			Name:      fmt.Sprintf("%s-keystone-listener", barbicanName.Name),
 		},
 		BarbicanWorker: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
@@ -132,7 +132,7 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		},
 		BarbicanWorkerDeployment: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
-			Name:      fmt.Sprintf("%s-worker-worker", barbicanName.Name),
+			Name:      fmt.Sprintf("%s-worker", barbicanName.Name),
 		},
 		BarbicanRole: types.NamespacedName{
 			Namespace: barbicanName.Namespace,

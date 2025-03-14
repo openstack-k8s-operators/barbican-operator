@@ -1,7 +1,6 @@
 package barbicanapi
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
@@ -114,7 +113,7 @@ func Deployment(
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-api", instance.Name),
+			Name:      instance.Name,
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},

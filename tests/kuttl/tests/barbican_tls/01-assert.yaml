@@ -46,7 +46,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: barbican-api-api
+  name: barbican-api
 spec:
   replicas: 1
   selector:
@@ -175,7 +175,7 @@ status:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: barbican-keystone-listener-keystone-listener
+  name: barbican-keystone-listener
   ownerReferences:
     - apiVersion: barbican.openstack.org/v1beta1
       blockOwnerDeletion: true
@@ -186,7 +186,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: barbican-worker-worker
+  name: barbican-worker
   ownerReferences:
     - apiVersion: barbican.openstack.org/v1beta1
       blockOwnerDeletion: true
