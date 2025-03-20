@@ -46,6 +46,7 @@ import (
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
@@ -556,7 +557,7 @@ var (
 		pkcs11ClientDataSecretField,
 		topologyField,
 	}
-	apinWatchFields = []string{
+	apiWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
 		tlsAPIInternalField,
@@ -680,6 +681,22 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		templateParameters["PKCS11Enabled"] = true
 		templateParameters["PKCS11ClientDataPath"] = instance.Spec.PKCS11.ClientDataPath
 	}
+
+	// create httpd  vhost template parameters
+	httpdVhostConfig := map[string]interface{}{}
+	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
+		endptConfig := map[string]interface{}{}
+		endptConfig["ServerName"] = fmt.Sprintf("%s-%s.%s.svc", barbican.ServiceName, endpt.String(), instance.Namespace)
+		endptConfig["TLS"] = false // default TLS to false, and set it bellow to true if enabled
+		if instance.Spec.BarbicanAPI.TLS.API.Enabled(endpt) {
+			endptConfig["TLS"] = true
+			endptConfig["SSLCertificateFile"] = fmt.Sprintf("/etc/pki/tls/certs/%s.crt", endpt.String())
+			endptConfig["SSLCertificateKeyFile"] = fmt.Sprintf("/etc/pki/tls/private/%s.key", endpt.String())
+		}
+		httpdVhostConfig[endpt.String()] = endptConfig
+	}
+	templateParameters["VHosts"] = httpdVhostConfig
+	templateParameters["TimeOut"] = instance.Spec.APITimeout
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true)
 }

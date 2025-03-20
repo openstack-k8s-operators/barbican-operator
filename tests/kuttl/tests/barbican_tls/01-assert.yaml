@@ -120,6 +120,9 @@ spec:
               name: config-data
               readOnly: true
               subPath: my.cnf
+            - mountPath: /etc/barbican/barbican.conf.d
+              name: config-data-custom
+              readOnly: true
             - mountPath: /var/lib/kolla/config_files/config.json
               name: config-data
               readOnly: true
@@ -150,7 +153,7 @@ spec:
         - name: config-data
           secret:
             defaultMode: 420
-            secretName: barbican-api-config-data
+            secretName: barbican-config-data
         - name: config-data-custom
           secret:
             defaultMode: 420
