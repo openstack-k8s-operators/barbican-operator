@@ -896,30 +896,60 @@ var _ = Describe("Barbican Webhook", func() {
 					"Invalid value: \"wrooong\": invalid endpoint type: wrooong"),
 		)
 	})
-	It("rejects a wrong TopologyRef on a different namespace", func() {
-		spec := GetDefaultBarbicanSpec()
-		// Inject a topologyRef that points to a different namespace
-		spec["topologyRef"] = map[string]interface{}{
-			"name":      "foo",
-			"namespace": "bar",
-		}
-		raw := map[string]interface{}{
-			"apiVersion": "barbican.openstack.org/v1beta1",
-			"kind":       "Barbican",
-			"metadata": map[string]interface{}{
-				"name":      barbicanTest.Instance.Name,
-				"namespace": barbicanTest.Instance.Namespace,
-			},
-			"spec": spec,
-		}
+	DescribeTable("rejects wrong topology for",
+		func(serviceNameFunc func() (string, string)) {
 
-		unstructuredObj := &unstructured.Unstructured{Object: raw}
-		_, err := controllerutil.CreateOrPatch(
-			th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(
-			ContainSubstring(
-				"Invalid value: \"namespace\": Customizing namespace field is not supported"),
-		)
-	})
+			component, errorPath := serviceNameFunc()
+			expectedErrorMessage := fmt.Sprintf("spec.%s.namespace: Invalid value: \"namespace\": Customizing namespace field is not supported", errorPath)
+
+			spec := GetDefaultBarbicanAPISpec()
+
+			// API, Worker and KeystoneListener
+			if component != "top-level" {
+				spec[component] = map[string]interface{}{
+					"topologyRef": map[string]interface{}{
+						"name":      "bar",
+						"namespace": "foo",
+					},
+				}
+				// top-level topologyRef
+			} else {
+				spec["topologyRef"] = map[string]interface{}{
+					"name":      "bar",
+					"namespace": "foo",
+				}
+			}
+			// Build the barbican CR
+			raw := map[string]interface{}{
+				"apiVersion": "barbican.openstack.org/v1beta1",
+				"kind":       "Barbican",
+				"metadata": map[string]interface{}{
+					"name":      barbicanTest.Instance.Name,
+					"namespace": barbicanTest.Instance.Namespace,
+				},
+				"spec": spec,
+			}
+			unstructuredObj := &unstructured.Unstructured{Object: raw}
+			_, err := controllerutil.CreateOrPatch(
+				th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(
+				ContainSubstring(expectedErrorMessage))
+		},
+		Entry("top-level topologyRef", func() (string, string) {
+			return "top-level", "topologyRef"
+		}),
+		Entry("barbicanAPI topologyRef", func() (string, string) {
+			component := "barbicanAPI"
+			return component, fmt.Sprintf("%s.topologyRef", component)
+		}),
+		Entry("barbicanKeystoneListener topologyRef", func() (string, string) {
+			component := "barbicanKeystoneListener"
+			return component, fmt.Sprintf("%s.topologyRef", component)
+		}),
+		Entry("barbicanWorker topologyRef", func() (string, string) {
+			component := "barbicanWorker"
+			return component, fmt.Sprintf("%s.topologyRef", component)
+		}),
+	)
 })
