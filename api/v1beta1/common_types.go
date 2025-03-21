@@ -3,7 +3,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
-
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // BarbicanTemplate defines common Spec elements for all Barbican components
@@ -164,4 +164,16 @@ type PasswordSelector struct {
 	// Fields containing additional Key Encryption Keys(KEK) used for the Simple Crypto backend
 	// It is expected that these fields will exist in the secret referenced in SimpleCryptoBackendSecret
 	SimpleCryptoAdditionalKEKs []string `json:"simplecryptoadditionalkeks,omitempty"`
+}
+
+// ValidateTopology -
+func (instance *BarbicanComponentTemplate) ValidateTopology(
+	basePath *field.Path,
+	namespace string,
+) field.ErrorList {
+	var allErrs field.ErrorList
+	allErrs = append(allErrs, topologyv1.ValidateTopologyRef(
+		instance.TopologyRef,
+		*basePath.Child("topologyRef"), namespace)...)
+	return allErrs
 }
