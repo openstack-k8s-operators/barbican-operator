@@ -21,20 +21,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: barbican-api-api
+  name: barbican-api
 spec:
   replicas: 0
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: barbican-keystone-listener-keystone-listener
+  name: barbican-keystone-listener
 spec:
   replicas: 0
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: barbican-worker-worker
+  name: barbican-worker
 spec:
   replicas: 0

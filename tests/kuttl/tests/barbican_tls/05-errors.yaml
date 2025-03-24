@@ -1,7 +1,7 @@
 #
 # Check for:
 # - No Barbican CR
-# - No BarbicanAPI barbican-api-api CR
+# - No BarbicanAPI barbican-api CR
 # - No BarbicanAPI barbican-api Deployment
 # - No barbican-api Pod
 # - No barbican-public service
@@ -20,7 +20,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: barbican-api-api
+  name: barbican-api
 ---
 apiVersion: v1
 kind: Pod
