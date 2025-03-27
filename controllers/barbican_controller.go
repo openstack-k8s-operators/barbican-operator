@@ -44,6 +44,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/job"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/object"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
@@ -51,6 +52,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 	"golang.org/x/exp/maps"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -1184,4 +1186,32 @@ func (r *BarbicanReconciler) ensureDB(
 	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
 	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
 	return db, ctrlResult, nil
+}
+
+func cleanupOldDeployment(
+	ctx context.Context,
+	c client.Client,
+	owner client.Object,
+	oldName string,
+) error {
+	// Retrieve the old deployment to check ownership
+	oldDep := &appsv1.Deployment{}
+	key := types.NamespacedName{
+		Name:      oldName,
+		Namespace: owner.GetNamespace(),
+	}
+	if err := c.Get(ctx, key, oldDep); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+
+	if !object.CheckOwnerRefExist(owner.GetUID(), oldDep.OwnerReferences) {
+		return nil
+	}
+
+	// If it’s owned, delete the old deployment
+	if err := c.Delete(ctx, oldDep); err != nil && !k8s_errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete old deployment '%s': %w", oldName, err)
+	}
+
+	return nil
 }
