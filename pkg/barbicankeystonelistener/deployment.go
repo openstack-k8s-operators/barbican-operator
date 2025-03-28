@@ -25,35 +25,12 @@ func Deployment(
 	topology *topologyv1.Topology,
 ) *appsv1.Deployment {
 	runAsUser := int64(0)
-	var config0644AccessMode int32 = 0644
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
 	args := []string{"-c", ServiceCommand}
 
-	keystoneListenerVolumes := []corev1.Volume{
-		{
-			Name: "config-data-custom",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
-					SecretName:  instance.Name + "-config-data",
-				},
-			},
-		},
-		barbican.GetLogVolume(),
-	}
-
-	keystoneListenerVolumeMounts := []corev1.VolumeMount{
-		barbican.GetKollaConfigVolumeMount(instance.Name),
-		barbican.GetLogVolumeMount(),
-	}
-
-	// Add the CA bundle
-	if instance.Spec.TLS.CaBundleSecretName != "" {
-		keystoneListenerVolumes = append(keystoneListenerVolumes, instance.Spec.TLS.CreateVolume())
-		keystoneListenerVolumeMounts = append(keystoneListenerVolumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
-	}
+	keystoneListenerVolumes, keystoneListenerVolumeMounts := GetListenerVolumesAndMounts(instance)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -73,6 +50,7 @@ func Deployment(
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: instance.Spec.ServiceAccount,
+					Volumes:            keystoneListenerVolumes,
 					Containers: []corev1.Container{
 						{
 							Name: instance.Name + "-log",
@@ -105,22 +83,15 @@ func Deployment(
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
-							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: append(barbican.GetVolumeMounts(
-								instance.Spec.CustomServiceConfigSecrets),
-								keystoneListenerVolumeMounts...,
-							),
-							Resources: instance.Spec.Resources,
+							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts: keystoneListenerVolumeMounts,
+							Resources:    instance.Spec.Resources,
 						},
 					},
 				},
 			},
 		},
 	}
-	deployment.Spec.Template.Spec.Volumes = append(barbican.GetVolumes(
-		instance.Name,
-		instance.Spec.CustomServiceConfigSecrets),
-		keystoneListenerVolumes...)
 
 	if instance.Spec.NodeSelector != nil {
 		deployment.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector

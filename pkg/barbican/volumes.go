@@ -1,8 +1,6 @@
 package barbican
 
 import (
-	"strconv"
-
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -13,10 +11,10 @@ var (
 )
 
 // GetVolumes - service volumes
-func GetVolumes(name string, secretNames []string) []corev1.Volume {
+func GetVolumes(name string) []corev1.Volume {
 	var config0644AccessMode int32 = 0644
 
-	vm := []corev1.Volume{
+	return []corev1.Volume{
 		{
 			Name: ConfigVolume,
 			VolumeSource: corev1.VolumeSource{
@@ -27,16 +25,12 @@ func GetVolumes(name string, secretNames []string) []corev1.Volume {
 			},
 		},
 	}
-
-	secretConfig, _ := GetConfigSecretVolumes(secretNames)
-	vm = append(vm, secretConfig...)
-	return vm
 }
 
 // GetVolumeMounts - general VolumeMounts
-func GetVolumeMounts(secretNames []string) []corev1.VolumeMount {
+func GetVolumeMounts() []corev1.VolumeMount {
 
-	vm := []corev1.VolumeMount{
+	return []corev1.VolumeMount{
 		{
 			Name:      ConfigVolume,
 			MountPath: ConfigMountPoint,
@@ -49,38 +43,6 @@ func GetVolumeMounts(secretNames []string) []corev1.VolumeMount {
 			ReadOnly:  true,
 		},
 	}
-
-	_, secretConfig := GetConfigSecretVolumes(secretNames)
-	vm = append(vm, secretConfig...)
-	return vm
-}
-
-// GetConfigSecretVolumes - Returns a list of volumes associated with a list of Secret names
-func GetConfigSecretVolumes(secretNames []string) ([]corev1.Volume, []corev1.VolumeMount) {
-	secretVolumes := []corev1.Volume{}
-	secretMounts := []corev1.VolumeMount{}
-
-	for idx, secretName := range secretNames {
-		secretVol := corev1.Volume{
-			Name: secretName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  secretName,
-					DefaultMode: &configMode,
-				},
-			},
-		}
-		secretMount := corev1.VolumeMount{
-			Name: secretName,
-			// Each secret needs its own MountPath
-			MountPath: "/var/lib/config-data/secret-" + strconv.Itoa(idx),
-			ReadOnly:  true,
-		}
-		secretVolumes = append(secretVolumes, secretVol)
-		secretMounts = append(secretMounts, secretMount)
-	}
-
-	return secretVolumes, secretMounts
 }
 
 // GetLogVolumeMount - Returns the VolumeMount used for logging purposes
@@ -157,5 +119,29 @@ func GetHSMVolumeMounts() []corev1.VolumeMount {
 			MountPath: PKCS11ClientDataMountPoint,
 			ReadOnly:  true,
 		},
+	}
+}
+
+// GetCustomConfigVolume - service custom config volume
+func GetCustomConfigVolume(name string) corev1.Volume {
+	var config0644AccessMode int32 = 0644
+
+	return corev1.Volume{
+		Name: CustomConfigVolume,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				DefaultMode: &config0644AccessMode,
+				SecretName:  name + "-config-data",
+			},
+		},
+	}
+}
+
+// GetCustomConfigVolumeMount - service custom config volume mount
+func GetCustomConfigVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      CustomConfigVolume,
+		MountPath: CustomConfigMountPoint,
+		ReadOnly:  true,
 	}
 }

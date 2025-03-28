@@ -53,6 +53,10 @@ const (
 	ConfigVolume = "config-data"
 	// ConfigMountPoint is the mount point for service config
 	ConfigMountPoint = "/var/lib/config-data/default"
+	// CustomConfigVolume is the default volume name to mount custom service config
+	CustomConfigVolume = "config-data-custom"
+	// CustomConfigMountPoint is the mount point for custom service config
+	CustomConfigMountPoint = "/etc/barbican/barbican.conf.d"
 	// ScriptVolume is the default volume name used to mount scripts
 	ScriptVolume = "scripts"
 	// ScriptMountPoint is the mount point for scripts

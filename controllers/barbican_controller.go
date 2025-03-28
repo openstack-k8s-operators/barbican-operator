@@ -46,6 +46,7 @@ import (
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	oko_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
@@ -539,13 +540,14 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 
 // fields to index to reconcile when change
 const (
-	passwordSecretField         = ".spec.secret"
-	caBundleSecretNameField     = ".spec.tls.caBundleSecretName"
-	tlsAPIInternalField         = ".spec.tls.api.internal.secretName"
-	tlsAPIPublicField           = ".spec.tls.api.public.secretName"
-	pkcs11LoginSecretField      = ".spec.pkcs11.loginSecret"
-	pkcs11ClientDataSecretField = ".spec.pkcs11.clientDataSecret"
-	topologyField               = ".spec.topologyRef.Name"
+	passwordSecretField             = ".spec.secret"
+	caBundleSecretNameField         = ".spec.tls.caBundleSecretName"
+	tlsAPIInternalField             = ".spec.tls.api.internal.secretName"
+	tlsAPIPublicField               = ".spec.tls.api.public.secretName"
+	pkcs11LoginSecretField          = ".spec.pkcs11.loginSecret"
+	pkcs11ClientDataSecretField     = ".spec.pkcs11.clientDataSecret"
+	topologyField                   = ".spec.topologyRef.Name"
+	customServiceConfigSecretsField = ".spec.customServiceConfigSecrets"
 )
 
 var (
@@ -555,8 +557,9 @@ var (
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
 		topologyField,
+		customServiceConfigSecretsField,
 	}
-	apinWatchFields = []string{
+	apiWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
 		tlsAPIInternalField,
@@ -564,11 +567,13 @@ var (
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
 		topologyField,
+		customServiceConfigSecretsField,
 	}
 	listenerWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
 		topologyField,
+		customServiceConfigSecretsField,
 	}
 )
 
@@ -651,7 +656,6 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"KeystoneAuthURL":  keystoneInternalURL,
 		"ServicePassword":  string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
 		"ServiceUser":      instance.Spec.ServiceUser,
-		"ServiceURL":       "TODO",
 		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
@@ -680,6 +684,35 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		templateParameters["PKCS11Enabled"] = true
 		templateParameters["PKCS11ClientDataPath"] = instance.Spec.PKCS11.ClientDataPath
 	}
+
+	// Set simpleCrypto parameters
+	if len(instance.Spec.EnabledSecretStores) == 0 || slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreSimpleCrypto) {
+		simpleCryptoSecret, _, err := oko_secret.GetSecret(ctx, h, instance.Spec.SimpleCryptoBackendSecret, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		keks := []string{string(simpleCryptoSecret.Data[instance.Spec.PasswordSelectors.SimpleCryptoKEK])}
+		for _, secretField := range instance.Spec.PasswordSelectors.SimpleCryptoAdditionalKEKs {
+			keks = append(keks, string(simpleCryptoSecret.Data[secretField]))
+		}
+		templateParameters["SimpleCryptoKEKs"] = keks
+	}
+
+	// create httpd  vhost template parameters
+	httpdVhostConfig := map[string]interface{}{}
+	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
+		endptConfig := map[string]interface{}{}
+		endptConfig["ServerName"] = fmt.Sprintf("%s-%s.%s.svc", barbican.ServiceName, endpt.String(), instance.Namespace)
+		endptConfig["TLS"] = false // default TLS to false, and set it bellow to true if enabled
+		if instance.Spec.BarbicanAPI.TLS.API.Enabled(endpt) {
+			endptConfig["TLS"] = true
+			endptConfig["SSLCertificateFile"] = fmt.Sprintf("/etc/pki/tls/certs/%s.crt", endpt.String())
+			endptConfig["SSLCertificateKeyFile"] = fmt.Sprintf("/etc/pki/tls/private/%s.key", endpt.String())
+		}
+		httpdVhostConfig[endpt.String()] = endptConfig
+	}
+	templateParameters["VHosts"] = httpdVhostConfig
+	templateParameters["TimeOut"] = instance.Spec.APITimeout
 
 	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true)
 }
