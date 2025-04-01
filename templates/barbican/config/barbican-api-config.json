@@ -4,14 +4,14 @@
     {
       "source": "/var/lib/config-data/default/10-barbican_wsgi_main.conf",
       "dest": "/etc/httpd/conf.d/10-barbican_wsgi_main.conf",
-      "owner": "root",
+      "owner": "barbican:apache",
       "perm": "0640",
       "optional": true
     },
     {
       "source": "/var/lib/config-data/default/httpd.conf",
       "dest": "/etc/httpd/conf/httpd.conf",
-      "owner": "root",
+      "owner": "barbican:apache",
       "perm": "0640",
       "optional": true
     },
@@ -25,7 +25,7 @@
     {
       "source": "/var/lib/config-data/default/mime.conf",
       "dest": "/etc/httpd/conf.modules.d/mime.conf",
-      "owner": "root",
+      "owner": "barbican:apache",
       "perm": "0640",
       "optional": true
     },
@@ -39,13 +39,13 @@
     {
       "source": "/var/lib/config-data/default/ssl.conf",
       "dest": "/etc/httpd/conf.d/ssl.conf",
-      "owner": "root",
+      "owner": "barbican",
       "perm": "0644"
     },
     {
       "source": "/var/lib/config-data/tls/certs/*",
       "dest": "/etc/pki/tls/certs/",
-      "owner": "root",
+      "owner": "barbican",
       "perm": "0640",
       "optional": true,
       "merge": true
@@ -53,7 +53,7 @@
     {
       "source": "/var/lib/config-data/tls/private/*",
       "dest": "/etc/pki/tls/private/",
-      "owner": "root",
+      "owner": "barbican",
       "perm": "0600",
       "optional": true,
       "merge": true
@@ -68,6 +68,11 @@
     }
   ],
   "permissions": [
+    {
+        "path": "/etc/httpd/run",
+        "owner": "barbican:apache",
+        "recurse": true
+    },
     {
       "path": "/var/log/barbican",
       "owner": "barbican:barbican",

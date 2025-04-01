@@ -65,4 +65,8 @@ const (
 	PKCS11ClientDataVolume = "pkcs11-client-data"
 	// PKCS11DataVolume is the mount point used for PKCS11 client Data
 	PKCS11ClientDataMountPoint = "/var/lib/config-data/hsm"
+	// BarbicanUID
+	BarbicanUID int64 = 42403
+	// BarbicanGID
+	BarbicanGID int64 = 42403
 )

@@ -11,7 +11,7 @@ import (
 
 const (
 	// DBSyncCommand -
-	DBSyncCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
+	DBSyncCommand = "barbican-manage db upgrade"
 )
 
 // DbSyncJob func
@@ -21,7 +21,11 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 	dbSyncVolumes = append(dbSyncVolumes, GetVolumes(instance.Name)...)
 
 	dbSyncMounts := []corev1.VolumeMount{
-		GetKollaConfigVolumeMount(instance.Name + "-dbsync"),
+		{
+			Name:      "db-sync-config-data",
+			MountPath: "/etc/barbican/barbican.conf.d",
+			ReadOnly:  true,
+		},
 	}
 	dbSyncMounts = append(dbSyncMounts, GetVolumeMounts()...)
 
@@ -33,7 +37,6 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 
 	args := []string{"-c", DBSyncCommand}
 
-	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["KOLLA_BOOTSTRAP"] = env.SetValue("TRUE")
@@ -59,12 +62,10 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  args,
-							Image: instance.Spec.BarbicanAPI.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
-							},
-							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							Args:            args,
+							Image:           instance.Spec.BarbicanAPI.ContainerImage,
+							SecurityContext: dbSyncSecurityContext(),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts: dbSyncMounts,
 						},
 					},
