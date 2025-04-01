@@ -145,3 +145,43 @@ func GetCustomConfigVolumeMount() corev1.VolumeMount {
 		ReadOnly:  true,
 	}
 }
+
+// GetDBSyncVolumes - dbsync volumes
+// Unlike the individual Barbican services, the DbSyncJob doesn't need a
+// secret that contains all of the config snippets required by every
+// service, The two snippet files that it does need (DefaultsConfigFileName
+// and CustomConfigFileName) can be extracted from the top-level barbican
+// config-data secret.
+func GetDBSyncVolumes(name string) ([]corev1.Volume, []corev1.VolumeMount) {
+	var config0644AccessMode int32 = 0644
+	dbSyncVolumes := []corev1.Volume{
+		{
+			Name: "db-sync-config-data",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					DefaultMode: &config0644AccessMode,
+					SecretName:  name + "-config-data",
+					Items: []corev1.KeyToPath{
+						{
+							Key:  DefaultsConfigFileName,
+							Path: DefaultsConfigFileName,
+						},
+						{
+							Key:  CustomConfigFileName,
+							Path: CustomConfigFileName,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dbSyncVolumeMount := []corev1.VolumeMount{
+		{
+			Name:      "db-sync-config-data",
+			MountPath: "/etc/barbican/barbican.conf.d",
+			ReadOnly:  true,
+		},
+	}
+	return dbSyncVolumes, dbSyncVolumeMount
+}

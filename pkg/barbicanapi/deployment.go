@@ -26,7 +26,6 @@ func Deployment(
 	annotations map[string]string,
 	topology *topologyv1.Topology,
 ) (*appsv1.Deployment, error) {
-	var config0644AccessMode int32 = 0644
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
@@ -97,7 +96,7 @@ func Deployment(
 								barbican.BarbicanLogPath + instance.Name + ".log",
 							},
 							Image:           instance.Spec.ContainerImage,
-							SecurityContext: barbican.BaseSecurityContext(),
+							SecurityContext: barbican.GetBaseSecurityContext(),
 							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:    []corev1.VolumeMount{barbican.GetLogVolumeMount()},
 							Resources:       instance.Spec.Resources,
@@ -109,14 +108,14 @@ func Deployment(
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  args,
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: barbican.HttpdSecurityContext(),
-							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   apiVolumeMounts,
-							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
+							Args:            args,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: barbican.GetBaseSecurityContext(),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    apiVolumeMounts,
+							Resources:       instance.Spec.Resources,
+							ReadinessProbe:  readinessProbe,
+							LivenessProbe:   livenessProbe,
 						},
 					},
 				},

@@ -34,9 +34,9 @@ func GetPodAffinity(componentName string) *corev1.Affinity {
 	)
 }
 
-// BaseSecurityContext - currently used to make sure we don't run cronJob and Log
-// Pods as root user, and we drop privileges and Capabilities we don't need
-func BaseSecurityContext() *corev1.SecurityContext {
+// GetLogSecurityContext - do not run Log containers as root user and drop
+// all privileges and Capabilities
+func GetLogSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
 		RunAsUser:                ptr.To(BarbicanUID),
 		RunAsGroup:               ptr.To(BarbicanGID),
@@ -47,14 +47,11 @@ func BaseSecurityContext() *corev1.SecurityContext {
 				"ALL",
 			},
 		},
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
 	}
 }
 
-// HttpdSecurityContext -
-func HttpdSecurityContext() *corev1.SecurityContext {
+// GetBaseSecurityContext - security Context for an httpd that runs barbican-api
+func GetBaseSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{
@@ -63,26 +60,16 @@ func HttpdSecurityContext() *corev1.SecurityContext {
 		},
 		RunAsUser:  ptr.To(BarbicanUID),
 		RunAsGroup: ptr.To(BarbicanGID),
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
 	}
 }
 
-// dbSyncSecurityContext - currently used to make sure we don't run db-sync as
-// root user
-func dbSyncSecurityContext() *corev1.SecurityContext {
-
+// GetServiceSecurityContext - It defined and returns a securityContext for a
+// barbican service (keystone-listener and worker)
+func GetServiceSecurityContext(privileged bool) *corev1.SecurityContext {
 	return &corev1.SecurityContext{
-		RunAsUser:  ptr.To(BarbicanUID),
-		RunAsGroup: ptr.To(BarbicanGID),
-		Capabilities: &corev1.Capabilities{
-			Drop: []corev1.Capability{
-				"MKNOD",
-			},
-		},
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
+		AllowPrivilegeEscalation: ptr.To(true),
+		RunAsUser:                ptr.To(BarbicanUID),
+		RunAsGroup:               ptr.To(BarbicanGID),
+		Privileged:               &privileged,
 	}
 }

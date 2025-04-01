@@ -17,17 +17,7 @@ const (
 // DbSyncJob func
 func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
 	// The dbsync job just needs the main barbican config files
-	dbSyncVolumes := []corev1.Volume{}
-	dbSyncVolumes = append(dbSyncVolumes, GetVolumes(instance.Name)...)
-
-	dbSyncMounts := []corev1.VolumeMount{
-		{
-			Name:      "db-sync-config-data",
-			MountPath: "/etc/barbican/barbican.conf.d",
-			ReadOnly:  true,
-		},
-	}
-	dbSyncMounts = append(dbSyncMounts, GetVolumeMounts()...)
+	dbSyncVolumes, dbSyncMounts := GetDBSyncVolumes(instance.Name)
 
 	// add CA cert if defined
 	if instance.Spec.BarbicanAPI.TLS.CaBundleSecretName != "" {
@@ -64,9 +54,9 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 							},
 							Args:            args,
 							Image:           instance.Spec.BarbicanAPI.ContainerImage,
-							SecurityContext: dbSyncSecurityContext(),
+							SecurityContext: GetBaseSecurityContext(),
 							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: dbSyncMounts,
+							VolumeMounts:    dbSyncMounts,
 						},
 					},
 				},
