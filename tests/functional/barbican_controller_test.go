@@ -402,7 +402,7 @@ var _ = Describe("Barbican controller", func() {
 			topologySpec := GetSampleTopologySpec()
 			// Create Test Topologies
 			for _, t := range barbicanTest.BarbicanTopologies {
-				CreateTopology(t, topologySpec)
+				infra.CreateTopology(t, topologySpec)
 			}
 			spec := GetDefaultBarbicanSpec()
 			spec["topologyRef"] = map[string]interface{}{
