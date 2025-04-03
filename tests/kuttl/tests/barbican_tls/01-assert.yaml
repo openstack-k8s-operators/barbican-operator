@@ -87,7 +87,7 @@ spec:
             timeoutSeconds: 5
           resources: {}
           securityContext:
-            runAsUser: 0
+            runAsUser: 42403
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -111,7 +111,7 @@ spec:
             timeoutSeconds: 5
           resources: {}
           securityContext:
-            runAsUser: 0
+            runAsUser: 42403
           volumeMounts:
             - mountPath: /var/lib/config-data/default
               name: config-data
