@@ -16,20 +16,18 @@ const (
 
 // PKCS11PrepJob func
 func PKCS11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
-	secretNames := []string{}
-
 	// The PKCS11 Prep job just needs the main barbican config files, and the files
 	// needed to communicate with the relevant HSM.
 	pkcs11Volumes := []corev1.Volume{
 		GetScriptVolume(instance.Name + "-scripts"),
 	}
-	pkcs11Volumes = append(pkcs11Volumes, GetVolumes(instance.Name, secretNames)...)
+	pkcs11Volumes = append(pkcs11Volumes, GetVolumes(instance.Name)...)
 
 	pkcs11Mounts := []corev1.VolumeMount{
 		GetKollaConfigVolumeMount(instance.Name + "-pkcs11-prep"),
 		GetScriptVolumeMount(),
 	}
-	pkcs11Mounts = append(pkcs11Mounts, GetVolumeMounts(secretNames)...)
+	pkcs11Mounts = append(pkcs11Mounts, GetVolumeMounts()...)
 
 	// add CA cert if defined
 	if instance.Spec.BarbicanAPI.TLS.CaBundleSecretName != "" {

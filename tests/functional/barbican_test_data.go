@@ -38,49 +38,64 @@ const (
 	InternalCertSecretName = "internal-tls-certs"
 	// CABundleSecretName -
 	CABundleSecretName = "combined-ca-bundle"
+	// APICustomConfigSecret1Name -
+	APICustomConfigSecret1Name = "api-custom-secret-1"
+	// APICustomConfigSecret1Name -
+	APICustomConfigSecret2Name = "api-custom-secret-2"
 )
 
 // BarbicanTestData is the data structure used to provide input data to envTest
 type BarbicanTestData struct {
-	BarbicanPassword                   string
-	BarbicanServiceUser                string
-	ContainerImage                     string
-	DatabaseHostname                   string
-	DatabaseInstance                   string
-	RabbitmqClusterName                string
-	RabbitmqSecretName                 string
-	Instance                           types.NamespacedName
-	Barbican                           types.NamespacedName
-	BarbicanDatabaseName               types.NamespacedName
-	BarbicanDatabaseAccount            types.NamespacedName
-	BarbicanDBSync                     types.NamespacedName
-	BarbicanPKCS11Prep                 types.NamespacedName
-	BarbicanAPI                        types.NamespacedName
-	BarbicanWorker                     types.NamespacedName
-	BarbicanWorkerDeployment           types.NamespacedName
-	BarbicanKeystoneListener           types.NamespacedName
-	BarbicanKeystoneListenerDeployment types.NamespacedName
-	BarbicanAPIDeployment              types.NamespacedName
-	BarbicanRole                       types.NamespacedName
-	BarbicanRoleBinding                types.NamespacedName
-	BarbicanTransportURL               types.NamespacedName
-	BarbicanSA                         types.NamespacedName
-	BarbicanKeystoneService            types.NamespacedName
-	BarbicanKeystoneEndpoint           types.NamespacedName
-	BarbicanServicePublic              types.NamespacedName
-	BarbicanServiceInternal            types.NamespacedName
-	BarbicanConfigSecret               types.NamespacedName
-	BarbicanAPIConfigSecret            types.NamespacedName
-	BarbicanPKCS11LoginSecret          types.NamespacedName
-	BarbicanPKCS11ClientDataSecret     types.NamespacedName
-	BarbicanConfigScripts              types.NamespacedName
-	BarbicanConfigMapData              types.NamespacedName
-	BarbicanScheduler                  types.NamespacedName
-	InternalAPINAD                     types.NamespacedName
-	CABundleSecret                     types.NamespacedName
-	InternalCertSecret                 types.NamespacedName
-	PublicCertSecret                   types.NamespacedName
-	BarbicanTopologies                 []types.NamespacedName
+	BarbicanPassword                     string
+	BarbicanServiceUser                  string
+	ContainerImage                       string
+	DatabaseHostname                     string
+	DatabaseInstance                     string
+	RabbitmqClusterName                  string
+	RabbitmqSecretName                   string
+	Instance                             types.NamespacedName
+	Barbican                             types.NamespacedName
+	BarbicanDatabaseName                 types.NamespacedName
+	BarbicanDatabaseAccount              types.NamespacedName
+	BarbicanDBSync                       types.NamespacedName
+	BarbicanPKCS11Prep                   types.NamespacedName
+	BarbicanAPI                          types.NamespacedName
+	BarbicanWorker                       types.NamespacedName
+	BarbicanWorkerDeployment             types.NamespacedName
+	BarbicanKeystoneListener             types.NamespacedName
+	BarbicanKeystoneListenerDeployment   types.NamespacedName
+	BarbicanAPIDeployment                types.NamespacedName
+	BarbicanRole                         types.NamespacedName
+	BarbicanRoleBinding                  types.NamespacedName
+	BarbicanTransportURL                 types.NamespacedName
+	BarbicanSA                           types.NamespacedName
+	BarbicanKeystoneService              types.NamespacedName
+	BarbicanKeystoneEndpoint             types.NamespacedName
+	BarbicanServicePublic                types.NamespacedName
+	BarbicanServiceInternal              types.NamespacedName
+	BarbicanConfigSecret                 types.NamespacedName
+	BarbicanAPIConfigSecret              types.NamespacedName
+	BarbicanWorkerConfigSecret           types.NamespacedName
+	BarbicanKeystoneListenerConfigSecret types.NamespacedName
+	BarbicanPKCS11LoginSecret            types.NamespacedName
+	BarbicanPKCS11ClientDataSecret       types.NamespacedName
+	BarbicanConfigScripts                types.NamespacedName
+	BarbicanConfigMapData                types.NamespacedName
+	BarbicanScheduler                    types.NamespacedName
+	InternalAPINAD                       types.NamespacedName
+	CABundleSecret                       types.NamespacedName
+	InternalCertSecret                   types.NamespacedName
+	PublicCertSecret                     types.NamespacedName
+	BarbicanTopologies                   []types.NamespacedName
+	BaseCustomServiceConfig              string
+	APICustomServiceConfig               string
+	BaseDefaultConfigOverwrite           map[string]string
+	APIDefaultConfigOverwrite            map[string]string
+	APICustomServiceConfigSecrets        []string
+	APICustomConfigSecret1               types.NamespacedName
+	APICustomConfigSecret2               types.NamespacedName
+	APICustomConfigSecret1Contents       map[string][]byte
+	APICustomConfigSecret2Contents       map[string][]byte
 }
 
 // GetBarbicanTestData is a function that initialize the BarbicanTestData
@@ -175,6 +190,14 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 			Namespace: barbicanName.Namespace,
 			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "api-config-data"),
 		},
+		BarbicanWorkerConfigSecret: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "worker-config-data"),
+		},
+		BarbicanKeystoneListenerConfigSecret: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      fmt.Sprintf("%s-%s", barbicanName.Name, "keystone-listener-config-data"),
+		},
 		BarbicanPKCS11LoginSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      PKCS11LoginSecret,
@@ -239,6 +262,34 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 				Namespace: barbicanName.Namespace,
 				Name:      fmt.Sprintf("%s-worker-topology", barbicanName.Name),
 			},
+		},
+		BaseCustomServiceConfig: "[DEFAULT]\nbase_custom_service_config=true",
+		APICustomServiceConfig:  "[DEFAULT]\napi_custom_service_config=true",
+		BaseDefaultConfigOverwrite: map[string]string{
+			"policy.json":      "random base policy json stuff",
+			"base-custom.conf": "[DEFAULT]\nrandom_api_custom_config_override=true",
+		},
+		APIDefaultConfigOverwrite: map[string]string{
+			"policy.json":     "random api policy json stuff",
+			"api-custom.conf": "[DEFAULT]\nrandom_api_custom_config_override=true",
+		},
+		APICustomServiceConfigSecrets: []string{
+			APICustomConfigSecret1Name,
+			APICustomConfigSecret2Name,
+		},
+		APICustomConfigSecret1: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      APICustomConfigSecret1Name,
+		},
+		APICustomConfigSecret2: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      APICustomConfigSecret2Name,
+		},
+		APICustomConfigSecret1Contents: map[string][]byte{
+			"secret1": []byte("[custom_header1]\ncustom_attribute1=true\ncustom_attribute2=false"),
+		},
+		APICustomConfigSecret2Contents: map[string][]byte{
+			"secret2": []byte("[custom_header2]\ncustom_attribute3=true\ncustom_attribute4=false"),
 		},
 	}
 }

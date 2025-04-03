@@ -16,53 +16,18 @@ const (
 
 // DbSyncJob func
 func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, annotations map[string]string) *batchv1.Job {
-	secretNames := []string{}
-	var config0644AccessMode int32 = 0644
-
-	// Unlike the individual Barbican services, the DbSyncJob doesn't need a
-	// secret that contains all of the config snippets required by every
-	// service, The two snippet files that it does need (DefaultsConfigFileName
-	// and CustomConfigFileName) can be extracted from the top-level barbican
-	// config-data secret.
-	dbSyncVolume := []corev1.Volume{
-		{
-			Name: "db-sync-config-data",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
-					SecretName:  instance.Name + "-config-data",
-					Items: []corev1.KeyToPath{
-						{
-							Key:  DefaultsConfigFileName,
-							Path: DefaultsConfigFileName,
-						},
-						{
-							Key:  CustomConfigFileName,
-							Path: CustomConfigFileName,
-						},
-					},
-				},
-			},
-		},
-	}
+	// The dbsync job just needs the main barbican config files
+	dbSyncVolumes := []corev1.Volume{}
+	dbSyncVolumes = append(dbSyncVolumes, GetVolumes(instance.Name)...)
 
 	dbSyncMounts := []corev1.VolumeMount{
-		{
-			Name:      "db-sync-config-data",
-			MountPath: "/etc/barbican/barbican.conf.d",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "barbican-dbsync-config.json",
-			ReadOnly:  true,
-		},
+		GetKollaConfigVolumeMount(instance.Name + "-dbsync"),
 	}
+	dbSyncMounts = append(dbSyncMounts, GetVolumeMounts()...)
 
 	// add CA cert if defined
 	if instance.Spec.BarbicanAPI.TLS.CaBundleSecretName != "" {
-		dbSyncVolume = append(dbSyncVolume, instance.Spec.BarbicanAPI.TLS.CreateVolume())
+		dbSyncVolumes = append(dbSyncVolumes, instance.Spec.BarbicanAPI.TLS.CreateVolume())
 		dbSyncMounts = append(dbSyncMounts, instance.Spec.BarbicanAPI.TLS.CreateVolumeMounts(nil)...)
 	}
 
@@ -87,6 +52,7 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyOnFailure,
 					ServiceAccountName: instance.RbacResourceName(),
+					Volumes:            dbSyncVolumes,
 					Containers: []corev1.Container{
 						{
 							Name: instance.Name + "-db-sync",
@@ -98,21 +64,14 @@ func DbSyncJob(instance *barbicanv1beta1.Barbican, labels map[string]string, ann
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
-							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: append(GetVolumeMounts(secretNames),
-								dbSyncMounts...),
+							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts: dbSyncMounts,
 						},
 					},
 				},
 			},
 		},
 	}
-
-	job.Spec.Template.Spec.Volumes = append(GetVolumes(
-		instance.Name,
-		secretNames),
-		dbSyncVolume...,
-	)
 
 	if instance.Spec.NodeSelector != nil {
 		job.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
