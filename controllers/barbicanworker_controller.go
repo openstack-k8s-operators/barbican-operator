@@ -619,6 +619,15 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 	}
 	// create Deployment - end
 
+	if depl.GetDeployment().Status.ReadyReplicas > 0 {
+		oldDepName := fmt.Sprintf("%s-api", instance.Name)
+		err := cleanupOldDeployment(ctx, r.Client, instance.Namespace, fmt.Sprintf("%s-worker", instance.Name))
+		log.FromContext(ctx).Info("Attempting to clean up legacy deployment: " + oldDepName)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// We reached the end of the Reconcile, update the Ready condition based on
 	// the sub conditions
 	if instance.Status.Conditions.AllSubConditionIsTrue() {

@@ -862,6 +862,15 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	}
 	// create Deployment - end
 
+	if depl.GetDeployment().Status.ReadyReplicas > 0 {
+		oldDepName := fmt.Sprintf("%s-api", instance.Name)
+		err := cleanupOldDeployment(ctx, r.Client, instance.Namespace, fmt.Sprintf("%s-api", instance.Name))
+		log.FromContext(ctx).Info("Attempting to clean up legacy deployment: " + oldDepName)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
 
 	// We reached the end of the Reconcile, update the Ready condition based on
