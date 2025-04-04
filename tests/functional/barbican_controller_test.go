@@ -772,6 +772,370 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	When("Deployment rollout is progressing", func() {
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+			// API, Worker and KeystoneListener deployment in progress
+			th.SimulateDeploymentProgressing(barbicanTest.BarbicanAPIDeployment)
+			th.SimulateDeploymentProgressing(barbicanTest.BarbicanWorkerDeployment)
+			th.SimulateDeploymentProgressing(barbicanTest.BarbicanKeystoneListenerDeployment)
+		})
+
+		It("shows the BarbicanAPI deployment progressing in DeploymentReadyCondition", func() {
+			// BarbicanAPI - deployment progressing
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("shows the BarbicanKeystoneListener deployment progressing in DeploymentReadyCondition", func() {
+			// BarbicanKeystoneListener - deployment progressing
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("shows the BarbicanWorker deployment progressing in DeploymentReadyCondition", func() {
+			// BarbicanWorker - deployment progressing
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("still shows the BarbicanAPI deployment progressing in DeploymentReadyCondition when rollout hits ProgressDeadlineExceeded", func() {
+			th.SimulateDeploymentProgressDeadlineExceeded(barbicanTest.BarbicanAPIDeployment)
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("still shows the BarbicanKeystoneListener deployment progressing in DeploymentReadyCondition when rollout hits ProgressDeadlineExceeded", func() {
+			th.SimulateDeploymentProgressDeadlineExceeded(barbicanTest.BarbicanKeystoneListenerDeployment)
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("still shows the BarbicanWorker deployment progressing in DeploymentReadyCondition when rollout hits ProgressDeadlineExceeded", func() {
+			th.SimulateDeploymentProgressDeadlineExceeded(barbicanTest.BarbicanWorkerDeployment)
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("BarbicanAPI reaches Ready when deployment rollout finished", func() {
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPIDeployment)
+			th.ExpectCondition(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			th.ExpectCondition(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("BarbicanKeystoneListener reaches Ready when deployment rollout finished", func() {
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListenerDeployment)
+			th.ExpectCondition(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			th.ExpectCondition(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("BarbicanWorker reaches Ready when deployment rollout finished", func() {
+			th.ExpectConditionWithDetails(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionFalse,
+				condition.RequestedReason,
+				condition.DeploymentReadyRunningMessage,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanWorkerDeployment)
+			th.ExpectCondition(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.DeploymentReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			th.ExpectCondition(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+
+		It("Barbican overall condition reaches ready when all deployments succeeded", func() {
+			th.ExpectCondition(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+			// overall Barbican condition false
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionFalse,
+			)
+
+			// set all deployments to finished
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPIDeployment)
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListenerDeployment)
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanWorkerDeployment)
+			th.ExpectCondition(
+				barbicanTest.BarbicanAPI,
+				ConditionGetterFunc(BarbicanAPIConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionTrue,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanKeystoneListener,
+				ConditionGetterFunc(BarbicanKeystoneListenerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionTrue,
+			)
+			th.ExpectCondition(
+				barbicanTest.BarbicanWorker,
+				ConditionGetterFunc(BarbicanWorkerConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionTrue,
+			)
+			// overall Barbican condition true
+			th.ExpectCondition(
+				barbicanTest.Barbican,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ReadyCondition,
+				corev1.ConditionTrue,
+			)
+		})
+	})
+
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.
