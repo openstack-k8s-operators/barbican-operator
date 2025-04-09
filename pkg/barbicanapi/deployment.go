@@ -26,7 +26,6 @@ func Deployment(
 	annotations map[string]string,
 	topology *topologyv1.Topology,
 ) (*appsv1.Deployment, error) {
-	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
@@ -96,31 +95,27 @@ func Deployment(
 								"-F",
 								barbican.BarbicanLogPath + instance.Name + ".log",
 							},
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
-							},
-							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   []corev1.VolumeMount{barbican.GetLogVolumeMount()},
-							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: barbican.GetBaseSecurityContext(),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    []corev1.VolumeMount{barbican.GetLogVolumeMount()},
+							Resources:       instance.Spec.Resources,
+							ReadinessProbe:  readinessProbe,
+							LivenessProbe:   livenessProbe,
 						},
 						{
 							Name: barbican.ServiceName + "-api",
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  args,
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
-							},
-							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   apiVolumeMounts,
-							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
+							Args:            args,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: barbican.GetBaseSecurityContext(),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    apiVolumeMounts,
+							Resources:       instance.Spec.Resources,
+							ReadinessProbe:  readinessProbe,
+							LivenessProbe:   livenessProbe,
 						},
 					},
 				},

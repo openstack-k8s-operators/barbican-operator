@@ -24,7 +24,6 @@ func Deployment(
 	annotations map[string]string,
 	topology *topologyv1.Topology,
 ) *appsv1.Deployment {
-	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
@@ -65,27 +64,23 @@ func Deployment(
 								"-F",
 								barbican.BarbicanLogPath + instance.Name + ".log",
 							},
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
-							},
-							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: []corev1.VolumeMount{barbican.GetLogVolumeMount()},
-							Resources:    instance.Spec.Resources,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: barbican.GetLogSecurityContext(),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    []corev1.VolumeMount{barbican.GetLogVolumeMount()},
+							Resources:       instance.Spec.Resources,
 						},
 						{
 							Name: barbican.ServiceName + "-keystone-listener",
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  args,
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
-							},
-							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: keystoneListenerVolumeMounts,
-							Resources:    instance.Spec.Resources,
+							Args:            args,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: barbican.GetServiceSecurityContext(false),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    keystoneListenerVolumeMounts,
+							Resources:       instance.Spec.Resources,
 						},
 					},
 				},
