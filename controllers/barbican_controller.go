@@ -51,6 +51,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 	"golang.org/x/exp/maps"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -1184,4 +1185,19 @@ func (r *BarbicanReconciler) ensureDB(
 	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
 	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
 	return db, ctrlResult, nil
+}
+
+func cleanupOldDeployment(ctx context.Context, c client.Client, namespace, oldName string) error {
+	oldDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      oldName,
+			Namespace: namespace,
+		},
+	}
+
+	if err := c.Delete(ctx, oldDeployment); err != nil && !k8s_errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete old deployment '%s': %w", oldName, err)
+	}
+
+	return nil
 }
