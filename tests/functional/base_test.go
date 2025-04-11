@@ -160,6 +160,11 @@ func GetBarbicanKeystoneListener(name types.NamespacedName) *barbicanv1.Barbican
 	return instance
 }
 
+func BarbicanKeystoneListenerConditionGetter(name types.NamespacedName) condition.Conditions {
+	instance := GetBarbicanKeystoneListener(name)
+	return instance.Status.Conditions
+}
+
 // GetBarbicanWorker - Returns BarbicanWorker subCR
 func GetBarbicanWorker(name types.NamespacedName) *barbicanv1.BarbicanWorker {
 	instance := &barbicanv1.BarbicanWorker{}
@@ -167,6 +172,11 @@ func GetBarbicanWorker(name types.NamespacedName) *barbicanv1.BarbicanWorker {
 		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
 	}, timeout, interval).Should(Succeed())
 	return instance
+}
+
+func BarbicanWorkerConditionGetter(name types.NamespacedName) condition.Conditions {
+	instance := GetBarbicanWorker(name)
+	return instance.Status.Conditions
 }
 
 // ========== TLS Stuff ==============
