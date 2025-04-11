@@ -25,10 +25,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	barbicanv1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 )
 
@@ -308,41 +310,6 @@ func CreateBarbicanAPI(name types.NamespacedName, spec map[string]interface{}) c
 	return th.CreateUnstructured(raw)
 }
 
-// GetSampleTopologySpec - A sample (and opinionated) Topology Spec used to
-// test Service components
-func GetSampleTopologySpec() map[string]interface{} {
-	// Build the topology Spec
-	topologySpec := map[string]interface{}{
-		"topologySpreadConstraints": []map[string]interface{}{
-			{
-				"maxSkew":           1,
-				"topologyKey":       corev1.LabelHostname,
-				"whenUnsatisfiable": "ScheduleAnyway",
-				"labelSelector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"service": barbicanName.Name,
-					},
-				},
-			},
-		},
-	}
-	return topologySpec
-}
-
-// CreateTopology - Creates a Topology CR based on the spec passed as input
-func CreateTopology(topology types.NamespacedName, spec map[string]interface{}) client.Object {
-	raw := map[string]interface{}{
-		"apiVersion": "topology.openstack.org/v1beta1",
-		"kind":       "Topology",
-		"metadata": map[string]interface{}{
-			"name":      topology.Name,
-			"namespace": topology.Namespace,
-		},
-		"spec": spec,
-	}
-	return th.CreateUnstructured(raw)
-}
-
 // GetBarbicanAPISpec -
 func GetBarbicanAPISpec(name types.NamespacedName) barbicanv1.BarbicanAPITemplate {
 	instance := &barbicanv1.BarbicanAPI{}
@@ -368,4 +335,89 @@ func GetBarbicanWorkerSpec(name types.NamespacedName) barbicanv1.BarbicanWorkerT
 		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
 	}, timeout, interval).Should(Succeed())
 	return instance.Spec.BarbicanWorkerTemplate
+}
+
+// GetSampleTopologySpec - A sample (and opinionated) Topology Spec used to
+// test Barbican
+// Note this is just an example that should not be used in production for
+// multiple reasons:
+// 1. It uses ScheduleAnyway as strategy, which is something we might
+// want to avoid by default
+// 2. Usually a topologySpreadConstraints is used to take care about
+// multi AZ, which is not applicable in this context
+func GetSampleTopologySpec(
+	label string,
+) (map[string]interface{}, []corev1.TopologySpreadConstraint) {
+	// Build the topology Spec
+	topologySpec := map[string]interface{}{
+		"topologySpreadConstraints": []map[string]interface{}{
+			{
+				"maxSkew":           1,
+				"topologyKey":       corev1.LabelHostname,
+				"whenUnsatisfiable": "ScheduleAnyway",
+				"labelSelector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"component": label,
+					},
+				},
+			},
+		},
+	}
+	// Build the topologyObj representation
+	topologySpecObj := []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       corev1.LabelHostname,
+			WhenUnsatisfiable: corev1.ScheduleAnyway,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"component": label,
+				},
+			},
+		},
+	}
+	return topologySpec, topologySpecObj
+}
+
+// CreateTopology - Creates a Topology CR based on the spec passed as input
+func CreateTopology(topology types.NamespacedName, spec map[string]interface{}) (client.Object, topologyv1.TopoRef) {
+	raw := map[string]interface{}{
+		"apiVersion": "topology.openstack.org/v1beta1",
+		"kind":       "Topology",
+		"metadata": map[string]interface{}{
+			"name":      topology.Name,
+			"namespace": topology.Namespace,
+		},
+		"spec": spec,
+	}
+	// other than creating the topology based on the raw spec, we return the
+	// TopoRef that can be referenced
+	topologyRef := topologyv1.TopoRef{
+		Name:      topology.Name,
+		Namespace: topology.Namespace,
+	}
+	return th.CreateUnstructured(raw), topologyRef
+}
+
+// CreateDefaultCinderInstance - Creates a default Cinder CR used as a
+// dependency when a Cinder backend is defined in glance
+func CreateDefaultCinderInstance(cinderName types.NamespacedName) client.Object {
+	raw := map[string]interface{}{
+		"apiVersion": "cinder.openstack.org/v1beta1",
+		"kind":       "Cinder",
+		"metadata": map[string]interface{}{
+			"name":      cinderName.Name,
+			"namespace": cinderName.Namespace,
+		},
+	}
+	return th.CreateUnstructured(raw)
+}
+
+// GetTopology - Returns the referenced Topology
+func GetTopology(name types.NamespacedName) *topologyv1.Topology {
+	instance := &topologyv1.Topology{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance
 }
