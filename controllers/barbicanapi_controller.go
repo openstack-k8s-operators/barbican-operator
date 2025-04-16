@@ -61,6 +61,7 @@ import (
 )
 
 const (
+	// TransportURL is the configuration key for transport URL
 	TransportURL = "transport_url"
 )
 
@@ -101,7 +102,7 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	Log := r.GetLogger(ctx)
 
 	instance := &barbicanv1beta1.BarbicanAPI{}
-	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			// Object not found
@@ -622,7 +623,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		}
 	}
 
-	//check CustomServiceConfigSecrets
+	// check CustomServiceConfigSecrets
 	for _, v := range instance.Spec.CustomServiceConfigSecrets {
 		Log.Info(fmt.Sprintf("[API] Verify secret '%s' from CustomServiceConfigSecrets", v))
 		ctrlResult, err = r.verifySecret(ctx, helper, instance, v, []string{}, &configVars)

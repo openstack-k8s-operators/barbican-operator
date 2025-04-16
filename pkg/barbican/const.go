@@ -1,3 +1,4 @@
+// Package barbican contains barbican service constants and configuration.
 package barbican
 
 import "github.com/openstack-k8s-operators/lib-common/modules/storage"
@@ -35,7 +36,7 @@ const (
 	// CustomServiceConfigFileName -
 	CustomServiceConfigFileName = "02-service-custom.conf"
 	// CustomServiceConfigSecretsFileName -
-	CustomServiceConfigSecretsFileName = "03-secrets-custom.conf"
+	CustomServiceConfigSecretsFileName = "03-secrets-custom.conf" // #nosec G101
 	// BarbicanAPI defines the barbican-api group
 	BarbicanAPI storage.PropagationType = "BarbicanAPI"
 	// BarbicanWorker defines the barbican-worker group
@@ -61,9 +62,9 @@ const (
 	ScriptVolume = "scripts"
 	// ScriptMountPoint is the mount point for scripts
 	ScriptMountPoint = "/usr/local/bin/container-scripts"
-	// PKCS11DataVolume is the volume used to mount PKCS11 client Data
+	// PKCS11ClientDataVolume is the volume used to mount PKCS11 client Data
 	PKCS11ClientDataVolume = "pkcs11-client-data"
-	// PKCS11DataVolume is the mount point used for PKCS11 client Data
+	// PKCS11ClientDataMountPoint is the mount point used for PKCS11 client Data
 	PKCS11ClientDataMountPoint = "/var/lib/config-data/hsm"
 	// BarbicanUID - based on https://github.com/openstack-k8s-operators/tcib/blob/main/container-images/kolla/base/uid_gid_manage.sh
 	BarbicanUID int64 = 42403

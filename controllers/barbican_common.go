@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package controllers implements the barbican-operator Kubernetes controllers.
 package controllers
 
 import (
@@ -52,7 +53,6 @@ func ensureTopology(
 	conditionUpdater conditionUpdater,
 	defaultLabelSelector metav1.LabelSelector,
 ) (*topologyv1.Topology, error) {
-
 	topology, err := topologyv1.EnsureServiceTopology(
 		ctx,
 		helper,
@@ -94,7 +94,6 @@ func GenerateConfigsGeneric(
 	cmLabels map[string]string,
 	scripts bool,
 ) error {
-
 	cms := []util.Template{
 		// Templates where the BarbicanAPI config is stored
 		{
@@ -120,6 +119,7 @@ func GenerateConfigsGeneric(
 	return secret.EnsureSecrets(ctx, h, instance, cms, envVars)
 }
 
+// GenerateSecretStoreTemplateMap generates a template map for configured secret stores
 func GenerateSecretStoreTemplateMap(
 	enabledSecretStores []barbicanv1beta1.SecretStore,
 	globalDefaultSecretStore barbicanv1beta1.SecretStore,

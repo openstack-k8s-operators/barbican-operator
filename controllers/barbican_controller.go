@@ -64,12 +64,18 @@ import (
 )
 
 const (
-	PKCS11PrepReadyCondition      = "PKCS11PrepReady"
-	PKCS11PrepReadyInitMessage    = "PKCS11 Prep job not started"
-	PKCS11PrepReadyMessage        = "PKCS11 Prep job completed"
-	PKCS11PrepReadyErrorMessage   = "PKCS11 Prep job error occurred %s"
+	// PKCS11PrepReadyCondition indicates whether PKCS11 preparation is ready
+	PKCS11PrepReadyCondition = "PKCS11PrepReady"
+	// PKCS11PrepReadyInitMessage is the initial message for PKCS11 prep status
+	PKCS11PrepReadyInitMessage = "PKCS11 Prep job not started"
+	// PKCS11PrepReadyMessage is the message when PKCS11 prep job is completed
+	PKCS11PrepReadyMessage = "PKCS11 Prep job completed"
+	// PKCS11PrepReadyErrorMessage is the error message template for PKCS11 prep job failures
+	PKCS11PrepReadyErrorMessage = "PKCS11 Prep job error occurred %s"
+	// PKCS11PrepReadyRunningMessage is the message when PKCS11 prep job is still running
 	PKCS11PrepReadyRunningMessage = "PKCS11 Prep job is still running"
-	PKCS11PrepReadyNotRunMessage  = "PKCS11 Prep job not run"
+	// PKCS11PrepReadyNotRunMessage is the message when PKCS11 prep job has not been run
+	PKCS11PrepReadyNotRunMessage = "PKCS11 Prep job not run"
 )
 
 // BarbicanReconciler reconciles a Barbican object
@@ -123,7 +129,7 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 	Log := r.GetLogger(ctx)
 
 	instance := &barbicanv1beta1.Barbican{}
-	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -554,13 +560,13 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 // fields to index to reconcile when change
 const (
 	passwordSecretField                 = ".spec.secret"
-	caBundleSecretNameField             = ".spec.tls.caBundleSecretName"
+	caBundleSecretNameField             = ".spec.tls.caBundleSecretName" // #nosec G101
 	tlsAPIInternalField                 = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField                   = ".spec.tls.api.public.secretName"
-	pkcs11LoginSecretField              = ".spec.pkcs11.loginSecret"
-	pkcs11ClientDataSecretField         = ".spec.pkcs11.clientDataSecret"
+	pkcs11LoginSecretField              = ".spec.pkcs11.loginSecret"      // #nosec G101
+	pkcs11ClientDataSecretField         = ".spec.pkcs11.clientDataSecret" // #nosec G101
 	topologyField                       = ".spec.topologyRef.Name"
-	customServiceConfigSecretsField     = ".spec.customServiceConfigSecrets"
+	customServiceConfigSecretsField     = ".spec.customServiceConfigSecrets" // #nosec G101
 	parentBarbicanConfigDataSecretField = ".status.parentBarbicanConfigDataSecret"
 )
 
@@ -626,7 +632,7 @@ func (r *BarbicanReconciler) findObjectForSrc(ctx context.Context, src client.Ob
 	listOps := &client.ListOptions{
 		Namespace: src.GetNamespace(),
 	}
-	err := r.Client.List(ctx, crList, listOps)
+	err := r.List(ctx, crList, listOps)
 	if err != nil {
 		Log.Error(err, fmt.Sprintf("listing %s for namespace: %s", crList.GroupVersionKind().Kind, src.GetNamespace()))
 		return requests
@@ -673,7 +679,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	}
 
 	var tlsCfg *tls.Service
-	if instance.Spec.BarbicanAPI.TLS.Ca.CaBundleSecretName != "" {
+	if instance.Spec.BarbicanAPI.TLS.CaBundleSecretName != "" {
 		tlsCfg = &tls.Service{}
 	}
 	customData := map[string]string{
@@ -819,7 +825,7 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 	}
 
 	// Note: The top-level .spec.apiTimeout ALWAYS overrides .spec.barbicanAPI.apiTimeout
-	apiSpec.BarbicanAPITemplate.APITimeout = instance.Spec.APITimeout
+	apiSpec.APITimeout = instance.Spec.APITimeout
 
 	deployment := &barbicanv1beta1.BarbicanAPI{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1171,7 +1177,6 @@ func (r *BarbicanReconciler) ensureDB(
 		ctx, h, instance.Spec.DatabaseAccount,
 		instance.Namespace, false, barbican.DatabaseUsernamePrefix,
 	)
-
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			mariadbv1.MariaDBAccountReadyCondition,
@@ -1199,7 +1204,6 @@ func (r *BarbicanReconciler) ensureDB(
 
 	// create or patch the DB
 	ctrlResult, err := db.CreateOrPatchAll(ctx, h)
-
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,

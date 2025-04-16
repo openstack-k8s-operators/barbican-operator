@@ -1,3 +1,4 @@
+// Package barbicanapi contains barbican API deployment functionality.
 package barbicanapi
 
 import (
