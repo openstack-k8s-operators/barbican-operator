@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -308,27 +309,6 @@ func CreateBarbicanAPI(name types.NamespacedName, spec map[string]interface{}) c
 	return th.CreateUnstructured(raw)
 }
 
-// GetSampleTopologySpec - A sample (and opinionated) Topology Spec used to
-// test Service components
-func GetSampleTopologySpec() map[string]interface{} {
-	// Build the topology Spec
-	topologySpec := map[string]interface{}{
-		"topologySpreadConstraints": []map[string]interface{}{
-			{
-				"maxSkew":           1,
-				"topologyKey":       corev1.LabelHostname,
-				"whenUnsatisfiable": "ScheduleAnyway",
-				"labelSelector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"service": barbicanName.Name,
-					},
-				},
-			},
-		},
-	}
-	return topologySpec
-}
-
 // GetBarbicanAPISpec -
 func GetBarbicanAPISpec(name types.NamespacedName) barbicanv1.BarbicanAPITemplate {
 	instance := &barbicanv1.BarbicanAPI{}
@@ -354,4 +334,46 @@ func GetBarbicanWorkerSpec(name types.NamespacedName) barbicanv1.BarbicanWorkerT
 		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
 	}, timeout, interval).Should(Succeed())
 	return instance.Spec.BarbicanWorkerTemplate
+}
+
+// GetSampleTopologySpec - A sample (and opinionated) Topology Spec used to
+// test Barbican
+// Note this is just an example that should not be used in production for
+// multiple reasons:
+// 1. It uses ScheduleAnyway as strategy, which is something we might
+// want to avoid by default
+// 2. Usually a topologySpreadConstraints is used to take care about
+// multi AZ, which is not applicable in this context
+func GetSampleTopologySpec(
+	label string,
+) (map[string]interface{}, []corev1.TopologySpreadConstraint) {
+	// Build the topology Spec
+	topologySpec := map[string]interface{}{
+		"topologySpreadConstraints": []map[string]interface{}{
+			{
+				"maxSkew":           1,
+				"topologyKey":       corev1.LabelHostname,
+				"whenUnsatisfiable": "ScheduleAnyway",
+				"labelSelector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"component": label,
+					},
+				},
+			},
+		},
+	}
+	// Build the topologyObj representation
+	topologySpecObj := []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       corev1.LabelHostname,
+			WhenUnsatisfiable: corev1.ScheduleAnyway,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"component": label,
+				},
+			},
+		},
+	}
+	return topologySpec, topologySpecObj
 }

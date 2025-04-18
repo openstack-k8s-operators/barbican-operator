@@ -14,6 +14,7 @@ import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	controllers "github.com/openstack-k8s-operators/barbican-operator/controllers"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 	corev1 "k8s.io/api/core/v1"
@@ -397,16 +398,37 @@ var _ = Describe("Barbican controller", func() {
 	})
 
 	When("Barbican is created with topologyRef", func() {
+		var topologyRef, topologyRefAlt *topologyv1.TopoRef
 		BeforeEach(func() {
-			// Build the topology Spec
-			topologySpec := GetSampleTopologySpec()
-			// Create Test Topologies
+			// Create Test Topologies based on the entries defined in the
+			// BarbicanTopologies array. The spec is generated using GetSampleTopologySpec
+			// function, and t.Name is used as label to customize the default
+			// selector. By doing this we are able to have well defined and distinct
+			// topologies that are applied to BarbicanAPI, BarbicanKeystoneListener
+			// and BarbicanWorker.
 			for _, t := range barbicanTest.BarbicanTopologies {
+				// Build the topology Spec
+				topologySpec, _ := GetSampleTopologySpec(t.Name)
 				infra.CreateTopology(t, topologySpec)
 			}
+
+			// Define the two topology references used in this test: topologyRef
+			// represents the global-topology, while topologyRefAlt represents
+			// an alternative topologyRef that is used by the "update" envTest
+			// to override the global topology referenced here.
+			topologyRef = &topologyv1.TopoRef{
+				Name:      barbicanTest.BarbicanTopologies[0].Name,
+				Namespace: barbicanTest.BarbicanTopologies[0].Namespace,
+			}
+			topologyRefAlt = &topologyv1.TopoRef{
+				Name:      barbicanTest.BarbicanTopologies[1].Name,
+				Namespace: barbicanTest.BarbicanTopologies[1].Namespace,
+			}
 			spec := GetDefaultBarbicanSpec()
+			// Update the spec and add a top-level topologyRef that points to
+			// gloabal-topology
 			spec["topologyRef"] = map[string]interface{}{
-				"name": barbicanTest.BarbicanTopologies[0].Name,
+				"name": topologyRef.Name,
 			}
 			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
 			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
@@ -429,79 +451,225 @@ var _ = Describe("Barbican controller", func() {
 			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 		It("sets topology in CR status", func() {
+			// expectedTopology points to topologyRef, the global-topology
+			// defined in BeforeEach
+			expectedTopology := &topologyv1.TopoRef{
+				Name:      topologyRef.Name,
+				Namespace: topologyRef.Namespace,
+			}
 			Eventually(func(g Gomega) {
+				// retrieve the created topology in the current namespace
+				tp := infra.GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				// We expect that finalizer has length eq to 3, because the same
+				// global-topology is applied at top-level and inherited by all
+				// the barbican subCRs
+				g.Expect(tp.GetFinalizers()).To(HaveLen(3))
+				finalizers := tp.GetFinalizers()
 				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
 				g.Expect(barbicanAPI.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanAPI.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
+				// verify the .Status.LastAppliedTopology is updated and points
+				// to the referenced topologyRef
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).To(Equal(topologyRef))
+				// verify the finalizer has been applied
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicanapi-%s", barbicanAPI.Name)))
+
 				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
 				g.Expect(barbicanWorker.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanWorker.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
+				// verify the .Status.LastAppliedTopology is updated and points
+				// to the referenced topologyRef
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).To(Equal(topologyRef))
+				// verify the finalizer has been applied
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicanworker-%s", barbicanWorker.Name)))
+
 				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
 				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[0].Name))
+				// verify the .Status.LastAppliedTopology is updated and points
+				// to the referenced topologyRef
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).To(Equal(topologyRef))
+				// verify the finalizer has been applied
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicankeystonelistener-%s", barbicanKeystoneListener.Name)))
 			}, timeout, interval).Should(Succeed())
 		})
 
 		It("sets topology in the resulting deployments", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				// retrieve the topologySpec associated to the currently referenced
+				// topology
+				_, expectedTopologySpecObj := GetSampleTopologySpec(topologyRef.Name)
+				// verify that TopologySpreadConstraints is not nil (it proves that the Topology has been injected in the PodSpec)
+				// and that is matches with what has been referenced at top-level and inherited by the current service. The same
+				// comment applies to API, Worker and KeystoneListener.
+				// NOTE: this tests also the logic defined in the deployment definition, where Affinity is not set by default when
+				// a Topology is referenced. By checking that .Spec.Affinity is nil, we prove that we get the expected result
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.Affinity).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(Equal(expectedTopologySpecObj))
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(Equal(expectedTopologySpecObj))
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.Affinity).To(BeNil())
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.Affinity).To(BeNil())
+				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(Equal(expectedTopologySpecObj))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("updates topology when the reference changes", func() {
+			// expectedTopology points to topologyRefAlt, the alternative topology
+			// that is defined in BeforeEach and is suppposed to override the existing
+			// referenced topology. This test ensures that we are able to properly
+			// perform day2 operations and manage the Topology lifecycle.
+			expectedTopology := &topologyv1.TopoRef{
+				Name:      topologyRefAlt.Name,
+				Namespace: topologyRefAlt.Namespace,
+			}
+			var finalizers []string
 			Eventually(func(g Gomega) {
 				barbican := GetBarbican(barbicanTest.Instance)
-				barbican.Spec.TopologyRef.Name = barbicanTest.BarbicanTopologies[1].Name
+				// Update the top-level TopologyRef and point to the alternative
+				// Topology that will be propagated to the underlying components
+				barbican.Spec.TopologyRef.Name = topologyRefAlt.Name
 				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
+				tp := infra.GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers = tp.GetFinalizers()
+				// We expect that finalizer has length eq to 3, because the same
+				// alternative topology is applied at top-level and inherited by
+				// all the barbican subCRs
+				g.Expect(finalizers).To(HaveLen(3))
 				keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
 				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
 				g.Expect(barbicanAPI.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanAPI.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				// verify the finalizer has been applied to the alternative topology
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicanapi-%s", barbicanAPI.Name)))
 				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
 				g.Expect(barbicanWorker.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanWorker.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				// verify the finalizer has been applied to the alternative topology
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicanworker-%s", barbicanWorker.Name)))
 				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
 				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				// verify the finalizer has been applied to the alternative topology
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicankeystonelistener-%s", barbicanKeystoneListener.Name)))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("verifies the previous topology reference has no finalizers anymore", func() {
+			Eventually(func(g Gomega) {
+				// Get the previous (global) topology and verify that the finalizers
+				// have been removed
+				tp := infra.GetTopology(types.NamespacedName{
+					Name:      topologyRef.Name,
+					Namespace: topologyRef.Namespace,
+				})
+				g.Expect(tp.GetFinalizers()).To(BeEmpty())
 			}, timeout, interval).Should(Succeed())
 		})
 
 		It("overrides topology when the reference changes", func() {
+			// Each sub-component defines its own topologyRef: with this test
+			// we prove that they do not inherit the top-level topology anymore,
+			// but they honor the reference that has been passed
 			Eventually(func(g Gomega) {
 				barbican := GetBarbican(barbicanTest.Instance)
 				//Patch BarbicanAPI Spec
 				newAPI := GetBarbicanAPISpec(barbicanTest.BarbicanAPI)
+				// update barbicanAPI.spec.topologyRef to point to api-topology
 				newAPI.TopologyRef.Name = barbicanTest.BarbicanTopologies[1].Name
 				barbican.Spec.BarbicanAPI = newAPI
 				//Patch BarbicanKeystoneListener Spec
 				newKl := GetBarbicanKeystoneListenerSpec(barbicanTest.BarbicanKeystoneListener)
+				// update barbicanKeystoneListener.spec.topologyRef to point to
+				// klistener-topology
 				newKl.TopologyRef.Name = barbicanTest.BarbicanTopologies[2].Name
 				barbican.Spec.BarbicanKeystoneListener = newKl
 				//Patch BarbicanWorker Spec
 				newWorker := GetBarbicanWorkerSpec(barbicanTest.BarbicanWorker)
+				// update worker.spec.TopologyRef to point to worker-topology
 				newWorker.TopologyRef.Name = barbicanTest.BarbicanTopologies[3].Name
 				barbican.Spec.BarbicanWorker = newWorker
 				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
+			// For each subcomponent, as we did in the previous test, verify
+			// that the topologyRef passed at the sub-level has been applied,
+			// no inheritance happened
 			Eventually(func(g Gomega) {
-
+				expectedTopology := &topologyv1.TopoRef{
+					Name:      barbicanTest.BarbicanTopologies[1].Name,
+					Namespace: barbicanTest.BarbicanTopologies[1].Namespace,
+				}
+				// retrieve the referenced topology using the k8s client
+				tp := infra.GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers := tp.GetFinalizers()
+				// api-topology has BarbicanAPI finalizer only, hence we expect
+				// length to be 1
+				g.Expect(finalizers).To(HaveLen(1))
 				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
 				g.Expect(barbicanAPI.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanAPI.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[1].Name))
+				g.Expect(barbicanAPI.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				// verify the finalizer has been applied
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicanapi-%s", barbicanAPI.Name)))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				expectedTopology := &topologyv1.TopoRef{
+					Name:      barbicanTest.BarbicanTopologies[2].Name,
+					Namespace: barbicanTest.BarbicanTopologies[2].Namespace,
+				}
+				tp := infra.GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers := tp.GetFinalizers()
+				// klistener-topology has BarbicanKeystoneListener finalizer
+				// only, hence we expect length to be 1
+				g.Expect(finalizers).To(HaveLen(1))
 				barbicanKeystoneListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
 				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[2].Name))
+				g.Expect(barbicanKeystoneListener.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				// verify the finalizer has been applied
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicankeystonelistener-%s", barbicanKeystoneListener.Name)))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				expectedTopology := &topologyv1.TopoRef{
+					Name:      barbicanTest.BarbicanTopologies[3].Name,
+					Namespace: barbicanTest.BarbicanTopologies[3].Namespace,
+				}
+				tp := infra.GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers := tp.GetFinalizers()
+				// worker-topology has BarbicanWorker finalizer
+				// only, hence we expect length to be 1
+				g.Expect(finalizers).To(HaveLen(1))
 				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
 				g.Expect(barbicanWorker.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(barbicanWorker.Status.LastAppliedTopology.Name).To(Equal(barbicanTest.BarbicanTopologies[3].Name))
+				g.Expect(barbicanWorker.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				// verify the finalizer has been applied
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/barbicanworker-%s", barbicanWorker.Name)))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("removes topologyRef from the spec", func() {
@@ -513,6 +681,9 @@ var _ = Describe("Barbican controller", func() {
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
+				// When TopologyRef is removed, LastAppliedTopology topology
+				// status field is nil, and not present anymore in the yaml
+				// definition
 				barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
 				g.Expect(barbicanAPI.Status.LastAppliedTopology).Should(BeNil())
 				barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
@@ -522,12 +693,29 @@ var _ = Describe("Barbican controller", func() {
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
+				// When TopologyRef is removed, LastAppliedTopology topology
+				// status field is nil, and the resulting deployment has no
+				// TopologySpreadConstraints. In this case the default AntiAffinity
+				// using the function provided by lib-common is applied
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanAPIDeployment).Spec.Template.Spec.Affinity).ToNot(BeNil())
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanWorkerDeployment).Spec.Template.Spec.Affinity).ToNot(BeNil())
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
 				g.Expect(th.GetDeployment(barbicanTest.BarbicanKeystoneListenerDeployment).Spec.Template.Spec.Affinity).ToNot(BeNil())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify that all the finalizers in all the existing Topologies
+			// have been removed
+			Eventually(func(g Gomega) {
+				for _, topology := range barbicanTest.BarbicanTopologies {
+					// Get the current topology and verify there are no finalizers
+					tp := infra.GetTopology(types.NamespacedName{
+						Name:      topology.Name,
+						Namespace: topology.Namespace,
+					})
+					g.Expect(tp.GetFinalizers()).To(BeEmpty())
+				}
 			}, timeout, interval).Should(Succeed())
 		})
 	})
