@@ -329,20 +329,6 @@ func GetSampleTopologySpec() map[string]interface{} {
 	return topologySpec
 }
 
-// CreateTopology - Creates a Topology CR based on the spec passed as input
-func CreateTopology(topology types.NamespacedName, spec map[string]interface{}) client.Object {
-	raw := map[string]interface{}{
-		"apiVersion": "topology.openstack.org/v1beta1",
-		"kind":       "Topology",
-		"metadata": map[string]interface{}{
-			"name":      topology.Name,
-			"namespace": topology.Namespace,
-		},
-		"spec": spec,
-	}
-	return th.CreateUnstructured(raw)
-}
-
 // GetBarbicanAPISpec -
 func GetBarbicanAPISpec(name types.NamespacedName) barbicanv1.BarbicanAPITemplate {
 	instance := &barbicanv1.BarbicanAPI{}
