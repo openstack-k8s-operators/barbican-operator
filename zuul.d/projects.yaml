@@ -1,0 +1,14 @@
+---
+- project:
+    name: openstack-k8s-operators/barbican-operator
+    github-check:
+      jobs:
+        - openstack-k8s-operators-content-provider
+        - barbican-operator-kuttl:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+            voting: false
+        - barbican-operator-tempest:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+            voting: false
