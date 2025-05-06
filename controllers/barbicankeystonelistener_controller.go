@@ -627,6 +627,10 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 	// In addition, make sure the controller sees the last Generation
 	// by comparing it with the ObservedGeneration.
 	if deployment.IsReady(deploy) {
+		oldDepName := fmt.Sprintf("%s-keystone-listener", instance.Name)
+		if err := cleanupOldDeployment(ctx, r.Client, instance, oldDepName); err != nil {
+			return ctrl.Result{}, err
+		}
 		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
 	} else {
 		instance.Status.Conditions.Set(condition.FalseCondition(

@@ -17,7 +17,10 @@ import (
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -1520,6 +1523,87 @@ var _ = Describe("Barbican controller", func() {
 
 		}).Should(Succeed())
 
+	})
+
+	When("a Barbican CR is created and an old deployment with proper owner reference exists", func() {
+		int32Ptr := func(i int32) *int32 { return &i }
+
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetDefaultBarbicanSpec()))
+			cr := GetBarbican(barbicanTest.Instance)
+			Eventually(func() string {
+				return string(GetBarbican(barbicanTest.Instance).GetUID())
+			}, timeout, interval).ShouldNot(BeEmpty(), "CR UID not set yet")
+
+			apiVersion := cr.APIVersion
+			if apiVersion == "" {
+				apiVersion = "barbican.openstack.org/v1beta1"
+			}
+			kind := cr.Kind
+			if kind == "" {
+				kind = "Barbican"
+			}
+			trueVar := true
+
+			// Create fake old deployment with a valid owner reference
+			oldDep := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-api", barbicanTest.Instance.Name),
+					Namespace: barbicanTest.Instance.Namespace,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion:         apiVersion,
+							Kind:               kind,
+							Name:               cr.Name,
+							UID:                cr.GetUID(),
+							Controller:         &trueVar,
+							BlockOwnerDeletion: &trueVar,
+						},
+					},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: int32Ptr(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "old"},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"app": "old"},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "dummy",
+									Image:   "busybox",
+									Command: []string{"sleep", "3600"},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, oldDep)).Should(Succeed(), "failed to create legacy deployment")
+		})
+
+		It("should delete the legacy deployment when the new deployment is created", func() {
+			CreateBarbicanAPI(barbicanTest.Instance, GetDefaultBarbicanAPISpec())
+			newDepKey := barbicanTest.BarbicanAPIDeployment
+			Eventually(func() error {
+				var dep appsv1.Deployment
+				return k8sClient.Get(ctx, newDepKey, &dep)
+			}, timeout, interval).Should(Succeed(), "new deployment not created")
+
+			oldDepKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-api", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+
+			Eventually(func() bool {
+				var dep appsv1.Deployment
+				err := k8sClient.Get(ctx, oldDepKey, &dep)
+				return k8s_errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(), "legacy deployment was not deleted")
+		})
 	})
 
 })
