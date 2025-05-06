@@ -726,7 +726,7 @@ func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanWorker{}).
 		// Owns(&corev1.Service{}).
 		// Owns(&corev1.Secret{}).
@@ -739,8 +739,9 @@ func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	return b.Complete(r)
 }
 
 func (r *BarbicanWorkerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {

@@ -1,3 +1,5 @@
+github.com/Deydra71/keystone-operator/api v0.0.0-20250718124530-83b0609d1c8c h1:283YBuEmIfplwstu3oQvYWATABVCV7QS1jQztP7teFg=
+github.com/Deydra71/keystone-operator/api v0.0.0-20250718124530-83b0609d1c8c/go.mod h1:0/8UQBzOyJYqHjarBfm2Rsw4xbQ8tywtKxSbTFbLbO0=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
@@ -80,8 +82,6 @@ github.com/openshift/api v0.0.0-20240830023148-b7d0481c9094 h1:J1wuGhVxpsHykZBa6
 github.com/openshift/api v0.0.0-20240830023148-b7d0481c9094/go.mod h1:CxgbWAlvu2iQB0UmKTtRu1YfepRg1/vJ64n2DlIEVz4=
 github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20250730085055-1fad21f90c95 h1:ECnrWqe/YriVx3HadO79WOkloZTsvPNOHlFz66ETGsQ=
 github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20250730085055-1fad21f90c95/go.mod h1:HMeEFVPJOatbQQc4XcpVrF6BpCEOEq9EPG9jSxcyQXw=
-github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250731153501-154c0d15a170 h1:KzLv8VdtXzJQX4gwQGCoQn0ElhOziSq/ViGmYbw/V9A=
-github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250731153501-154c0d15a170/go.mod h1:O451q7df5swJe5Gptsk2HFjOHYTfiA5RAmLF8e+upH4=
 github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20250730071847-837b07f8d72f h1:DW8aNjEtDFrWiZ6vWuOXwdRB4eBD0n+bA9foQkOEx6U=
 github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20250730071847-837b07f8d72f/go.mod h1:P+7F1wiwZUxOy4myYXFyc/uBtGATDFpk3yAllXe1Vzk=
 github.com/openstack-k8s-operators/lib-common/modules/openstack v0.6.1-0.20250605082218-a58074898dd7 h1:a5BH4CxZ3hmbUGXDBrPwfJqu1MP3gVGYSPxzNCzoyfo=
