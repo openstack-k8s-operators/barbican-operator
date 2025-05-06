@@ -617,6 +617,11 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 
 	Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
 
+	// Verify Application Credentials if available
+	if res, err := r.verifyApplicationCredentials(ctx, helper, instance, &configVars); err != nil || res.RequeueAfter > 0 {
+		return res, err
+	}
+
 	//
 	// TLS input validation
 	//
@@ -994,7 +999,7 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanAPI{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Secret{}).
@@ -1007,8 +1012,10 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	b = AddACWatches(b)
+	return b.Complete(r)
 }
 
 func (r *BarbicanAPIReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
@@ -1043,4 +1050,90 @@ func (r *BarbicanAPIReconciler) findObjectsForSrc(ctx context.Context, src clien
 	}
 
 	return requests
+}
+
+// verifyApplicationCredentials handles Application Credentials validation
+// It only uses AC if it's in a complete/ready state, otherwise continues with password auth
+func (r *BarbicanAPIReconciler) verifyApplicationCredentials(
+	ctx context.Context,
+	_ *helper.Helper,
+	instance *barbicanv1beta1.BarbicanAPI,
+	configVars *map[string]env.Setter,
+) (ctrl.Result, error) {
+	log := r.GetLogger(ctx)
+
+	// Check for Application Credential - only use it if it's fully ready
+	acName := fmt.Sprintf("ac-%s", barbican.ServiceName)
+	ac := &keystonev1.KeystoneApplicationCredential{}
+
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: acName}, ac); err == nil {
+		// AC CR exists - check if it's in ready state
+		if r.isACReady(ctx, ac) {
+			// AC is ready - add it to configVars for hash tracking
+			secretKey := types.NamespacedName{Namespace: instance.Namespace, Name: ac.Status.SecretName}
+			hash, res, err := secret.VerifySecret(
+				ctx,
+				secretKey,
+				[]string{"AC_ID", "AC_SECRET"},
+				r.Client,
+				10*time.Second,
+			)
+			if err != nil {
+				log.Info("ApplicationCredential secret verification failed, continuing with password auth", "error", err.Error())
+			} else if res.RequeueAfter > 0 {
+				return res, nil
+			} else {
+				// AC is ready and verified - add to configVars for change tracking
+				(*configVars)["secret-"+ac.Status.SecretName] = env.SetValue(hash)
+				log.Info("Using ApplicationCredential authentication")
+			}
+		} else {
+			// AC exists but not ready - wait for it
+			log.Info("ApplicationCredential exists but not ready, waiting")
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.InputReadyWaitingMessage))
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+		}
+	} else if !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// isACReady checks if ApplicationCredential is in a ready state with all required components
+func (r *BarbicanAPIReconciler) isACReady(ctx context.Context, ac *keystonev1.KeystoneApplicationCredential) bool {
+	log := r.GetLogger(ctx)
+
+	// Check if AC has completed setup (secret name is populated)
+	if ac.Status.SecretName == "" {
+		log.V(1).Info("AC not ready: SecretName not populated", "ac", ac.Name)
+		return false
+	}
+
+	secret := &corev1.Secret{}
+	secretKey := types.NamespacedName{Namespace: ac.Namespace, Name: ac.Status.SecretName}
+	if err := r.Client.Get(ctx, secretKey, secret); err != nil {
+		log.V(1).Info("AC not ready: Secret not found", "secret", secretKey, "error", err)
+		return false
+	}
+
+	acID, acIDExists := secret.Data["AC_ID"]
+	acSecret, acSecretExists := secret.Data["AC_SECRET"]
+
+	if !acIDExists || !acSecretExists {
+		log.V(1).Info("AC not ready: Missing required fields", "secret", secretKey)
+		return false
+	}
+
+	if len(acID) == 0 || len(acSecret) == 0 {
+		log.V(1).Info("AC not ready: Empty required fields", "secret", secretKey)
+		return false
+	}
+
+	log.V(1).Info("AC is ready", "secret", secretKey)
+	return true
 }
