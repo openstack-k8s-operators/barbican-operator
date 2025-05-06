@@ -24,13 +24,20 @@ import (
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type conditionUpdater interface {
@@ -145,4 +152,54 @@ func GenerateSecretStoreTemplateMap(
 		"PKCS11CryptoEnabled":      slices.Contains(stores, "pkcs11"),
 	}
 	return tempMap, nil
+}
+
+// AddACWatches adds ApplicationCredential + Secret watches to the passed controller builder
+func AddACWatches(b *builder.Builder) *builder.Builder {
+	const (
+		acPrefix    = "ac-"
+		acSecSuffix = "-secret"
+	)
+
+	acMap := handler.MapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		name := obj.GetName()
+		ns := obj.GetNamespace()
+
+		// must begin with "ac-"
+		if !strings.HasPrefix(name, acPrefix) {
+			return nil
+		}
+		trim := strings.TrimPrefix(name, acPrefix)
+		// for Secrets also strip "-secret"
+		if _, isSecret := obj.(*corev1.Secret); isSecret {
+			if !strings.HasSuffix(trim, acSecSuffix) {
+				return nil
+			}
+			trim = strings.TrimSuffix(trim, acSecSuffix)
+		}
+
+		// enqueue reconcile for each of barbican controllers
+		svc := trim
+		return []reconcile.Request{
+			{NamespacedName: types.NamespacedName{Namespace: ns, Name: svc + "-api"}},
+			{NamespacedName: types.NamespacedName{Namespace: ns, Name: svc + "-worker"}},
+			{NamespacedName: types.NamespacedName{Namespace: ns, Name: svc + "-keystone-listener"}},
+		}
+	})
+
+	// watch the AC CR
+	b = b.Watches(
+		&keystonev1.ApplicationCredential{},
+		handler.EnqueueRequestsFromMapFunc(acMap),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+	)
+
+	// watch the AC kube Secret
+	b = b.Watches(
+		&corev1.Secret{},
+		handler.EnqueueRequestsFromMapFunc(acMap),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	return b
 }
