@@ -1,0 +1,27 @@
+---
+- job:
+    name: barbican-operator-kuttl
+    parent: cifmw-base-multinode-kuttl
+    attempts: 1
+    required-projects:
+      - github.com/openstack-k8s-operators/barbican-operator
+    irrelevant-files:
+      - .*/*.md
+      - ^\..*$
+      - ^LICENSE$
+      - ^OWNERS$
+      - ^OWNERS_ALIASES$
+      - ^PROJECT$
+      - ^README.md$
+      - tests?\/functional
+    vars:
+      cifmw_kuttl_tests_operator_list:
+        - barbican
+
+- job:
+    name: barbican-operator-tempest
+    parent: podified-multinode-edpm-deployment-crc-2comp
+    vars:
+      cifmw_test_operator_concurrency: 3
+      cifmw_test_operator_tempest_include_list: |
+        ^barbican_tempest_plugin.tests.(api|rbac)\.
