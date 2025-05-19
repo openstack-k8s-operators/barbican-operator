@@ -231,14 +231,14 @@ key_wrap_generate_iv = true
 always_set_cka_sensitive = true
 os_locking_ok = false`
 
-func GetPKCS11BarbicanSpec() map[string]interface{} {
+func GetPKCS11BarbicanSpec(hsmModel string) map[string]interface{} {
 	spec := GetDefaultBarbicanSpec()
 	maps.Copy(spec, map[string]interface{}{
 		"customServiceConfig":      PKCS11CustomData,
 		"enabledSecretStores":      []string{"pkcs11"},
 		"globalDefaultSecretStore": "pkcs11",
 		"pkcs11": map[string]interface{}{
-			"clientDataPath":   PKCS11ClientDataPath,
+			"clientDataPath":   PKCS11ClientDataPath[hsmModel],
 			"loginSecret":      PKCS11LoginSecret,
 			"clientDataSecret": PKCS11ClientDataSecret,
 		},
@@ -246,8 +246,8 @@ func GetPKCS11BarbicanSpec() map[string]interface{} {
 	return spec
 }
 
-func GetPKCS11BarbicanAPISpec() map[string]interface{} {
-	spec := GetPKCS11BarbicanSpec()
+func GetPKCS11BarbicanAPISpec(hsmModel string) map[string]interface{} {
+	spec := GetPKCS11BarbicanSpec(hsmModel)
 	maps.Copy(spec, GetDefaultBarbicanAPISpec())
 	return spec
 }
@@ -261,16 +261,27 @@ func CreatePKCS11LoginSecret(namespace string, name string) *corev1.Secret {
 	)
 }
 
-func CreatePKCS11ClientDataSecret(namespace string, name string) *corev1.Secret {
-	return th.CreateSecret(
-		types.NamespacedName{Namespace: namespace, Name: name},
-		map[string][]byte{
+func CreatePKCS11ClientDataSecret(namespace string, name string, hsmModel string) *corev1.Secret {
+	secretContents := make(map[string][]byte)
+	if hsmModel == "luna" {
+		secretContents = map[string][]byte{
 			"Client.cfg": []byte("dummy-data"),
 			"CACert.pem": []byte("dummy-data"),
 			"Server.pem": []byte("dummy-data"),
 			"Client.pem": []byte("dummy-data"),
 			"Client.key": []byte("dummy-data"),
-		},
+		}
+	} else if hsmModel == "proteccio" {
+		secretContents = map[string][]byte{
+			"proteccio.rc": []byte("dummy-data"),
+			"Server.CRT":   []byte("dummy-data"),
+			"Client.crt":   []byte("dummy-data"),
+			"Client.key":   []byte("dummy-data"),
+		}
+	}
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		secretContents,
 	)
 }
 
