@@ -28,6 +28,7 @@ import (
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicanworker"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
@@ -399,6 +400,35 @@ func (r *BarbicanWorkerReconciler) reconcileNormal(ctx context.Context, instance
 
 	Log.Info(fmt.Sprintf("[Worker] Got secrets '%s'", instance.Name))
 
+	// check for  ApplicationCredential
+	acName := fmt.Sprintf("ac-%s", barbican.ServiceName)
+	ac := &keystonev1.ApplicationCredential{}
+	err = r.Client.Get(ctx, types.NamespacedName{Namespace: instance.Namespace, Name: acName}, ac)
+	if k8s_errors.IsNotFound(err) {
+		Log.Info("No ApplicationCredential CR found, using password auth", "ac", acName)
+	} else if err != nil {
+		return ctrl.Result{}, err
+	} else {
+		secretName := ac.Status.SecretName
+		if secretName == "" {
+			Log.Info("ApplicationCredential created but Secret not yet ready, requeueing", "ac", acName)
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		hashAC, res, err := secret.VerifySecret(
+			ctx,
+			types.NamespacedName{Name: secretName, Namespace: instance.Namespace},
+			[]string{"AC_ID", "AC_SECRET"},
+			helper.GetClient(),
+			10*time.Second,
+		)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if res.RequeueAfter > 0 {
+			return res, nil
+		}
+		configVars["secret-"+secretName] = env.SetValue(hashAC)
+	}
 	//
 	// TLS input validation
 	//
@@ -717,7 +747,7 @@ func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanWorker{}).
 		// Owns(&corev1.Service{}).
 		// Owns(&corev1.Secret{}).
@@ -730,8 +760,10 @@ func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	b = AddACWatches(b)
+	return b.Complete(r)
 }
 
 func (r *BarbicanWorkerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {

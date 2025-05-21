@@ -612,6 +612,29 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 
 	Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
 
+	// check for  ApplicationCredential
+	acName := fmt.Sprintf("ac-%s", barbican.ServiceName)
+	ac := &keystonev1.ApplicationCredential{}
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: acName}, ac); err == nil {
+		if res, err := r.verifyServiceCredentials(ctx, helper, instance.Namespace, ac.Status.SecretName, &configVars); err != nil || res.RequeueAfter > 0 {
+			return res, err
+		}
+	} else if !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	} else {
+		// no ApplicationCredential CR, fall back to password auth
+		if res, err := r.verifySecret(
+			ctx,
+			helper,
+			instance,
+			instance.Spec.Secret,
+			[]string{instance.Spec.PasswordSelectors.Service},
+			&configVars,
+		); err != nil || res.RequeueAfter > 0 {
+			return res, err
+		}
+	}
+
 	//
 	// TLS input validation
 	//
@@ -985,7 +1008,7 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanAPI{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Secret{}).
@@ -998,8 +1021,10 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	b = AddACWatches(b)
+	return b.Complete(r)
 }
 
 func (r *BarbicanAPIReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
@@ -1034,4 +1059,50 @@ func (r *BarbicanAPIReconciler) findObjectsForSrc(ctx context.Context, src clien
 	}
 
 	return requests
+}
+
+// verifyServiceCredentials checks for the AC Secret, requeues if not ready,
+// and puts the hash into configVars
+func (r *BarbicanAPIReconciler) verifyServiceCredentials(
+	ctx context.Context,
+	helper *helper.Helper,
+	namespace string,
+	secretName string,
+	configVars *map[string]env.Setter,
+) (ctrl.Result, error) {
+	log := r.GetLogger(ctx)
+
+	if secretName == "" {
+		log.Info("AC SecretName not populated yet, requeueing")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	sec := &corev1.Secret{}
+	key := types.NamespacedName{Namespace: namespace, Name: secretName}
+	if err := r.Client.Get(ctx, key, sec); err != nil {
+		if k8s_errors.IsNotFound(err) {
+			log.Info("AC Secret not found, requeueing", "secret", key)
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		log.Error(err, "Failed to fetch AC Secret", "secret", key)
+		return ctrl.Result{}, err
+	}
+
+	hash, res, err := secret.VerifySecret(
+		ctx,
+		key,
+		[]string{"AC_ID", "AC_SECRET"},
+		r.Client,
+		10*time.Second,
+	)
+	if err != nil {
+		log.Error(err, "Failed to verify AC Secret", "secret", key)
+		return ctrl.Result{}, err
+	}
+	if res.RequeueAfter > 0 {
+		return res, nil
+	}
+
+	(*configVars)["secret-"+secretName] = env.SetValue(hash)
+	return ctrl.Result{}, nil
 }
