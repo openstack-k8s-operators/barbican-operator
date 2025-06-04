@@ -1438,6 +1438,58 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	Context("Barbican is fully deployed", func() {
+		keystoneAPIName := types.NamespacedName{}
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["barbicanAPI"] = GetDefaultBarbicanAPISpec()
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			keystoneAPIName = keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPIName)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+		})
+
+		It("updates the KeystoneAuthURL if keystone internal endpoint changes", func() {
+			newInternalEndpoint := "https://keystone-internal"
+
+			keystone.UpdateKeystoneAPIEndpoint(keystoneAPIName, "internal", newInternalEndpoint)
+			logger.Info("Reconfigured")
+
+			for _, name := range []types.NamespacedName{
+				barbicanTest.BarbicanConfigSecret,
+				barbicanTest.BarbicanAPIConfigSecret,
+				barbicanTest.BarbicanWorkerConfigSecret,
+				barbicanTest.BarbicanKeystoneListenerConfigSecret,
+			} {
+				Eventually(func(g Gomega) {
+					confSecret := th.GetSecret(name)
+					g.Expect(confSecret).ShouldNot(BeNil())
+
+					conf := confSecret.Data["00-default.conf"]
+					g.Expect(string(conf)).Should(
+						ContainSubstring("auth_url=%s", newInternalEndpoint))
+				}, timeout, interval).Should(Succeed())
+			}
+
+		})
+	})
+
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.

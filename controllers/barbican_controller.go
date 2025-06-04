@@ -26,9 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -599,7 +602,41 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
+		Watches(&keystonev1.KeystoneAPI{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectForSrc),
+			builder.WithPredicates(keystonev1.KeystoneAPIStatusChangedPredicate)).
 		Complete(r)
+}
+
+func (r *BarbicanReconciler) findObjectForSrc(ctx context.Context, src client.Object) []reconcile.Request {
+	requests := []reconcile.Request{}
+
+	l := log.FromContext(ctx).WithName("Controllers").WithName("Barbican")
+
+	crList := &barbicanv1beta1.BarbicanList{}
+	listOps := &client.ListOptions{
+		Namespace: src.GetNamespace(),
+	}
+	err := r.Client.List(ctx, crList, listOps)
+	if err != nil {
+		l.Error(err, fmt.Sprintf("listing %s for namespace: %s", crList.GroupVersionKind().Kind, src.GetNamespace()))
+		return requests
+	}
+
+	for _, item := range crList.Items {
+		l.Info(fmt.Sprintf("input source %s changed, reconcile: %s - %s", src.GetName(), item.GetName(), item.GetNamespace()))
+
+		requests = append(requests,
+			reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      item.GetName(),
+					Namespace: item.GetNamespace(),
+				},
+			},
+		)
+	}
+
+	return requests
 }
 
 func (r *BarbicanReconciler) generateServiceConfig(
