@@ -49,19 +49,23 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg          *rest.Config
-	k8sClient    client.Client
-	testEnv      *envtest.Environment
-	ctx          context.Context
-	cancel       context.CancelFunc
-	logger       logr.Logger
-	th           *common_test.TestHelper
-	keystone     *keystone_test.TestHelper
-	mariadb      *mariadb_test.TestHelper
-	infra        *infra_test.TestHelper
-	namespace    string
-	barbicanName types.NamespacedName
-	barbicanTest BarbicanTestData
+	cfg                  *rest.Config
+	k8sClient            client.Client
+	testEnv              *envtest.Environment
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	logger               logr.Logger
+	th                   *common_test.TestHelper
+	keystone             *keystone_test.TestHelper
+	mariadb              *mariadb_test.TestHelper
+	infra                *infra_test.TestHelper
+	namespace            string
+	barbicanName         types.NamespacedName
+	barbicanTest         BarbicanTestData
+	PKCS11ClientDataPath = map[string]string{
+		"luna":      "/usr/local/luna",
+		"proteccio": "/etc/proteccio",
+	}
 )
 
 const (
@@ -72,7 +76,6 @@ const (
 	interval = time.Millisecond * 200
 
 	// PKCS11 Constants
-	PKCS11ClientDataPath   = "/usr/local/luna"
 	PKCS11LoginSecret      = "pkcs11-login"
 	PKCS11ClientDataSecret = "pkcs11-client-data"
 )
