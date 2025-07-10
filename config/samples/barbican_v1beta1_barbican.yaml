@@ -34,7 +34,7 @@ spec:
     customServiceConfig: |
       [optional]
       overrides = True
-    defautlConfigOverwrite:
+    defaultConfigOverwrite:
       optional_policy.json: |
         {"some": "custom policy"}
     passwordSelectors:
@@ -46,7 +46,7 @@ spec:
     customServiceConfig: |
       [optional]
       overrides = True
-    defautlConfigOverwrite:
+    defaultConfigOverwrite:
       optional_policy.json: |
         {"some": "custom policy"}
   barbicanKeystoneListener:
@@ -55,6 +55,6 @@ spec:
     customServiceConfig: |
       [optional]
       overrides = True
-    defautlConfigOverwrite:
+    defaultConfigOverwrite:
       optional_policy.json: |
         {"some": "custom policy"}
