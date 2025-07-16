@@ -22,6 +22,6 @@
     name: barbican-operator-tempest
     parent: podified-multinode-edpm-deployment-crc-2comp
     vars:
-      cifmw_test_operator_concurrency: 3
+      cifmw_test_operator_tempest_concurrency: 3
       cifmw_test_operator_tempest_include_list: |
         ^barbican_tempest_plugin.tests.(api|rbac)\.
