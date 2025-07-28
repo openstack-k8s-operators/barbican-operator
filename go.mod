@@ -9,12 +9,12 @@ require (
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/onsi/gomega v1.34.1
 	github.com/openstack-k8s-operators/barbican-operator/api v0.0.0-00010101000000-000000000000
-	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20250707164913-ecb62273f7b5
-	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250710093216-036af20ad8a5
+	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20250723160155-e93669e91a23
+	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250722174827-88aa0dfc09ff
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20250605082218-a58074898dd7
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20250605082218-a58074898dd7
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20250605082218-a58074898dd7
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20250626110655-78effb029b49
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20250725065357-65de5957d5e4
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	k8s.io/api v0.29.15
@@ -91,4 +91,4 @@ replace github.com/openstack-k8s-operators/barbican-operator/api => ./api
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20240830023148-b7d0481c9094 //allow-merging
 
 // custom RabbitmqClusterSpecCore for OpenStackControlplane (v2.6.0_patches_tag)
-replace github.com/rabbitmq/cluster-operator/v2 => github.com/openstack-k8s-operators/rabbitmq-cluster-operator/v2 v2.6.1-0.20241017142550-a3524acedd49 //allow-merging
+replace github.com/rabbitmq/cluster-operator/v2 => github.com/openstack-k8s-operators/rabbitmq-cluster-operator/v2 v2.6.1-0.20250717122149-12f70b7f3d8d //allow-merging
