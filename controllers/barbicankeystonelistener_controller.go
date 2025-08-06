@@ -27,8 +27,6 @@ import (
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/pkg/barbicankeystonelistener"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
-
-	// keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
@@ -337,23 +335,7 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileDelete(ctx context.Context
 	Log := r.GetLogger(ctx)
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
-	// Remove the finalizer from our KeystoneEndpoint CR
-	//keystoneEndpoint, err := keystonev1.GetKeystoneEndpointWithName(ctx, helper, instance.Name, instance.Namespace)
-	//if err != nil && !k8s_errors.IsNotFound(err) {
-	//	return ctrl.Result{}, err
-	//}
-
-	/*
-		if err == nil {
-			if controllerutil.RemoveFinalizer(keystoneEndpoint, helper.GetFinalizer()) {
-				err = r.Update(ctx, keystoneEndpoint)
-				if err != nil && !k8s_errors.IsNotFound(err) {
-					return ctrl.Result{}, err
-				}
-				util.LogForObject(helper, "Removed finalizer from our KeystoneEndpoint", instance)
-			}
-		}
-	*/
+	// KeystoneListener doesn't create KeystoneEndpoint, so no cleanup needed
 
 	// Remove finalizer on the Topology CR
 	if ctrlResult, err := topologyv1.EnsureDeletedTopologyRef(
@@ -704,7 +686,7 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanKeystoneListener{}).
 		// Owns(&corev1.Service{}).
 		// Owns(&corev1.Secret{}).
@@ -717,8 +699,10 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	return b.Complete(r)
+
 }
 
 func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {

@@ -99,6 +99,7 @@ func (r *BarbicanReconciler) GetLogger(ctx context.Context) logr.Logger {
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch;
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneservices,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneendpoints,verbs=get;list;watch;create;update;patch;delete;
+//+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapplicationcredentials,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete;
@@ -113,6 +114,7 @@ func (r *BarbicanReconciler) GetLogger(ctx context.Context) logr.Logger {
 
 // service account, role, rolebinding
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups="security.openshift.io",resourceNames=anyuid,resources=securitycontextconstraints,verbs=use
@@ -703,6 +705,49 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
+	}
+
+	templateParameters["UseApplicationCredentials"] = false
+	// Fetch AC CR
+	ac := &keystonev1.KeystoneApplicationCredential{}
+	acName := types.NamespacedName{Namespace: instance.Namespace, Name: fmt.Sprintf("ac-%s", barbican.ServiceName)}
+	// Look up the AC
+	if err := r.Client.Get(ctx, acName, ac); err == nil {
+		// Look up the AC secret
+		secret := &corev1.Secret{}
+		secName := types.NamespacedName{Namespace: ac.Namespace, Name: ac.Status.SecretName}
+		if err := r.Client.Get(ctx, secName, secret); err != nil {
+			if k8s_errors.IsNotFound(err) {
+				return fmt.Errorf("%w: ApplicationCredential Secret %s", util.ErrNotFound, secName)
+			}
+			Log.Error(err, "Failed to fetch ApplicationCredential Secret", "secret", secName)
+			return err
+		}
+
+		// Validate required AC secret keys exist and are not empty
+		acID, acIDExists := secret.Data["AC_ID"]
+		acSecret, acSecretExists := secret.Data["AC_SECRET"]
+
+		if !acIDExists {
+			return fmt.Errorf("%w: field AC_ID not found in ApplicationCredential Secret %s", util.ErrFieldNotFound, secName)
+		}
+		if !acSecretExists {
+			return fmt.Errorf("%w: field AC_SECRET not found in ApplicationCredential Secret %s", util.ErrFieldNotFound, secName)
+		}
+		if len(acID) == 0 {
+			return fmt.Errorf("%w: field AC_ID is empty in ApplicationCredential Secret %s", util.ErrFieldNotFound, secName)
+		}
+		if len(acSecret) == 0 {
+			return fmt.Errorf("%w: field AC_SECRET is empty in ApplicationCredential Secret %s", util.ErrFieldNotFound, secName)
+		}
+
+		templateParameters["UseApplicationCredentials"] = true
+		templateParameters["ACID"] = string(acID)
+		templateParameters["ACSecret"] = string(acSecret)
+		Log.Info("Using ApplicationCredentials auth", "AC", secret.Name)
+	} else if !k8s_errors.IsNotFound(err) {
+		Log.Error(err, "Failed to fetch ApplicationCredential CR", "ac", acName)
+		return err
 	}
 
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
