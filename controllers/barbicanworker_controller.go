@@ -80,7 +80,7 @@ func (r *BarbicanWorkerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	Log := r.GetLogger(ctx)
 
 	instance := &barbicanv1beta1.BarbicanWorker{}
-	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			// Object not found

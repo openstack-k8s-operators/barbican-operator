@@ -6,9 +6,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// GetVolumesAndMounts - return the volumes and mounts for a BarbicanKeystoneListener deployment
+// GetListenerVolumesAndMounts returns the volumes and mounts for a BarbicanKeystoneListener deployment
 func GetListenerVolumesAndMounts(instance *barbicanv1beta1.BarbicanKeystoneListener) ([]corev1.Volume, []corev1.VolumeMount) {
-
 	listenerVolumes := []corev1.Volume{
 		barbican.GetCustomConfigVolume(instance.Name),
 		barbican.GetLogVolume(),
