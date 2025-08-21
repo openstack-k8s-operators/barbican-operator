@@ -7,7 +7,10 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
   - pods
+  - secrets
+  - services
   verbs:
   - create
   - delete
@@ -43,86 +46,8 @@ rules:
   - barbican.openstack.org
   resources:
   - barbicanapis
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicanapis/finalizers
-  verbs:
-  - patch
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicanapis/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
   - barbicankeystonelisteners
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicankeystonelisteners/finalizers
-  verbs:
-  - patch
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicankeystonelisteners/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
   - barbicans
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicans/finalizers
-  verbs:
-  - patch
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
-  - barbicans/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - barbican.openstack.org
-  resources:
   - barbicanworkers
   verbs:
   - create
@@ -135,6 +60,9 @@ rules:
 - apiGroups:
   - barbican.openstack.org
   resources:
+  - barbicanapis/finalizers
+  - barbicankeystonelisteners/finalizers
+  - barbicans/finalizers
   - barbicanworkers/finalizers
   verbs:
   - patch
@@ -142,6 +70,9 @@ rules:
 - apiGroups:
   - barbican.openstack.org
   resources:
+  - barbicanapis/status
+  - barbicankeystonelisteners/status
+  - barbicans/status
   - barbicanworkers/status
   verbs:
   - get
@@ -151,42 +82,6 @@ rules:
   - batch
   resources:
   - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - services
   verbs:
   - create
   - delete
@@ -215,17 +110,6 @@ rules:
   - keystone.openstack.org
   resources:
   - keystoneendpoints
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - keystone.openstack.org
-  resources:
   - keystoneservices
   verbs:
   - create
@@ -239,6 +123,7 @@ rules:
   - mariadb.openstack.org
   resources:
   - mariadbaccounts
+  - mariadbdatabases
   verbs:
   - create
   - delete
@@ -253,18 +138,6 @@ rules:
   - mariadbaccounts/finalizers
   verbs:
   - update
-- apiGroups:
-  - mariadb.openstack.org
-  resources:
-  - mariadbdatabases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - rabbitmq.openstack.org
   resources:
@@ -281,16 +154,6 @@ rules:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
   - roles
   verbs:
   - create
