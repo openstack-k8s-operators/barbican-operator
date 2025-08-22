@@ -11,9 +11,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// GetVolumesAndMounts - return the volumes and mounts for a BarbicanAPI deployment
+// GetAPIVolumesAndMounts returns the volumes and mounts for a BarbicanAPI deployment
 func GetAPIVolumesAndMounts(instance *barbicanv1beta1.BarbicanAPI) ([]corev1.Volume, []corev1.VolumeMount, error) {
-
 	apiVolumes := []corev1.Volume{
 		barbican.GetCustomConfigVolume(instance.Name),
 		barbican.GetLogVolume(),

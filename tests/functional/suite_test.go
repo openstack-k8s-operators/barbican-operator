@@ -73,8 +73,8 @@ const (
 
 	// PKCS11 Constants
 	PKCS11ClientDataPath   = "/usr/local/luna"
-	PKCS11LoginSecret      = "pkcs11-login"
-	PKCS11ClientDataSecret = "pkcs11-client-data"
+	PKCS11LoginSecret      = "pkcs11-login"       // #nosec G101
+	PKCS11ClientDataSecret = "pkcs11-client-data" // #nosec G101
 )
 
 func TestAPIs(t *testing.T) {
@@ -234,7 +234,7 @@ var _ = BeforeSuite(func() {
 		if err != nil {
 			return err
 		}
-		conn.Close()
+		_ = conn.Close()
 		return nil
 	}).Should(Succeed())
 })

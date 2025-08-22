@@ -25,23 +25,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// APIType represents the type of API endpoint (internal or public)
 type APIType string
 
 const (
-	// BarbicanAPIInternal -
+	// BarbicanAPITypeInternal represents the internal API type
 	BarbicanAPITypeInternal APIType = "internal"
-	// BarbicanAPITypeExternal
+	// BarbicanAPITypePublic represents the public API type
 	BarbicanAPITypePublic APIType = "public"
 	// PublicCertSecretName -
-	PublicCertSecretName = "public-tls-certs"
+	PublicCertSecretName = "public-tls-certs" // #nosec G101
 	// InternalCertSecretName -
-	InternalCertSecretName = "internal-tls-certs"
+	InternalCertSecretName = "internal-tls-certs" // #nosec G101
 	// CABundleSecretName -
-	CABundleSecretName = "combined-ca-bundle"
+	CABundleSecretName = "combined-ca-bundle" // #nosec G101
 	// APICustomConfigSecret1Name -
-	APICustomConfigSecret1Name = "api-custom-secret-1"
-	// APICustomConfigSecret1Name -
-	APICustomConfigSecret2Name = "api-custom-secret-2"
+	APICustomConfigSecret1Name = "api-custom-secret-1" // #nosec G101
+	// APICustomConfigSecret2Name -
+	APICustomConfigSecret2Name = "api-custom-secret-2" // #nosec G101
 )
 
 // BarbicanTestData is the data structure used to provide input data to envTest
