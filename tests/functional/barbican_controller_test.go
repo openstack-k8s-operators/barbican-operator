@@ -859,6 +859,105 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	When("A Barbican with quorum queues is created", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, infra.CreateTransportURLSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret", true))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetDefaultBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+		})
+
+		It("should configure quorum queues when enabled", func() {
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := string(cf.Data["00-default.conf"])
+			Expect(conf).To(ContainSubstring("rabbit_quorum_queue=true"))
+			Expect(conf).To(ContainSubstring("rabbit_transient_quorum_queue=true"))
+			Expect(conf).To(ContainSubstring("amqp_durable_queues=true"))
+			Expect(conf).To(ContainSubstring("[oslo_messaging_rabbit]"))
+		})
+	})
+
+	When("A Barbican starts with quorum queues disabled and then enables them", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetDefaultBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+		})
+
+		It("should initially configure without quorum queues", func() {
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := string(cf.Data["00-default.conf"])
+			Expect(conf).ToNot(ContainSubstring("rabbit_quorum_queue=true"))
+			Expect(conf).ToNot(ContainSubstring("rabbit_transient_quorum_queue=true"))
+			Expect(conf).ToNot(ContainSubstring("amqp_durable_queues=true"))
+			Expect(conf).ToNot(ContainSubstring("[oslo_messaging_rabbit]"))
+		})
+
+		It("should configure quorum queues when enabled dynamically", func() {
+			// Initially verify quorum queues are disabled
+			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := string(cf.Data["00-default.conf"])
+			Expect(conf).ToNot(ContainSubstring("rabbit_quorum_queue=true"))
+
+			// Update the message bus secret to enable quorum queues
+			messageBusSecretName := types.NamespacedName{
+				Namespace: barbicanTest.Instance.Namespace,
+				Name:      "rabbitmq-secret",
+			}
+			messageBusSecret := th.GetSecret(messageBusSecretName)
+			Expect(messageBusSecret).ShouldNot(BeNil())
+
+			// Add the quorumqueues field to enable them
+			messageBusSecret.Data["quorumqueues"] = []byte("true")
+			Expect(k8sClient.Update(ctx, &messageBusSecret)).Should(Succeed())
+
+			// Wait for the configuration to be updated
+			Eventually(func(g Gomega) {
+				cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+				g.Expect(cf).ShouldNot(BeNil())
+				conf := string(cf.Data["00-default.conf"])
+				g.Expect(conf).To(ContainSubstring("rabbit_quorum_queue=true"))
+				g.Expect(conf).To(ContainSubstring("rabbit_transient_quorum_queue=true"))
+				g.Expect(conf).To(ContainSubstring("amqp_durable_queues=true"))
+				g.Expect(conf).To(ContainSubstring("[oslo_messaging_rabbit]"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
 	When("A Barbican with pkcs11 plugin is created", func() {
 		BeforeEach(func() {
 			DeferCleanup(k8sClient.Delete, ctx, CreatePKCS11LoginSecret(barbicanTest.Instance.Namespace, PKCS11LoginSecret))
