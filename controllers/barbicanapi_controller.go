@@ -867,7 +867,7 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	}
 
 	// Mark the Deployment as Ready only if the number of Replicas is equals
-	// to the Deployed instances (ReadyCount), and the the Status.Replicas
+	// to the Deployed instances (ReadyCount), and the Status.Replicas
 	// match Status.ReadyReplicas. If a deployment update is in progress,
 	// Replicas > ReadyReplicas.
 	// In addition, make sure the controller sees the last Generation
