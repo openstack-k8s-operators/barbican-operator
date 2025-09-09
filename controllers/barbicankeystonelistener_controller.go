@@ -704,6 +704,19 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 		return err
 	}
 
+	// index parentBarbicanConfigDataSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanKeystoneListener{}, parentBarbicanConfigDataSecretField, func(rawObj client.Object) []string {
+		// Extract the parent barbican config-data secret name
+		cr := rawObj.(*barbicanv1beta1.BarbicanKeystoneListener)
+		owner := barbican.GetOwningBarbicanName(cr)
+		if owner == "" {
+			return nil
+		}
+		return []string{owner + "-config-data"}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanKeystoneListener{}).
 		// Owns(&corev1.Service{}).
