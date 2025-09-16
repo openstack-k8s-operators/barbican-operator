@@ -550,14 +550,15 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 
 // fields to index to reconcile when change
 const (
-	passwordSecretField             = ".spec.secret"
-	caBundleSecretNameField         = ".spec.tls.caBundleSecretName"
-	tlsAPIInternalField             = ".spec.tls.api.internal.secretName"
-	tlsAPIPublicField               = ".spec.tls.api.public.secretName"
-	pkcs11LoginSecretField          = ".spec.pkcs11.loginSecret"
-	pkcs11ClientDataSecretField     = ".spec.pkcs11.clientDataSecret"
-	topologyField                   = ".spec.topologyRef.Name"
-	customServiceConfigSecretsField = ".spec.customServiceConfigSecrets"
+	passwordSecretField                 = ".spec.secret"
+	caBundleSecretNameField             = ".spec.tls.caBundleSecretName"
+	tlsAPIInternalField                 = ".spec.tls.api.internal.secretName"
+	tlsAPIPublicField                   = ".spec.tls.api.public.secretName"
+	pkcs11LoginSecretField              = ".spec.pkcs11.loginSecret"
+	pkcs11ClientDataSecretField         = ".spec.pkcs11.clientDataSecret"
+	topologyField                       = ".spec.topologyRef.Name"
+	customServiceConfigSecretsField     = ".spec.customServiceConfigSecrets"
+	parentBarbicanConfigDataSecretField = ".status.parentBarbicanConfigDataSecret"
 )
 
 var (
@@ -568,6 +569,7 @@ var (
 		pkcs11ClientDataSecretField,
 		topologyField,
 		customServiceConfigSecretsField,
+		parentBarbicanConfigDataSecretField,
 	}
 	apiWatchFields = []string{
 		passwordSecretField,
@@ -578,12 +580,14 @@ var (
 		pkcs11ClientDataSecretField,
 		topologyField,
 		customServiceConfigSecretsField,
+		parentBarbicanConfigDataSecretField,
 	}
 	listenerWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
 		topologyField,
 		customServiceConfigSecretsField,
+		parentBarbicanConfigDataSecretField,
 	}
 )
 
@@ -708,6 +712,9 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
 	// This gets overridden in the PKCS11 section below if needed.
 	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
+
+	// Set transportURL quorum queues
+	templateParameters["QuorumQueues"] = string(transportURLSecret.Data["quorumqueues"]) == "true"
 
 	// Set secret store parameters
 	secretStoreTemplateMap, err := GenerateSecretStoreTemplateMap(
