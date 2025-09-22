@@ -10,11 +10,11 @@ require (
 	github.com/onsi/gomega v1.34.1
 	github.com/openstack-k8s-operators/barbican-operator/api v0.0.0-00010101000000-000000000000
 	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20250909143828-e33d35ffd64f
-	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250818180001-057253e3d233
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20250730071847-837b07f8d72f
-	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20250730071847-837b07f8d72f
-	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20250730071847-837b07f8d72f
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20250819151523-e1c898c710cb
+	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20250802061907-896a24e4fc36
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20250823121217-7e1cd2e3dd03
+	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20250823121217-7e1cd2e3dd03
+	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20250823121217-7e1cd2e3dd03
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20250908160950-4fa28a6f127d
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	k8s.io/api v0.29.15
@@ -52,7 +52,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
-	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.6.1-0.20250730071847-837b07f8d72f // indirect
+	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.6.1-0.20250823121217-7e1cd2e3dd03 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
@@ -92,3 +92,5 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202408300231
 
 // custom RabbitmqClusterSpecCore for OpenStackControlplane (v2.6.0_patches_tag)
 replace github.com/rabbitmq/cluster-operator/v2 => github.com/openstack-k8s-operators/rabbitmq-cluster-operator/v2 v2.6.1-0.20250717122149-12f70b7f3d8d //allow-merging
+
+replace github.com/openstack-k8s-operators/keystone-operator/api => github.com/Deydra71/keystone-operator/api v0.0.0-20250917105136-16823a8f6c57

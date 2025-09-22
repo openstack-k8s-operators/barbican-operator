@@ -99,6 +99,7 @@ func (r *BarbicanReconciler) GetLogger(ctx context.Context) logr.Logger {
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch;
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneservices,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneendpoints,verbs=get;list;watch;create;update;patch;delete;
+//+kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapplicationcredentials,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete;
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete;
@@ -113,6 +114,7 @@ func (r *BarbicanReconciler) GetLogger(ctx context.Context) logr.Logger {
 
 // service account, role, rolebinding
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups="security.openshift.io",resourceNames=anyuid,resources=securitycontextconstraints,verbs=use
@@ -710,6 +712,18 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
+	}
+
+	templateParameters["UseApplicationCredentials"] = false
+	// Try to get Application Credential for this service (via keystone api helper)
+	if acData, err := keystonev1.GetApplicationCredentialFromSecret(ctx, r.Client, instance.Namespace, barbican.ServiceName); err != nil {
+		Log.Error(err, "Failed to get ApplicationCredential for service", "service", barbican.ServiceName)
+		return err
+	} else if acData != nil {
+		templateParameters["UseApplicationCredentials"] = true
+		templateParameters["ACID"] = acData.ID
+		templateParameters["ACSecret"] = acData.Secret
+		Log.Info("Using ApplicationCredentials auth", "service", barbican.ServiceName)
 	}
 
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
