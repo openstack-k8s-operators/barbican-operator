@@ -8,9 +8,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// GetVolumesAndMounts - return the volumes and mounts for a BarbicanWorker deployment
+// GetWorkerVolumesAndMounts returns the volumes and mounts for a BarbicanWorker deployment
 func GetWorkerVolumesAndMounts(instance *barbicanv1beta1.BarbicanWorker) ([]corev1.Volume, []corev1.VolumeMount) {
-
 	workerVolumes := []corev1.Volume{
 		barbican.GetCustomConfigVolume(instance.Name),
 		barbican.GetLogVolume(),

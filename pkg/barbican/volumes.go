@@ -29,7 +29,6 @@ func GetVolumes(name string) []corev1.Volume {
 
 // GetVolumeMounts - general VolumeMounts
 func GetVolumeMounts() []corev1.VolumeMount {
-
 	return []corev1.VolumeMount{
 		{
 			Name:      ConfigVolume,
@@ -96,7 +95,7 @@ func GetKollaConfigVolumeMount(serviceName string) corev1.VolumeMount {
 	}
 }
 
-// GetHSMVolume - Returns Volumes for HSM secrets
+// GetHSMVolumes returns Volumes for HSM secrets
 func GetHSMVolumes(pkcs11 barbicanv1beta1.BarbicanPKCS11Template) []corev1.Volume {
 	return []corev1.Volume{
 		{
@@ -111,7 +110,7 @@ func GetHSMVolumes(pkcs11 barbicanv1beta1.BarbicanPKCS11Template) []corev1.Volum
 	}
 }
 
-// GetHSMVolumeMount - Returns Volume Mounts for HSM secrets
+// GetHSMVolumeMounts returns Volume Mounts for HSM secrets
 func GetHSMVolumeMounts() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{

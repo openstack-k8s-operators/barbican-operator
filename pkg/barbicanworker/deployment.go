@@ -1,3 +1,4 @@
+// Package barbicanworker contains barbican worker deployment functionality.
 package barbicanworker
 
 import (
@@ -93,8 +94,8 @@ func Deployment(
 							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:    []corev1.VolumeMount{barbican.GetLogVolumeMount()},
 							Resources:       instance.Spec.Resources,
-							//ReadinessProbe: readinessProbe,
-							//LivenessProbe:  livenessProbe,
+							// ReadinessProbe: readinessProbe,
+							// LivenessProbe:  livenessProbe,
 						},
 						{
 							Name: barbican.ServiceName + "-worker",
@@ -107,8 +108,8 @@ func Deployment(
 							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:    workerVolumeMounts,
 							Resources:       instance.Spec.Resources,
-							//ReadinessProbe: readinessProbe,
-							//LivenessProbe:  livenessProbe,
+							// ReadinessProbe: readinessProbe,
+							// LivenessProbe:  livenessProbe,
 						},
 					},
 				},
