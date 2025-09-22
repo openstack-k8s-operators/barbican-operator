@@ -251,6 +251,8 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	instance.Status.TransportURLSecret = transportURL.Status.SecretName
 
 	if instance.Status.TransportURLSecret == "" {
+		// Since the TransportURL secret is automatically created by the Infra operator,
+		// we treat this as an info (because the user is not responsible for manually creating it).
 		Log.Info(fmt.Sprintf("Waiting for TransportURL %s secret to be created", transportURL.Name))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition,
@@ -328,11 +330,13 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		nad, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
 		if err != nil {
 			if k8s_errors.IsNotFound(err) {
+				// Since the net-attach-def CR should have been manually created by the user and referenced in the spec,
+				// we treat this as a warning because it means that the service will not be able to start.
 				Log.Info(fmt.Sprintf("network-attachment-definition %s not found", netAtt))
 				instance.Status.Conditions.Set(condition.FalseCondition(
 					condition.NetworkAttachmentsReadyCondition,
-					condition.RequestedReason,
-					condition.SeverityInfo,
+					condition.ErrorReason,
+					condition.SeverityWarning,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
 				return ctrl.Result{RequeueAfter: time.Second * 10}, nil
@@ -351,7 +355,6 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		}
 	}
 
-	// TODO: _ should be serviceAnnotations
 	serviceAnnotations, err := nad.EnsureNetworksAnnotation(nadList)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
@@ -1135,11 +1138,13 @@ func (r *BarbicanReconciler) verifySecret(
 			err.Error()))
 		return ctrl.Result{}, err
 	} else if (result != ctrl.Result{}) {
+		// We treat this as a warning because it means that the service will not be able to start
+		// while we are waiting for the secret to be created manually by the user.
 		Log.Info(fmt.Sprintf("OpenStack secret %s not found", secretName))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
-			condition.RequestedReason,
-			condition.SeverityInfo,
+			condition.ErrorReason,
+			condition.SeverityWarning,
 			condition.InputReadyWaitingMessage))
 		return result, nil
 	}

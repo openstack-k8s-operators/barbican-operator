@@ -225,11 +225,27 @@ func (r *BarbicanAPIReconciler) verifySecret(
 			err.Error()))
 		return ctrl.Result{}, err
 	} else if (result != ctrl.Result{}) {
+		// This function is used in different contexts, but only one of them, for the transport URL secret,
+		// involves a secret that is automatically created elsewhere.  For the other contexts, we treat this
+		// as a warning because it means that the service will not be able to start while we are waiting for
+		// the secret to be created manually by the user.
+
+		var reason condition.Reason
+		var severity condition.Severity
+
+		if expectedFields != nil && slices.Contains(expectedFields, TransportURL) {
+			reason = condition.RequestedReason
+			severity = condition.SeverityInfo
+		} else {
+			reason = condition.ErrorReason
+			severity = condition.SeverityWarning
+		}
+
 		Log.Info(fmt.Sprintf("OpenStack secret %s not found", secretName))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
-			condition.RequestedReason,
-			condition.SeverityInfo,
+			reason,
+			severity,
 			condition.InputReadyWaitingMessage))
 		return result, nil
 	}
@@ -632,10 +648,12 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		)
 		if err != nil {
 			if k8s_errors.IsNotFound(err) {
+				// Since the CA cert secret should have been manually created by the user and provided in the spec,
+				// we treat this as a warning because it means that the service will not be able to start.
 				instance.Status.Conditions.Set(condition.FalseCondition(
 					condition.TLSInputReadyCondition,
-					condition.RequestedReason,
-					condition.SeverityInfo,
+					condition.ErrorReason,
+					condition.SeverityWarning,
 					condition.TLSInputReadyWaitingMessage,
 					instance.Spec.TLS.CaBundleSecretName))
 				return ctrl.Result{}, nil
@@ -659,6 +677,8 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	certsHash, err := instance.Spec.TLS.API.ValidateCertSecrets(ctx, helper, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
+			// Since the OpenStackControlPlane creates the API service certs secrets,
+			// we treat this as an info (because the user is not responsible for manually creating them).
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.TLSInputReadyCondition,
 				condition.RequestedReason,
@@ -710,11 +730,13 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		nad, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
 		if err != nil {
 			if k8s_errors.IsNotFound(err) {
+				// Since the net-attach-def CR should have been manually created by the user and referenced in the spec,
+				// we treat this as a warning because it means that the service will not be able to start.
 				Log.Info(fmt.Sprintf("network-attachment-definition %s not found", netAtt))
 				instance.Status.Conditions.Set(condition.FalseCondition(
 					condition.NetworkAttachmentsReadyCondition,
-					condition.RequestedReason,
-					condition.SeverityInfo,
+					condition.ErrorReason,
+					condition.SeverityWarning,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
 				return ctrl.Result{RequeueAfter: time.Second * 10}, nil
