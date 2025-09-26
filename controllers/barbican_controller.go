@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	maps0 "maps"
 	"slices"
 	"time"
 
@@ -687,9 +688,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"my.cnf":                      db.GetDatabaseClientConfig(tlsCfg), //(mschuppert) for now just get the default my.cnf
 	}
 
-	for key, data := range instance.Spec.DefaultConfigOverwrite {
-		customData[key] = data
-	}
+	maps0.Copy(customData, instance.Spec.DefaultConfigOverwrite)
 	keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
 	// KeystoneAPI not available we should not aggregate the error and continue
 	if err != nil {
@@ -703,7 +702,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	databaseAccount := db.GetAccount()
 	databaseSecret := db.GetSecret()
 
-	templateParameters := map[string]interface{}{
+	templateParameters := map[string]any{
 		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
 			databaseAccount.Spec.UserName,
 			string(databaseSecret.Data[mariadbv1.DatabasePasswordSelector]),
@@ -759,9 +758,9 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	}
 
 	// create httpd  vhost template parameters
-	httpdVhostConfig := map[string]interface{}{}
+	httpdVhostConfig := map[string]any{}
 	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
-		endptConfig := map[string]interface{}{}
+		endptConfig := map[string]any{}
 		endptConfig["ServerName"] = fmt.Sprintf("%s-%s.%s.svc", barbican.ServiceName, endpt.String(), instance.Namespace)
 		endptConfig["TLS"] = false // default TLS to false, and set it bellow to true if enabled
 		if instance.Spec.BarbicanAPI.TLS.API.Enabled(endpt) {

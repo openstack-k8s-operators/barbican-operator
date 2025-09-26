@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -312,15 +313,10 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		if err != nil {
 			return err
 		}
-		for key, data := range ownerInstance.Spec.DefaultConfigOverwrite {
-			customData[key] = data
-		}
+		maps.Copy(customData, ownerInstance.Spec.DefaultConfigOverwrite)
 	}
 
-	for key, data := range instance.Spec.DefaultConfigOverwrite {
-		// can we merge here?
-		customData[key] = data
-	}
+	maps.Copy(customData, instance.Spec.DefaultConfigOverwrite)
 
 	customSecrets := ""
 	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {
@@ -336,7 +332,7 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 
-	templateParameters := map[string]interface{}{
+	templateParameters := map[string]any{
 		"LogFile": fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 	}
 

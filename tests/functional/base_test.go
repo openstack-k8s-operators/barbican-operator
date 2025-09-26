@@ -52,8 +52,8 @@ func CreateCustomConfigSecret(namespace string, name string, contents map[string
 	)
 }
 
-func GetDefaultBarbicanSpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetDefaultBarbicanSpec() map[string]any {
+	return map[string]any{
 		"databaseInstance":          "openstack",
 		"secret":                    SecretName,
 		"simpleCryptoBackendSecret": SecretName,
@@ -61,11 +61,11 @@ func GetDefaultBarbicanSpec() map[string]interface{} {
 	}
 }
 
-func CreateBarbican(name types.NamespacedName, spec map[string]interface{}) client.Object {
-	raw := map[string]interface{}{
+func CreateBarbican(name types.NamespacedName, spec map[string]any) client.Object {
+	raw := map[string]any{
 		"apiVersion": "barbican.openstack.org/v1beta1",
 		"kind":       "Barbican",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name.Name,
 			"namespace": name.Namespace,
 		},
@@ -86,7 +86,7 @@ func CreateBarbicanMessageBusSecret(namespace string, name string) *corev1.Secre
 	s := th.CreateSecret(
 		types.NamespacedName{Namespace: namespace, Name: name},
 		map[string][]byte{
-			"transport_url": []byte(fmt.Sprintf("rabbit://%s/fake", name)),
+			"transport_url": fmt.Appendf(nil, "rabbit://%s/fake", name),
 		},
 	)
 	logger.Info("Secret created", "name", name)
@@ -181,8 +181,8 @@ func BarbicanWorkerConditionGetter(name types.NamespacedName) condition.Conditio
 }
 
 // ========== TLS Stuff ==============
-func GetTLSBarbicanSpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetTLSBarbicanSpec() map[string]any {
+	return map[string]any{
 		"databaseInstance":          "openstack",
 		"secret":                    SecretName,
 		"simpleCryptoBackendSecret": SecretName,
@@ -192,15 +192,15 @@ func GetTLSBarbicanSpec() map[string]interface{} {
 	}
 }
 
-func GetTLSBarbicanAPISpec() map[string]interface{} {
+func GetTLSBarbicanAPISpec() map[string]any {
 	spec := GetDefaultBarbicanAPISpec()
-	maps.Copy(spec, map[string]interface{}{
-		"tls": map[string]interface{}{
-			"api": map[string]interface{}{
-				"internal": map[string]interface{}{
+	maps.Copy(spec, map[string]any{
+		"tls": map[string]any{
+			"api": map[string]any{
+				"internal": map[string]any{
 					"secretName": InternalCertSecretName,
 				},
-				"public": map[string]interface{}{
+				"public": map[string]any{
 					"secretName": PublicCertSecretName,
 				},
 			},
@@ -231,13 +231,13 @@ key_wrap_generate_iv = true
 always_set_cka_sensitive = true
 os_locking_ok = false`
 
-func GetPKCS11BarbicanSpec() map[string]interface{} {
+func GetPKCS11BarbicanSpec() map[string]any {
 	spec := GetDefaultBarbicanSpec()
-	maps.Copy(spec, map[string]interface{}{
+	maps.Copy(spec, map[string]any{
 		"customServiceConfig":      PKCS11CustomData,
 		"enabledSecretStores":      []string{"pkcs11"},
 		"globalDefaultSecretStore": "pkcs11",
-		"pkcs11": map[string]interface{}{
+		"pkcs11": map[string]any{
 			"clientDataPath":   PKCS11ClientDataPath,
 			"loginSecret":      PKCS11LoginSecret,
 			"clientDataSecret": PKCS11ClientDataSecret,
@@ -246,7 +246,7 @@ func GetPKCS11BarbicanSpec() map[string]interface{} {
 	return spec
 }
 
-func GetPKCS11BarbicanAPISpec() map[string]interface{} {
+func GetPKCS11BarbicanAPISpec() map[string]any {
 	spec := GetPKCS11BarbicanSpec()
 	maps.Copy(spec, GetDefaultBarbicanAPISpec())
 	return spec
@@ -276,8 +276,8 @@ func CreatePKCS11ClientDataSecret(namespace string, name string) *corev1.Secret 
 
 // ========== End of PKCS11 Stuff ============
 
-func GetDefaultBarbicanAPISpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetDefaultBarbicanAPISpec() map[string]any {
+	return map[string]any{
 		"secret":                    SecretName,
 		"simpleCryptoBackendSecret": SecretName,
 		"replicas":                  1,
@@ -291,13 +291,13 @@ func GetDefaultBarbicanAPISpec() map[string]interface{} {
 	}
 }
 
-func CreateBarbicanAPI(name types.NamespacedName, spec map[string]interface{}) client.Object {
+func CreateBarbicanAPI(name types.NamespacedName, spec map[string]any) client.Object {
 	// we get the parent CR and set ownership to the barbicanAPI CR
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"apiVersion": "barbican.openstack.org/v1beta1",
 		"kind":       "BarbicanAPI",
-		"metadata": map[string]interface{}{
-			"annotations": map[string]interface{}{
+		"metadata": map[string]any{
+			"annotations": map[string]any{
 				"keystoneEndpoint": "true",
 			},
 			"name":      name.Name,
@@ -346,16 +346,16 @@ func GetBarbicanWorkerSpec(name types.NamespacedName) barbicanv1.BarbicanWorkerT
 // multi AZ, which is not applicable in this context
 func GetSampleTopologySpec(
 	label string,
-) (map[string]interface{}, []corev1.TopologySpreadConstraint) {
+) (map[string]any, []corev1.TopologySpreadConstraint) {
 	// Build the topology Spec
-	topologySpec := map[string]interface{}{
-		"topologySpreadConstraints": []map[string]interface{}{
+	topologySpec := map[string]any{
+		"topologySpreadConstraints": []map[string]any{
 			{
 				"maxSkew":           1,
 				"topologyKey":       corev1.LabelHostname,
 				"whenUnsatisfiable": "ScheduleAnyway",
-				"labelSelector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
+				"labelSelector": map[string]any{
+					"matchLabels": map[string]any{
 						"component": label,
 					},
 				},

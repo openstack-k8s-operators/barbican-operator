@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -282,9 +283,7 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 		// TODO(alee) Get custom config overwrites from the parent barbican
 	}
 
-	for key, data := range instance.Spec.DefaultConfigOverwrite {
-		customData[key] = data
-	}
+	maps.Copy(customData, instance.Spec.DefaultConfigOverwrite)
 
 	customSecrets := ""
 	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {
@@ -300,7 +299,7 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 
-	templateParameters := map[string]interface{}{
+	templateParameters := map[string]any{
 		"LogFile": fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 	}
 
