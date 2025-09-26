@@ -36,7 +36,7 @@ import (
 
 type conditionUpdater interface {
 	Set(c *condition.Condition)
-	MarkTrue(t condition.Type, messageFormat string, messageArgs ...interface{})
+	MarkTrue(t condition.Type, messageFormat string, messageArgs ...any)
 }
 
 type topologyHandler interface {
@@ -89,7 +89,7 @@ func GenerateConfigsGeneric(
 	ctx context.Context, h *helper.Helper,
 	instance client.Object,
 	envVars *map[string]env.Setter,
-	templateParameters map[string]interface{},
+	templateParameters map[string]any,
 	customData map[string]string,
 	cmLabels map[string]string,
 	scripts bool,
@@ -123,7 +123,7 @@ func GenerateConfigsGeneric(
 func GenerateSecretStoreTemplateMap(
 	enabledSecretStores []barbicanv1beta1.SecretStore,
 	globalDefaultSecretStore barbicanv1beta1.SecretStore,
-) (map[string]interface{}, error) {
+) (map[string]any, error) {
 	// Log := r.GetLogger(ctx)
 	stores := []string{}
 	if len(enabledSecretStores) == 0 {
@@ -138,7 +138,7 @@ func GenerateSecretStoreTemplateMap(
 		globalDefaultSecretStore = "simple_crypto"
 	}
 
-	tempMap := map[string]interface{}{
+	tempMap := map[string]any{
 		"EnabledSecretStores":      strings.Join(stores, ","),
 		"GlobalDefaultSecretStore": globalDefaultSecretStore,
 		"SimpleCryptoEnabled":      slices.Contains(stores, "simple_crypto"),

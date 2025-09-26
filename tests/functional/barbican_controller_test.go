@@ -427,7 +427,7 @@ var _ = Describe("Barbican controller", func() {
 			spec := GetDefaultBarbicanSpec()
 			// Update the spec and add a top-level topologyRef that points to
 			// gloabal-topology
-			spec["topologyRef"] = map[string]interface{}{
+			spec["topologyRef"] = map[string]any{
 				"name": topologyRef.Name,
 			}
 			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
@@ -723,7 +723,7 @@ var _ = Describe("Barbican controller", func() {
 	When("A Barbican with nodeSelector is created", func() {
 		BeforeEach(func() {
 			spec := GetDefaultBarbicanSpec()
-			spec["nodeSelector"] = map[string]interface{}{
+			spec["nodeSelector"] = map[string]any{
 				"foo": "bar",
 			}
 			spec["barbicanAPI"] = GetDefaultBarbicanAPISpec()
@@ -1685,18 +1685,18 @@ var _ = Describe("Barbican Webhook", func() {
 	It("rejects with wrong BarbicanAPI service override endpoint type", func() {
 		spec := GetDefaultBarbicanSpec()
 		apiSpec := GetDefaultBarbicanAPISpec()
-		apiSpec["override"] = map[string]interface{}{
-			"service": map[string]interface{}{
-				"internal": map[string]interface{}{},
-				"wrooong":  map[string]interface{}{},
+		apiSpec["override"] = map[string]any{
+			"service": map[string]any{
+				"internal": map[string]any{},
+				"wrooong":  map[string]any{},
 			},
 		}
 		spec["barbicanAPI"] = apiSpec
 
-		raw := map[string]interface{}{
+		raw := map[string]any{
 			"apiVersion": "barbican.openstack.org/v1beta1",
 			"kind":       "Barbican",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      barbicanTest.Instance.Name,
 				"namespace": barbicanTest.Instance.Namespace,
 			},
@@ -1723,24 +1723,24 @@ var _ = Describe("Barbican Webhook", func() {
 
 			// API, Worker and KeystoneListener
 			if component != "top-level" {
-				spec[component] = map[string]interface{}{
-					"topologyRef": map[string]interface{}{
+				spec[component] = map[string]any{
+					"topologyRef": map[string]any{
 						"name":      "bar",
 						"namespace": "foo",
 					},
 				}
 				// top-level topologyRef
 			} else {
-				spec["topologyRef"] = map[string]interface{}{
+				spec["topologyRef"] = map[string]any{
 					"name":      "bar",
 					"namespace": "foo",
 				}
 			}
 			// Build the barbican CR
-			raw := map[string]interface{}{
+			raw := map[string]any{
 				"apiVersion": "barbican.openstack.org/v1beta1",
 				"kind":       "Barbican",
-				"metadata": map[string]interface{}{
+				"metadata": map[string]any{
 					"name":      barbicanTest.Instance.Name,
 					"namespace": barbicanTest.Instance.Namespace,
 				},
