@@ -147,6 +147,14 @@ type BarbicanPKCS11Template struct {
         ClientDataPath string `json:"clientDataPath"`
 }
 
+// AuthSpec defines authentication parameters
+type AuthSpec struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// ApplicationCredentialSecret - Secret containing Application Credential ID and Secret
+	ApplicationCredentialSecret string `json:"applicationCredentialSecret,omitempty"`
+}
+
 // PasswordSelector to identify the DB and AdminUser password from the Secret
 type PasswordSelector struct {
 	// +kubebuilder:validation:Optional
