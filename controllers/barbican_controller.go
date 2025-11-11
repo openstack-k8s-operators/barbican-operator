@@ -561,7 +561,8 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 // fields to index to reconcile when change
 const (
 	passwordSecretField                 = ".spec.secret"
-	caBundleSecretNameField             = ".spec.tls.caBundleSecretName" // #nosec G101
+	simpleCryptoBackendSecretField      = ".spec.simpleCryptoBackendSecret" // #nosec G101
+	caBundleSecretNameField             = ".spec.tls.caBundleSecretName"    // #nosec G101
 	tlsAPIInternalField                 = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField                   = ".spec.tls.api.public.secretName"
 	pkcs11LoginSecretField              = ".spec.pkcs11.loginSecret"      // #nosec G101
@@ -574,6 +575,7 @@ const (
 var (
 	workerWatchFields = []string{
 		passwordSecretField,
+		simpleCryptoBackendSecretField,
 		caBundleSecretNameField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
@@ -583,6 +585,7 @@ var (
 	}
 	apiWatchFields = []string{
 		passwordSecretField,
+		simpleCryptoBackendSecretField,
 		caBundleSecretNameField,
 		tlsAPIInternalField,
 		tlsAPIPublicField,
@@ -594,6 +597,7 @@ var (
 	}
 	listenerWatchFields = []string{
 		passwordSecretField,
+		simpleCryptoBackendSecretField,
 		caBundleSecretNameField,
 		topologyField,
 		customServiceConfigSecretsField,
