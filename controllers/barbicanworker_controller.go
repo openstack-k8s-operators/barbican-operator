@@ -697,6 +697,18 @@ func (r *BarbicanWorkerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// index simpleCryptoBackendSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanWorker{}, simpleCryptoBackendSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*barbicanv1beta1.BarbicanWorker)
+		if cr.Spec.SimpleCryptoBackendSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.SimpleCryptoBackendSecret}
+	}); err != nil {
+		return err
+	}
+
 	// index caBundleSecretNameField
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanWorker{}, caBundleSecretNameField, func(rawObj client.Object) []string {
 		// Extract the secret name from the spec, if one is provided
