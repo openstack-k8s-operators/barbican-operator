@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -56,15 +55,6 @@ func SetupBarbicanDefaults(defaults BarbicanDefaults) {
 	barbicanDefaults = defaults
 	barbicanlog.Info("Barbican defaults initialized", "defaults", defaults)
 }
-
-// SetupWebhookWithManager sets up the webhook with the Manager
-func (r *Barbican) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		Complete()
-}
-
-//+kubebuilder:webhook:path=/mutate-barbican-openstack-org-v1beta1-barbican,mutating=true,failurePolicy=fail,sideEffects=None,groups=barbican.openstack.org,resources=barbicans,verbs=create;update,versions=v1beta1,name=mbarbican.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Barbican{}
 
@@ -104,9 +94,6 @@ func (spec *BarbicanSpecCore) Default() {
 	spec.BarbicanSpecBase.Default()
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-barbican-openstack-org-v1beta1-barbican,mutating=false,failurePolicy=fail,sideEffects=None,groups=barbican.openstack.org,resources=barbicans,verbs=create;update,versions=v1beta1,name=vbarbican.kb.io,admissionReviewVersions=v1
-
 var _ webhook.Validator = &Barbican{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
@@ -131,25 +118,26 @@ func (r *Barbican) ValidateCreate() (admission.Warnings, error) {
 
 // ValidateCreate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an barbican spec.
-func (r *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
+func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
-		r.BarbicanAPI.Override.Service)...)
+		spec.BarbicanAPI.Override.Service)...)
 
 	// pkcs11 verifications
-	r.ValidatePKCS11(basePath, &allErrs)
+	spec.ValidatePKCS11(basePath, &allErrs)
 
-	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
+	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 
 	return allErrs
 }
 
-func (r *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.ErrorList) {
-	if slices.Contains(r.EnabledSecretStores, SecretStorePKCS11) {
-                if r.PKCS11 == nil {
+// ValidatePKCS11 validates that PKCS11 configuration is provided when PKCS11 is an enabled secret store
+func (spec *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.ErrorList) {
+	if slices.Contains(spec.EnabledSecretStores, SecretStorePKCS11) {
+                if spec.PKCS11 == nil {
                         *allErrs = append(*allErrs, field.Required(basePath.Child("PKCS11"),
                                 "PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
                         )
@@ -157,15 +145,16 @@ func (r *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.Error
         }
 }
 
-func (r *BarbicanSpecCore) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
+// ValidateCreate validates BarbicanSpecCore on creation
+func (spec *BarbicanSpecCore) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
-		r.BarbicanAPI.Override.Service)...)
+		spec.BarbicanAPI.Override.Service)...)
 
-	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
+	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 	return allErrs
 }
 
@@ -196,30 +185,31 @@ func (r *Barbican) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 
 // ValidateUpdate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an barbican spec.
-func (r *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path, namespace string) field.ErrorList {
+func (spec *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
-		r.BarbicanAPI.Override.Service)...)
+		spec.BarbicanAPI.Override.Service)...)
 
 	// pkcs11 verifications
-	r.ValidatePKCS11(basePath, &allErrs)
+	spec.ValidatePKCS11(basePath, &allErrs)
 
-	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
+	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 	return allErrs
 }
 
-func (r *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *field.Path, namespace string) field.ErrorList {
+// ValidateUpdate validates BarbicanSpecCore on update
+func (spec *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
-		r.BarbicanAPI.Override.Service)...)
+		spec.BarbicanAPI.Override.Service)...)
 
-	allErrs = append(allErrs, r.ValidateBarbicanTopology(basePath, namespace)...)
+	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 	return allErrs
 }
 
@@ -231,6 +221,7 @@ func (r *Barbican) ValidateDelete() (admission.Warnings, error) {
 	return nil, nil
 }
 
+// GetDefaultRouteAnnotations returns the default route annotations for Barbican API
 func (spec *BarbicanSpecCore) GetDefaultRouteAnnotations() (annotations map[string]string) {
 	return map[string]string{
 		"haproxy.router.openshift.io/timeout": fmt.Sprintf("%ds", barbicanDefaults.BarbicanAPITimeout),

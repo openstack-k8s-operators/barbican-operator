@@ -32,7 +32,7 @@ type BarbicanKeystoneListenerTemplate struct {
 	ContainerImage string `json:"containerImage"`
 }
 
-// BarbicanKeystoneListenerTemplate defines common Spec elements for the KeystoneListener process
+// BarbicanKeystoneListenerTemplateCore defines common Spec elements for the KeystoneListener process
 type BarbicanKeystoneListenerTemplateCore struct {
 	BarbicanComponentTemplate `json:",inline"`
 
