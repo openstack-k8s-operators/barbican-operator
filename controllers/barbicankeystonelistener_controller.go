@@ -700,6 +700,18 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 		return err
 	}
 
+	// index simpleCryptoBackendSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanKeystoneListener{}, simpleCryptoBackendSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*barbicanv1beta1.BarbicanKeystoneListener)
+		if cr.Spec.SimpleCryptoBackendSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.SimpleCryptoBackendSecret}
+	}); err != nil {
+		return err
+	}
+
 	// index caBundleSecretNameField
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanKeystoneListener{}, caBundleSecretNameField, func(rawObj client.Object) []string {
 		// Extract the secret name from the spec, if one is provided
