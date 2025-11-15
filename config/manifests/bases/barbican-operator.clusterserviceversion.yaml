@@ -27,6 +27,16 @@ spec:
         displayName: TLS
         path: tls
       version: v1beta1
+    - description: BarbicanKeystoneListener is the Schema for the barbicankeystonelistener
+        API
+      displayName: Barbican Keystone Listener
+      kind: BarbicanKeystoneListener
+      name: barbicankeystonelisteners.barbican.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
+      version: v1beta1
     - description: Barbican is the Schema for the barbicans API
       displayName: Barbican
       kind: Barbican
@@ -68,6 +78,7 @@ spec:
   - name: Barbican Operator
     url: https://github.com/openstack-k8s-operators/barbican-operator
   maturity: beta
+  minKubeVersion: 0.0.0
   provider:
     name: Red Hat Inc.
     url: https://redhat.com/
