@@ -12,6 +12,26 @@ webhooks:
       namespace: system
       path: /mutate-barbican-openstack-org-v1beta1-barbican
   failurePolicy: Fail
+  name: mbarbican-v1beta1.kb.io
+  rules:
+  - apiGroups:
+    - barbican.openstack.org
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - barbicans
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-barbican-openstack-org-v1beta1-barbican
+  failurePolicy: Fail
   name: mbarbican.kb.io
   rules:
   - apiGroups:
@@ -30,6 +50,26 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-barbican-openstack-org-v1beta1-barbican
+  failurePolicy: Fail
+  name: vbarbican-v1beta1.kb.io
+  rules:
+  - apiGroups:
+    - barbican.openstack.org
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - barbicans
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
