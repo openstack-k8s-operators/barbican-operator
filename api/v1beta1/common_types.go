@@ -115,8 +115,8 @@ type BarbicanComponentTemplate struct {
 	TopologyRef *topologyv1.TopoRef `json:"topologyRef,omitempty"`
 }
 
+// SecretStore type is used by the EnabledSecretStores variable inside the specification.
 // +kubebuilder:validation:Enum=simple_crypto;pkcs11
-// This SecretStore type is used by the EnabledSecretStores variable inside the specification.
 type SecretStore string
 
 const (
@@ -126,7 +126,7 @@ const (
 	// SecretStorePKCS11 -
 	SecretStorePKCS11 SecretStore = "pkcs11"
 
-	// DefaultPKCS11ClientDataPath
+	// DefaultPKCS11ClientDataPath is the default path for PKCS11 client data
 	DefaultPKCS11ClientDataPath = "/etc/hsm-client"
 )
 

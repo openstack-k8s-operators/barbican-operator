@@ -12,7 +12,7 @@ webhooks:
       namespace: system
       path: /mutate-barbican-openstack-org-v1beta1-barbican
   failurePolicy: Fail
-  name: mbarbican.kb.io
+  name: mbarbican-v1beta1.kb.io
   rules:
   - apiGroups:
     - barbican.openstack.org
@@ -38,7 +38,7 @@ webhooks:
       namespace: system
       path: /validate-barbican-openstack-org-v1beta1-barbican
   failurePolicy: Fail
-  name: vbarbican.kb.io
+  name: vbarbican-v1beta1.kb.io
   rules:
   - apiGroups:
     - barbican.openstack.org

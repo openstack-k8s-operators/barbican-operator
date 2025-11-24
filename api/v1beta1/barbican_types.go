@@ -42,7 +42,7 @@ const (
 	// BarbicanKeystoneListenerContainerImage is the fall-back container image for BarbicanAPI
 	BarbicanKeystoneListenerContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener:current-podified"
 
-	// Barbican API timeout
+	// APITimeout is the default Barbican API timeout
 	APITimeout = 90
 )
 
