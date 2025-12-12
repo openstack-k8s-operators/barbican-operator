@@ -630,6 +630,15 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 
 	Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
 
+	// Verify Application Credential secret if available (optional)
+	acSecretName := keystonev1.GetACSecretName(barbican.ServiceName)
+	acSecret := types.NamespacedName{Namespace: instance.Namespace, Name: acSecretName}
+	acHash, _, err := secret.VerifySecret(ctx, acSecret, []string{keystonev1.ACIDSecretKey, keystonev1.ACSecretSecretKey}, helper.GetClient(), 0)
+	if err == nil && acHash != "" {
+		// AC secret exists and is valid - add to configVars for hash tracking
+		configVars[acSecretName] = env.SetValue(acHash)
+	}
+
 	//
 	// TLS input validation
 	//
@@ -1038,6 +1047,42 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Application Credential secret watching function
+	acSecretFn := func(_ context.Context, o client.Object) []reconcile.Request {
+		name := o.GetName()
+		ns := o.GetNamespace()
+		result := []reconcile.Request{}
+
+		// Only handle Secret objects
+		if _, isSecret := o.(*corev1.Secret); !isSecret {
+			return nil
+		}
+
+		// Check if this is a barbican AC secret by name pattern (ac-barbican-secret)
+		expectedSecretName := keystonev1.GetACSecretName("barbican")
+		if name == expectedSecretName {
+			// get all BarbicanAPI CRs in this namespace
+			barbicanAPIs := &barbicanv1beta1.BarbicanAPIList{}
+			listOpts := []client.ListOption{
+				client.InNamespace(ns),
+			}
+			if err := r.List(context.Background(), barbicanAPIs, listOpts...); err != nil {
+				return nil
+			}
+
+			// Enqueue reconcile for all barbican API instances
+			for _, cr := range barbicanAPIs.Items {
+				objKey := client.ObjectKey{
+					Namespace: ns,
+					Name:      cr.Name,
+				}
+				result = append(result, reconcile.Request{NamespacedName: objKey})
+			}
+		}
+
+		return result
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.BarbicanAPI{}).
 		Owns(&corev1.Service{}).
@@ -1049,9 +1094,12 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
+		Watches(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(acSecretFn)).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Complete(r)
 }
 

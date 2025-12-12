@@ -29,8 +29,6 @@ import (
 	"github.com/openstack-k8s-operators/barbican-operator/internal/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/internal/barbicankeystonelistener"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
-
-	// keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
@@ -762,8 +760,10 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Complete(r)
+
 }
 
 func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {

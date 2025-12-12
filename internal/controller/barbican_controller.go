@@ -721,6 +721,17 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
 	}
 
+	templateParameters["UseApplicationCredentials"] = false
+	// Try to get Application Credential for this service (via keystone api helper)
+	if acData, err := keystonev1.GetApplicationCredentialFromSecret(ctx, r.Client, instance.Namespace, barbican.ServiceName); err != nil {
+		Log.Error(err, "Failed to get ApplicationCredential for service", "service", barbican.ServiceName)
+	} else if acData != nil {
+		templateParameters["UseApplicationCredentials"] = true
+		templateParameters["ACID"] = acData.ID
+		templateParameters["ACSecret"] = acData.Secret
+		Log.Info("Using ApplicationCredentials auth", "service", barbican.ServiceName)
+	}
+
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
 	// This gets overridden in the PKCS11 section below if needed.
 	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
