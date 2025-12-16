@@ -75,6 +75,9 @@ type BarbicanAPISpec struct {
 
 	// TransportURLSecret - Secret containing RabbitMQ transportURL
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
+
+	// NotificationsURLSecret - Secret containing notifications transport URL
+	NotificationsURLSecret string `json:"notificationsURLSecret,omitempty"`
 }
 
 // BarbicanAPIStatus defines the observed state of BarbicanAPI
