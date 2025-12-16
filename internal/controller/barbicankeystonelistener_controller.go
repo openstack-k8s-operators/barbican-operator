@@ -411,6 +411,15 @@ func (r *BarbicanKeystoneListenerReconciler) reconcileNormal(ctx context.Context
 		return ctrlResult, err
 	}
 
+	// check for NotificationsURL secret if configured
+	if instance.Spec.NotificationsURLSecret != "" {
+		Log.Info(fmt.Sprintf("[KeystoneListener] Verify secret '%s'", instance.Spec.NotificationsURLSecret))
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.NotificationsURLSecret, []string{TransportURL}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+	}
+
 	//check CustomServiceConfigSecrets
 	for _, v := range instance.Spec.CustomServiceConfigSecrets {
 		Log.Info(fmt.Sprintf("[API] Verify secret '%s' from CustomServiceConfigSecrets", v))

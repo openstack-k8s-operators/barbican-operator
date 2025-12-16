@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -206,6 +207,14 @@ func (r *BarbicanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 		condition.UnknownCondition(condition.RoleBindingReadyCondition, condition.InitReason, condition.RoleBindingReadyInitMessage),
 	)
 
+	if instance.Spec.NotificationsBus != nil {
+		c := condition.UnknownCondition(
+			condition.NotificationBusInstanceReadyCondition,
+			condition.InitReason,
+			condition.NotificationBusInstanceReadyInitMessage)
+		cl.Set(c)
+	}
+
 	instance.Status.Conditions.Init(&cl)
 
 	// If we're not deleting this and the service object doesn't have our finalizer, add it.
@@ -240,7 +249,7 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 	//
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
 	//
-	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels)
+	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, nil)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition,
@@ -271,6 +280,55 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 
 	Log.Info(fmt.Sprintf("TransportURL secret name %s", transportURL.Status.SecretName))
 	instance.Status.Conditions.MarkTrue(barbicanv1beta1.BarbicanRabbitMQTransportURLReadyCondition, barbicanv1beta1.BarbicanRabbitMQTransportURLReadyMessage)
+
+	// end main transportURL
+
+	//
+	// create NotificationsBus transportURL CR and get the actual URL from the
+	// associated secret that is created
+	//
+
+	if instance.Spec.NotificationsBus != nil {
+		// init .Status.NotificationsURLSecret
+		instance.Status.NotificationsURLSecret = ptr.To("")
+
+		// Always pass the NotificationsBus config to ensure a separate TransportURL is created,
+		// even when using the same cluster as messaging (to allow different vhost/user)
+		notificationBusInstanceURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, instance.Spec.NotificationsBus)
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.NotificationBusInstanceReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.NotificationBusInstanceReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+
+		if op != controllerutil.OperationResultNone {
+			Log.Info(fmt.Sprintf("NotificationBusInstanceURL %s successfully reconciled - operation: %s", notificationBusInstanceURL.Name, string(op)))
+		}
+
+		*instance.Status.NotificationsURLSecret = notificationBusInstanceURL.Status.SecretName
+
+		if *instance.Status.NotificationsURLSecret == "" {
+			Log.Info(fmt.Sprintf("Waiting for NotificationBusInstanceURL %s secret to be created", notificationBusInstanceURL.Name))
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.NotificationBusInstanceReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.NotificationBusInstanceReadyRunningMessage))
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+		}
+
+		instance.Status.Conditions.MarkTrue(condition.NotificationBusInstanceReadyCondition, condition.NotificationBusInstanceReadyMessage)
+	} else {
+		// make sure we do not have an entry in the status if
+		// .Spec.NotificationsBus is not provided
+		instance.Status.NotificationsURLSecret = nil
+	}
+
+	// end notificationBusInstanceURL
 
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	ctrlResult, err := r.verifySecret(ctx, helper, instance, instance.Spec.Secret, []string{instance.Spec.PasswordSelectors.Service}, &configVars)
@@ -682,6 +740,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	if err != nil {
 		return err
 	}
+	transportURLSecretData := string(transportURLSecret.Data["transport_url"])
 
 	var tlsCfg *tls.Service
 	if instance.Spec.BarbicanAPI.TLS.CaBundleSecretName != "" {
@@ -716,7 +775,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"KeystoneAuthURL":  keystoneInternalURL,
 		"ServicePassword":  string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
 		"ServiceUser":      instance.Spec.ServiceUser,
-		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
+		"TransportURL":     transportURLSecretData,
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
 		"Region":           keystoneAPI.GetRegion(),
@@ -728,6 +787,17 @@ func (r *BarbicanReconciler) generateServiceConfig(
 
 	// Set transportURL quorum queues
 	templateParameters["QuorumQueues"] = string(transportURLSecret.Data["quorumqueues"]) == "true"
+
+	// Add NotificationsURL if configured
+	// Always get the separate notification secret since we always create separate TransportURLs
+	var notificationInstanceURLSecret *corev1.Secret
+	if instance.Status.NotificationsURLSecret != nil {
+		notificationInstanceURLSecret, _, err = oko_secret.GetSecret(ctx, h, *instance.Status.NotificationsURLSecret, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		templateParameters["NotificationsURL"] = string(notificationInstanceURLSecret.Data["transport_url"])
+	}
 
 	// Set secret store parameters
 	secretStoreTemplateMap, err := GenerateSecretStoreTemplateMap(
@@ -785,20 +855,36 @@ func (r *BarbicanReconciler) transportURLCreateOrUpdate(
 	ctx context.Context,
 	instance *barbicanv1beta1.Barbican,
 	serviceLabels map[string]string,
+	rabbitmqConfig *rabbitmqv1.RabbitMqConfig,
 ) (*rabbitmqv1.TransportURL, controllerutil.OperationResult, error) {
+	// Default values for regular messagingBus transportURL
+	rmqName := fmt.Sprintf("%s-barbican-transport", instance.Name)
+	config := &instance.Spec.MessagingBus
+
+	// When rabbitmqConfig is passed (notificationsBus use case)
+	// update the default rmqName and use the provided config
+	if rabbitmqConfig != nil {
+		rmqName = fmt.Sprintf("%s-barbican-notifications-transport", instance.Name)
+		config = rabbitmqConfig
+	}
+
 	transportURL := &rabbitmqv1.TransportURL{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-barbican-transport", instance.Name),
+			Name:      rmqName,
 			Namespace: instance.Namespace,
 			Labels:    serviceLabels,
 		},
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, transportURL, func() error {
-		transportURL.Spec.RabbitmqClusterName = instance.Spec.RabbitMqClusterName
-
-		err := controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
-		return err
+		transportURL.Spec.RabbitmqClusterName = config.Cluster
+		// Always set Username and Vhost to allow clearing/resetting them
+		// The infra-operator TransportURL controller handles empty values:
+		// - Empty Username: uses default cluster admin credentials
+		// - Empty Vhost: defaults to "/" vhost
+		transportURL.Spec.Username = config.User
+		transportURL.Spec.Vhost = config.Vhost
+		return controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
 	})
 
 	return transportURL, op, err
@@ -841,6 +927,10 @@ func (r *BarbicanReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, in
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		Log.Info("Setting deployment spec to be apispec")
 		deployment.Spec = apiSpec
+
+		if instance.Spec.NotificationsBus != nil {
+			deployment.Spec.NotificationsURLSecret = *instance.Status.NotificationsURLSecret
+		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
@@ -892,6 +982,10 @@ func (r *BarbicanReconciler) workerDeploymentCreateOrUpdate(ctx context.Context,
 		Log.Info("Setting deployment spec to be workerspec")
 		deployment.Spec = workerSpec
 
+		if instance.Spec.NotificationsBus != nil {
+			deployment.Spec.NotificationsURLSecret = *instance.Status.NotificationsURLSecret
+		}
+
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
 			return err
@@ -940,6 +1034,10 @@ func (r *BarbicanReconciler) keystoneListenerDeploymentCreateOrUpdate(ctx contex
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		Log.Info("Setting deployment spec to be keystonelistenerspec")
 		deployment.Spec = keystoneListenerSpec
+
+		if instance.Spec.NotificationsBus != nil {
+			deployment.Spec.NotificationsURLSecret = *instance.Status.NotificationsURLSecret
+		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {

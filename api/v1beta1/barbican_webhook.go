@@ -26,7 +26,9 @@ import (
 	"fmt"
 	"slices"
 
+	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
+	common_webhook "github.com/openstack-k8s-operators/lib-common/modules/common/webhook"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -83,7 +85,10 @@ func (spec *BarbicanSpec) Default() {
 
 // Default - for shared base validations
 func (spec *BarbicanSpecBase) Default() {
-	// no validations
+	// Only migrate from deprecated field if the new field is not already set
+	if spec.MessagingBus.Cluster == "" {
+		rabbitmqv1.DefaultRabbitMqConfig(&spec.MessagingBus, spec.RabbitMqClusterName)
+	}
 }
 
 // Default - set defaults for this BarbicanSpecBase. NOTE: this version is used by the OpenStackControlplane webhook
@@ -100,26 +105,28 @@ var _ webhook.Validator = &Barbican{}
 func (r *Barbican) ValidateCreate() (admission.Warnings, error) {
 	barbicanlog.Info("validate create", "name", r.Name)
 
+	var allWarns []string
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
 
-	if err := r.Spec.ValidateCreate(basePath, r.Namespace); err != nil {
-		allErrs = append(allErrs, err...)
-	}
+	warns, errs := r.Spec.ValidateCreate(basePath, r.Namespace)
+	allWarns = append(allWarns, warns...)
+	allErrs = append(allErrs, errs...)
 
 	if len(allErrs) != 0 {
-		return nil, apierrors.NewInvalid(
+		return allWarns, apierrors.NewInvalid(
 			schema.GroupKind{Group: "barbican.openstack.org", Kind: "Barbican"},
 			r.Name, allErrs)
 	}
 
-	return nil, nil
+	return allWarns, nil
 }
 
 // ValidateCreate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an barbican spec.
-func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
+func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
+	var allWarns []string
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -131,7 +138,7 @@ func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 
-	return allErrs
+	return allWarns, allErrs
 }
 
 // ValidatePKCS11 validates that PKCS11 configuration is provided when PKCS11 is an enabled secret store
@@ -146,8 +153,9 @@ func (spec *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.Er
 }
 
 // ValidateCreate validates BarbicanSpecCore on creation
-func (spec *BarbicanSpecCore) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
+func (spec *BarbicanSpecCore) ValidateCreate(basePath *field.Path, namespace string) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
+	var allWarns []string
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -155,7 +163,7 @@ func (spec *BarbicanSpecCore) ValidateCreate(basePath *field.Path, namespace str
 		spec.BarbicanAPI.Override.Service)...)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
-	return allErrs
+	return allWarns, allErrs
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -167,26 +175,34 @@ func (r *Barbican) ValidateUpdate(old runtime.Object) (admission.Warnings, error
 		return nil, apierrors.NewInternalError(fmt.Errorf("unable to convert existing object"))
 	}
 
+	var allWarns []string
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
 
-	if err := r.Spec.ValidateUpdate(oldBarbican.Spec, basePath, r.Namespace); err != nil {
-		allErrs = append(allErrs, err...)
-	}
+	warns, errs := r.Spec.ValidateUpdate(oldBarbican.Spec, basePath, r.Namespace)
+	allWarns = append(allWarns, warns...)
+	allErrs = append(allErrs, errs...)
 
 	if len(allErrs) != 0 {
-		return nil, apierrors.NewInvalid(
+		return allWarns, apierrors.NewInvalid(
 			schema.GroupKind{Group: "barbican.openstack.org", Kind: "Barbican"},
 			r.Name, allErrs)
 	}
 
-	return nil, nil
+	return allWarns, nil
 }
 
 // ValidateUpdate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an barbican spec.
-func (spec *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path, namespace string) field.ErrorList {
+func (spec *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path, namespace string) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
+	var allWarns []string
+
+	// Validate deprecated fields using reflection
+	if warns, err := spec.BarbicanSpecBase.validateDeprecatedFieldsUpdate(old.BarbicanSpecBase, basePath); err != nil {
+		allWarns = append(allWarns, warns...)
+		allErrs = append(allErrs, err...)
+	}
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -197,12 +213,64 @@ func (spec *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path,
 	spec.ValidatePKCS11(basePath, &allErrs)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
-	return allErrs
+	return allWarns, allErrs
+}
+
+// getDeprecatedFields returns the centralized list of deprecated fields for BarbicanSpecBase
+func (spec *BarbicanSpecBase) getDeprecatedFields(old *BarbicanSpecBase) []common_webhook.DeprecatedFieldUpdate {
+	deprecatedFields := []common_webhook.DeprecatedFieldUpdate{
+		{
+			DeprecatedFieldName: "rabbitMqClusterName",
+			NewFieldPath:        []string{"messagingBus", "cluster"},
+			NewDeprecatedValue:  &spec.RabbitMqClusterName,
+			NewValue:            &spec.MessagingBus.Cluster,
+		},
+	}
+
+	// If old spec is provided (UPDATE operation), add old values
+	if old != nil {
+		deprecatedFields[0].OldDeprecatedValue = &old.RabbitMqClusterName
+	}
+
+	return deprecatedFields
+}
+
+// validateDeprecatedFieldsCreate validates deprecated fields during CREATE operations
+func (spec *BarbicanSpecBase) validateDeprecatedFieldsCreate(basePath *field.Path) ([]string, field.ErrorList) {
+	// Get deprecated fields list (without old values for CREATE)
+	deprecatedFieldsUpdate := spec.getDeprecatedFields(nil)
+
+	// Convert to DeprecatedField list for CREATE validation
+	deprecatedFields := make([]common_webhook.DeprecatedField, len(deprecatedFieldsUpdate))
+	for i, df := range deprecatedFieldsUpdate {
+		deprecatedFields[i] = common_webhook.DeprecatedField{
+			DeprecatedFieldName: df.DeprecatedFieldName,
+			NewFieldPath:        df.NewFieldPath,
+			DeprecatedValue:     df.NewDeprecatedValue,
+			NewValue:            df.NewValue,
+		}
+	}
+
+	return common_webhook.ValidateDeprecatedFieldsCreate(deprecatedFields, basePath), nil
+}
+
+// validateDeprecatedFieldsUpdate validates deprecated fields during UPDATE operations
+func (spec *BarbicanSpecBase) validateDeprecatedFieldsUpdate(old BarbicanSpecBase, basePath *field.Path) ([]string, field.ErrorList) {
+	// Get deprecated fields list with old values
+	deprecatedFields := spec.getDeprecatedFields(&old)
+	return common_webhook.ValidateDeprecatedFieldsUpdate(deprecatedFields, basePath)
 }
 
 // ValidateUpdate validates BarbicanSpecCore on update
-func (spec *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *field.Path, namespace string) field.ErrorList {
+func (spec *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *field.Path, namespace string) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
+	var allWarns []string
+
+	// Validate deprecated fields using reflection
+	if warns, err := spec.BarbicanSpecBase.validateDeprecatedFieldsUpdate(old.BarbicanSpecBase, basePath); err != nil {
+		allWarns = append(allWarns, warns...)
+		allErrs = append(allErrs, err...)
+	}
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -210,7 +278,7 @@ func (spec *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *fie
 		spec.BarbicanAPI.Override.Service)...)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
-	return allErrs
+	return allWarns, allErrs
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
