@@ -14,6 +14,9 @@ const (
 
 	// BarbicanRabbitMQTransportURLReadyCondition -
 	BarbicanRabbitMQTransportURLReadyCondition condition.Type = "BarbicanRabbitMQTransportURLReady"
+
+	// BarbicanNotificationBusReadyCondition -
+	BarbicanNotificationBusReadyCondition condition.Type = "BarbicanNotificationBusReady"
 )
 
 const (
@@ -36,6 +39,15 @@ const (
 	BarbicanRabbitMQTransportURLReadyMessage = "BarbicanRabbitMQTransportURL successfully created"
 	// BarbicanRabbitMQTransportURLReadyErrorMessage -
 	BarbicanRabbitMQTransportURLReadyErrorMessage = "BarbicanRabbitMQTransportURL error occured %s"
+
+	// BarbicanNotificationBusReadyInitMessage -
+	BarbicanNotificationBusReadyInitMessage = "BarbicanNotificationBus not started"
+	// BarbicanNotificationBusReadyRunningMessage -
+	BarbicanNotificationBusReadyRunningMessage = "BarbicanNotificationBus creation in progress"
+	// BarbicanNotificationBusReadyMessage -
+	BarbicanNotificationBusReadyMessage = "BarbicanNotificationBus successfully created"
+	// BarbicanNotificationBusReadyErrorMessage -
+	BarbicanNotificationBusReadyErrorMessage = "BarbicanNotificationBus error occured %s"
 
 	// BarbicanNetworkAttachmentsReadyErrorMessage -
 	BarbicanNetworkAttachmentsReadyErrorMessage = "NetworkAttachments error occurred; not all pods have interfaces with IPs as configured in NetworkAttachments: %s"
