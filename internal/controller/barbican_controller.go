@@ -719,6 +719,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"TransportURL":     string(transportURLSecret.Data["transport_url"]),
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
+		"Region":           keystoneAPI.GetRegion(),
 	}
 
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
