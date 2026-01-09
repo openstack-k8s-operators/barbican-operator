@@ -308,6 +308,15 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		customData[barbican.DefaultsConfigFileName] = string(barbicanSecret.Data[barbican.DefaultsConfigFileName])
 		customData[barbican.CustomConfigFileName] = string(barbicanSecret.Data[barbican.CustomConfigFileName])
 
+		// Application Credential data from parent (centralized pattern)
+		if acID, ok := barbicanSecret.Data["ACID"]; ok && len(acID) > 0 {
+			if acSecretData, ok := barbicanSecret.Data["ACSecret"]; ok && len(acSecretData) > 0 {
+				customData["ACID"] = string(acID)
+				customData["ACSecret"] = string(acSecretData)
+				Log.Info("Using ApplicationCredentials auth from parent Barbican CR")
+			}
+		}
+
 		ownerInstance := &barbicanv1beta1.Barbican{}
 		err = h.GetClient().Get(ctx, types.NamespacedName{Name: owner, Namespace: instance.Namespace}, ownerInstance)
 		if err != nil {
@@ -334,6 +343,16 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 
 	templateParameters := map[string]any{
 		"LogFile": fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+	}
+
+	// Check if Application Credential data is available from parent (centralized pattern)
+	templateParameters["UseApplicationCredentials"] = false
+	if acID, ok := customData["ACID"]; ok && len(acID) > 0 {
+		if acSecret, ok := customData["ACSecret"]; ok && len(acSecret) > 0 {
+			templateParameters["UseApplicationCredentials"] = true
+			templateParameters["ACID"] = acID
+			templateParameters["ACSecret"] = acSecret
+		}
 	}
 
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
@@ -629,6 +648,9 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	}
 
 	Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
+
+	// Note: Application Credential data is now handled by parent Barbican controller
+	// and passed via the config-data secret (centralized pattern)
 
 	//
 	// TLS input validation
@@ -989,6 +1011,8 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Note: authAppCredSecretField indexer removed - AC now handled centrally at parent Barbican level
+
 	// index pkcs11LoginSecretField
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanAPI{}, pkcs11LoginSecretField, func(rawObj client.Object) []string {
 		// Extract the secret name from the spec, if one is provided
@@ -1051,7 +1075,8 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Complete(r)
 }
 
