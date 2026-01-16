@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2" //revive:disable:dot-imports
 	. "github.com/onsi/gomega"    //revive:disable:dot-imports
+	"gopkg.in/ini.v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	//revive:disable-next-line:dot-imports
@@ -954,6 +955,72 @@ var _ = Describe("Barbican controller", func() {
 				g.Expect(conf).To(ContainSubstring("rabbit_transient_quorum_queue=true"))
 				g.Expect(conf).To(ContainSubstring("amqp_durable_queues=true"))
 				g.Expect(conf).To(ContainSubstring("[oslo_messaging_rabbit]"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("A Barbican with region configured is created", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetDefaultBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			keystoneAPIName := keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPIName)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+
+			// Create KeystoneEndpoint so that endpointID is available
+			keystone.CreateKeystoneEndpoint(barbicanTest.Instance)
+			DeferCleanup(keystone.DeleteKeystoneEndpoint, barbicanTest.Instance)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.Instance)
+
+			// Set KeystoneAPI region
+			keystoneAPI := keystone.GetKeystoneAPI(keystoneAPIName)
+			keystoneAPI.Status.Region = "regionTwo"
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Status().Update(ctx, keystoneAPI.DeepCopy())).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Wait for config to be regenerated after region is set
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.ServiceConfigReadyCondition,
+				corev1.ConditionTrue,
+			)
+		})
+
+		It("includes region_name in config when KeystoneAPI has region set", func() {
+			const testRegion = "regionTwo"
+			Eventually(func(g Gomega) {
+				cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+				g.Expect(cf).ShouldNot(BeNil())
+				g.Expect(cf.Data).Should(HaveKey("00-default.conf"))
+				configData := string(cf.Data["00-default.conf"])
+				g.Expect(configData).ShouldNot(BeEmpty())
+
+				// Parse the INI file to properly access sections
+				cfg, err := ini.Load([]byte(configData))
+				g.Expect(err).ShouldNot(HaveOccurred(), "Should be able to parse config as INI")
+
+				// Verify region_name in [keystone_authtoken]
+				section := cfg.Section("keystone_authtoken")
+				g.Expect(section).ShouldNot(BeNil(), "Should find [keystone_authtoken] section")
+				regionValue := section.Key("region_name").String()
+				g.Expect(regionValue).Should(Equal(testRegion), fmt.Sprintf("Expected region_name to be %s, but got: '%s'", testRegion, regionValue))
 			}, timeout, interval).Should(Succeed())
 		})
 	})
