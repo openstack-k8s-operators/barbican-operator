@@ -73,9 +73,7 @@ const (
 	interval = time.Millisecond * 200
 
 	// PKCS11 Constants
-	PKCS11ClientDataPath   = "/usr/local/luna"
-	PKCS11LoginSecret      = "pkcs11-login"       // #nosec G101
-	PKCS11ClientDataSecret = "pkcs11-client-data" // #nosec G101
+	PKCS11ClientDataPath = "/usr/local/luna"
 )
 
 func TestAPIs(t *testing.T) {

@@ -43,6 +43,10 @@ const (
 	APICustomConfigSecret1Name = "api-custom-secret-1" // #nosec G101
 	// APICustomConfigSecret2Name -
 	APICustomConfigSecret2Name = "api-custom-secret-2" // #nosec G101
+	// PKCS11LoginSecret -
+	PKCS11LoginSecret = "pkcs11-login" // #nosec G101
+	// PKCS11ClientDataSecret -
+	PKCS11ClientDataSecret = "pkcs11-client-data" // #nosec G101
 )
 
 // BarbicanTestData is the data structure used to provide input data to envTest

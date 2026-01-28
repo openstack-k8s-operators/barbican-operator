@@ -50,6 +50,9 @@ type BarbicanKeystoneListenerSpec struct {
 
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 
+	// NotificationsURLSecret - Secret containing notifications transport URL
+	NotificationsURLSecret string `json:"notificationsURLSecret,omitempty"`
+
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// TLS - Parameters related to the TLS
