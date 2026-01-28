@@ -649,9 +649,6 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 
 	Log.Info(fmt.Sprintf("[API] Got secrets '%s'", instance.Name))
 
-	// Note: Application Credential data is now handled by parent Barbican controller
-	// and passed via the config-data secret (centralized pattern)
-
 	//
 	// TLS input validation
 	//
@@ -1010,8 +1007,6 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}); err != nil {
 		return err
 	}
-
-	// Note: authAppCredSecretField indexer removed - AC now handled centrally at parent Barbican level
 
 	// index pkcs11LoginSecretField
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanAPI{}, pkcs11LoginSecretField, func(rawObj client.Object) []string {
