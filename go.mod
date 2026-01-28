@@ -6,18 +6,18 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
-	github.com/onsi/ginkgo/v2 v2.27.3
+	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
 	github.com/openstack-k8s-operators/barbican-operator/api v0.0.0-00010101000000-000000000000
-	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260115124008-0121df869109
-	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20260116230254-f54dd51650ac
+	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260123105816-865d02e287a9
+	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20260120112029-cd452f0497ba
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20251230215914-6ba873b49a35
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20251230215914-6ba873b49a35
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20251230215914-6ba873b49a35
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260105160121-f7a8ef85ce8d
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260120155328-e04f52e73f01
 	go.uber.org/zap v1.27.1
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
-	gopkg.in/ini.v1 v1.67.0
+	gopkg.in/ini.v1 v1.67.1
 	k8s.io/api v0.31.14
 	k8s.io/apimachinery v0.31.14
 	k8s.io/client-go v0.31.14
