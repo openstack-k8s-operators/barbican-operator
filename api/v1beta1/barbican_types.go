@@ -116,6 +116,11 @@ type BarbicanSpecBase struct {
 	APITimeout int `json:"apiTimeout"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Auth - Parameters related to authentication for all Barbican services
+	Auth AuthSpec `json:"auth,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// TopologyRef to apply the Topology defined by the associated CR referenced
 	// by name
 	TopologyRef *topologyv1.TopoRef `json:"topologyRef,omitempty"`
