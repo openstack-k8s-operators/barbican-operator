@@ -19,6 +19,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -32,6 +33,12 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// Static errors for Application Credential handling
+var (
+	ErrACSecretNotFound    = errors.New("ApplicationCredential secret not found")
+	ErrACSecretMissingKeys = errors.New("ApplicationCredential secret missing required keys")
 )
 
 type conditionUpdater interface {
