@@ -9,7 +9,8 @@ spec:
     debug = True
   databaseInstance: openstack
   databaseAccount: barbican
-  rabbitMqClusterName: rabbitmq
+  messagingBus:
+    cluster: rabbitmq
   barbicanAPI:
     replicas: 1
   barbicanWorker:

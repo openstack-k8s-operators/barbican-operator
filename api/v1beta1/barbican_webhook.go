@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"slices"
 
-	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	common_webhook "github.com/openstack-k8s-operators/lib-common/modules/common/webhook"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +36,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 )
 
 // BarbicanDefaults -
@@ -85,9 +84,10 @@ func (spec *BarbicanSpec) Default() {
 
 // Default - for shared base validations
 func (spec *BarbicanSpecBase) Default() {
-	// Only migrate from deprecated field if the new field is not already set
+	// Default MessagingBus.Cluster if not set
+	// Migration from deprecated fields is handled by openstack-operator
 	if spec.MessagingBus.Cluster == "" {
-		rabbitmqv1.DefaultRabbitMqConfig(&spec.MessagingBus, spec.RabbitMqClusterName)
+		spec.MessagingBus.Cluster = "rabbitmq"
 	}
 }
 
@@ -144,12 +144,12 @@ func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string)
 // ValidatePKCS11 validates that PKCS11 configuration is provided when PKCS11 is an enabled secret store
 func (spec *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.ErrorList) {
 	if slices.Contains(spec.EnabledSecretStores, SecretStorePKCS11) {
-                if spec.PKCS11 == nil {
-                        *allErrs = append(*allErrs, field.Required(basePath.Child("PKCS11"),
-                                "PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
-                        )
-                }
-        }
+		if spec.PKCS11 == nil {
+			*allErrs = append(*allErrs, field.Required(basePath.Child("PKCS11"),
+				"PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
+			)
+		}
+	}
 }
 
 // ValidateCreate validates BarbicanSpecCore on creation
@@ -334,20 +334,20 @@ func (spec *BarbicanSpecCore) ValidateBarbicanTopology(basePath *field.Path, nam
 	// if a different Namespace is referenced because not supported
 	apiPath := basePath.Child("barbicanAPI")
 	allErrs = append(allErrs,
-		spec.BarbicanAPI.ValidateTopology(apiPath, namespace) ...)
+		spec.BarbicanAPI.ValidateTopology(apiPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to BarbicanKeystoneListener,
 	// fail if a different Namespace is referenced because not supported
 	klPath := basePath.Child("barbicanKeystoneListener")
 	allErrs = append(allErrs,
-		spec.BarbicanKeystoneListener.ValidateTopology(klPath, namespace) ...)
+		spec.BarbicanKeystoneListener.ValidateTopology(klPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to an instance of
 	// BarbicanWorker, fail if a different Namespace is referenced because not
 	// supported
 	workerPath := basePath.Child("barbicanWorker")
 	allErrs = append(allErrs,
-		spec.BarbicanWorker.ValidateTopology(workerPath, namespace) ...)
+		spec.BarbicanWorker.ValidateTopology(workerPath, namespace)...)
 
 	return allErrs
 }
@@ -366,20 +366,20 @@ func (spec *BarbicanSpec) ValidateBarbicanTopology(basePath *field.Path, namespa
 	// if a different Namespace is referenced because not supported
 	apiPath := basePath.Child("barbicanAPI")
 	allErrs = append(allErrs,
-		spec.BarbicanAPI.ValidateTopology(apiPath, namespace) ...)
+		spec.BarbicanAPI.ValidateTopology(apiPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to BarbicanKeystoneListener,
 	// fail if a different Namespace is referenced because not supported
 	klPath := basePath.Child("barbicanKeystoneListener")
 	allErrs = append(allErrs,
-		spec.BarbicanKeystoneListener.ValidateTopology(klPath, namespace) ...)
+		spec.BarbicanKeystoneListener.ValidateTopology(klPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to an instance of
 	// BarbicanWorker, fail if a different Namespace is referenced because not
 	// supported
 	workerPath := basePath.Child("barbicanWorker")
 	allErrs = append(allErrs,
-		spec.BarbicanWorker.ValidateTopology(workerPath, namespace) ...)
+		spec.BarbicanWorker.ValidateTopology(workerPath, namespace)...)
 
 	return allErrs
 }

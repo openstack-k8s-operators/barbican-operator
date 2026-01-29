@@ -14,6 +14,8 @@ spec:
   databaseInstance: openstack
   databaseUser: barbican
   rabbitMqClusterName: rabbitmq
+  notificationsBus:
+    cluster: rabbitmq  # Required for Barbican KeystoneListener to receive Keystone notifications
   secret: osp-secret
   passwordSelectors:
     database: BarbicanDatabasePassword

@@ -781,10 +781,10 @@ spec:
                   e.g. to check logs
                 type: boolean
               rabbitMqClusterName:
-                default: rabbitmq
                 description: |-
                   RabbitMQ instance name
                   Needed to request a transportURL that is created and used in Barbican
+                  Deprecated: Use MessagingBus.Cluster instead
                 type: string
               secret:
                 default: osp-secret
@@ -826,7 +826,6 @@ spec:
             - barbicanKeystoneListener
             - barbicanWorker
             - databaseInstance
-            - rabbitMqClusterName
             - serviceAccount
             type: object
           status:

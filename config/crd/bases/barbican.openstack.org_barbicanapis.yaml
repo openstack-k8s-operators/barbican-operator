@@ -373,10 +373,10 @@ spec:
                 - loginSecret
                 type: object
               rabbitMqClusterName:
-                default: rabbitmq
                 description: |-
                   RabbitMQ instance name
                   Needed to request a transportURL that is created and used in Barbican
+                  Deprecated: Use MessagingBus.Cluster instead
                 type: string
               replicas:
                 default: 1
@@ -518,7 +518,6 @@ spec:
             - containerImage
             - databaseHostname
             - databaseInstance
-            - rabbitMqClusterName
             - serviceAccount
             type: object
           status:

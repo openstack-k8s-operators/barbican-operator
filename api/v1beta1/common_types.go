@@ -28,12 +28,11 @@ type BarbicanTemplate struct {
 	// DatabaseAccount - optional MariaDBAccount CR name used for barbican DB, defaults to barbican
 	DatabaseAccount string `json:"databaseAccount"`
 
-	// +kubebuilder:validation:Required
-	// +kubebuilder:default=rabbitmq
+	// +kubebuilder:validation:Optional
 	// RabbitMQ instance name
 	// Needed to request a transportURL that is created and used in Barbican
-	// +deprecated:messagingBus.cluster
-	RabbitMqClusterName string `json:"rabbitMqClusterName"`
+	// Deprecated: Use MessagingBus.Cluster instead
+	RabbitMqClusterName string `json:"rabbitMqClusterName,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// MessagingBus configuration (username, vhost, and cluster)
