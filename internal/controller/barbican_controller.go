@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -62,6 +63,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 )
 
 const (
@@ -570,6 +572,7 @@ const (
 	topologyField                       = ".spec.topologyRef.Name"
 	customServiceConfigSecretsField     = ".spec.customServiceConfigSecrets" // #nosec G101
 	parentBarbicanConfigDataSecretField = ".status.parentBarbicanConfigDataSecret"
+	authAppCredSecretField              = ".spec.auth.applicationCredentialSecret" // #nosec G101
 )
 
 var (
@@ -607,6 +610,18 @@ var (
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Index authAppCredSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.Barbican{}, authAppCredSecretField, func(rawObj client.Object) []string {
+		// Extract the application credential secret name from the spec, if one is provided
+		cr := rawObj.(*barbicanv1beta1.Barbican)
+		if cr.Spec.Auth.ApplicationCredentialSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.Auth.ApplicationCredentialSecret}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.Barbican{}).
 		Owns(&barbicanv1beta1.BarbicanAPI{}).
@@ -625,6 +640,9 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&keystonev1.KeystoneAPI{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectForSrc),
 			builder.WithPredicates(keystonev1.KeystoneAPIStatusChangedPredicate)).
+		Watches(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
 		Complete(r)
 }
 
@@ -654,6 +672,48 @@ func (r *BarbicanReconciler) findObjectForSrc(ctx context.Context, src client.Ob
 				},
 			},
 		)
+	}
+
+	return requests
+}
+
+func (r *BarbicanReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
+	requests := []reconcile.Request{}
+
+	Log := r.GetLogger(ctx)
+
+	for _, field := range []string{
+		passwordSecretField,
+		simpleCryptoBackendSecretField,
+		caBundleSecretNameField,
+		pkcs11LoginSecretField,
+		pkcs11ClientDataSecretField,
+		customServiceConfigSecretsField,
+		authAppCredSecretField,
+	} {
+		crList := &barbicanv1beta1.BarbicanList{}
+		listOps := &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
+			Namespace:     src.GetNamespace(),
+		}
+		err := r.List(ctx, crList, listOps)
+		if err != nil {
+			Log.Error(err, fmt.Sprintf("listing for field: %s - %s", field, src.GetName()))
+			continue
+		}
+
+		for _, item := range crList.Items {
+			Log.Info(fmt.Sprintf("input source %s changed, reconcile: %s - %s", src.GetName(), item.GetName(), item.GetNamespace()))
+
+			requests = append(requests,
+				reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				},
+			)
+		}
 	}
 
 	return requests
@@ -720,6 +780,34 @@ func (r *BarbicanReconciler) generateServiceConfig(
 		"LogFile":          fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
 		"EnableSecureRBAC": instance.Spec.BarbicanAPI.EnableSecureRBAC,
 		"Region":           keystoneAPI.GetRegion(),
+	}
+
+	templateParameters["UseApplicationCredentials"] = false
+	// Retrieve Application Credential data if configured
+	// This AC data will be available to all Barbican components via the shared secret
+	if instance.Spec.Auth.ApplicationCredentialSecret != "" {
+		acSecretObj, _, err := oko_secret.GetSecret(ctx, h, instance.Spec.Auth.ApplicationCredentialSecret, instance.Namespace)
+		if err != nil {
+			if k8s_errors.IsNotFound(err) {
+				Log.Info("ApplicationCredential secret not found, waiting", "secret", instance.Spec.Auth.ApplicationCredentialSecret)
+				return fmt.Errorf("%w: %s", ErrACSecretNotFound, instance.Spec.Auth.ApplicationCredentialSecret)
+			}
+			Log.Error(err, "Failed to get ApplicationCredential secret", "secret", instance.Spec.Auth.ApplicationCredentialSecret)
+			return err
+		}
+		acID, okID := acSecretObj.Data[keystonev1.ACIDSecretKey]
+		acSecretData, okSecret := acSecretObj.Data[keystonev1.ACSecretSecretKey]
+		if !okID || len(acID) == 0 || !okSecret || len(acSecretData) == 0 {
+			Log.Info("ApplicationCredential secret missing required keys", "secret", instance.Spec.Auth.ApplicationCredentialSecret)
+			return fmt.Errorf("%w: %s", ErrACSecretMissingKeys, instance.Spec.Auth.ApplicationCredentialSecret)
+		}
+		templateParameters["UseApplicationCredentials"] = true
+		templateParameters["ACID"] = string(acID)
+		templateParameters["ACSecret"] = string(acSecretData)
+		// Also add to customData so child controllers can access it
+		customData["ACID"] = string(acID)
+		customData["ACSecret"] = string(acSecretData)
+		Log.Info("Using ApplicationCredentials auth (centralized from parent Barbican CR)", "secret", instance.Spec.Auth.ApplicationCredentialSecret)
 	}
 
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath

@@ -29,8 +29,6 @@ import (
 	"github.com/openstack-k8s-operators/barbican-operator/internal/barbican"
 	"github.com/openstack-k8s-operators/barbican-operator/internal/barbicankeystonelistener"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
-
-	// keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/deployment"
@@ -287,6 +285,16 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 		}
 		customData[barbican.DefaultsConfigFileName] = string(barbicanSecret.Data[barbican.DefaultsConfigFileName])
 		customData[barbican.CustomConfigFileName] = string(barbicanSecret.Data[barbican.CustomConfigFileName])
+
+		// Application Credential data from parent (centralized pattern)
+		if acID, ok := barbicanSecret.Data["ACID"]; ok && len(acID) > 0 {
+			if acSecretData, ok := barbicanSecret.Data["ACSecret"]; ok && len(acSecretData) > 0 {
+				customData["ACID"] = string(acID)
+				customData["ACSecret"] = string(acSecretData)
+				Log.Info("Using ApplicationCredentials auth from parent Barbican CR")
+			}
+		}
+
 		// TODO(alee) Get custom config overwrites from the parent barbican
 	}
 
@@ -308,6 +316,16 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 
 	templateParameters := map[string]any{
 		"LogFile": fmt.Sprintf("%s%s.log", barbican.BarbicanLogPath, instance.Name),
+	}
+
+	// Check if Application Credential data is available from parent (centralized pattern)
+	templateParameters["UseApplicationCredentials"] = false
+	if acID, ok := customData["ACID"]; ok && len(acID) > 0 {
+		if acSecret, ok := customData["ACSecret"]; ok && len(acSecret) > 0 {
+			templateParameters["UseApplicationCredentials"] = true
+			templateParameters["ACID"] = acID
+			templateParameters["ACSecret"] = acSecret
+		}
 	}
 
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
@@ -762,8 +780,10 @@ func (r *BarbicanKeystoneListenerReconciler) SetupWithManager(mgr ctrl.Manager) 
 		).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Complete(r)
+
 }
 
 func (r *BarbicanKeystoneListenerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
