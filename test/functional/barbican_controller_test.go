@@ -1864,6 +1864,442 @@ var _ = Describe("Barbican controller", func() {
 
 	})
 
+	When("A Barbican is created with custom RabbitMQ user and vhost", func() {
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["messagingBus"] = map[string]any{
+				"user":  "custom-barbican-user",
+				"vhost": "custom-barbican-vhost",
+			}
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+		})
+
+		It("should create a TransportURL with custom username and vhost", func() {
+			transportURLName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-barbican-transport", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+
+			// Get the TransportURL object
+			transportURL := infra.GetTransportURL(transportURLName)
+
+			// Verify the custom username is set
+			Expect(transportURL.Spec.Username).To(Equal("custom-barbican-user"))
+
+			// Verify the custom vhost is set (without leading slash)
+			Expect(transportURL.Spec.Vhost).To(Equal("custom-barbican-vhost"))
+
+			// Verify the RabbitMQ cluster name is set correctly
+			Expect(transportURL.Spec.RabbitmqClusterName).To(Equal("rabbitmq"))
+		})
+	})
+
+	When("A Barbican is created without custom RabbitMQ user and vhost", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetDefaultBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+		})
+
+		It("should create a TransportURL with default (empty) username and vhost", func() {
+			transportURLName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-barbican-transport", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+
+			// Get the TransportURL object
+			transportURL := infra.GetTransportURL(transportURLName)
+
+			// Verify the username is empty (default)
+			Expect(transportURL.Spec.Username).To(BeEmpty())
+
+			// Verify the vhost is empty (default)
+			Expect(transportURL.Spec.Vhost).To(BeEmpty())
+
+			// Verify the RabbitMQ cluster name is set correctly
+			Expect(transportURL.Spec.RabbitmqClusterName).To(Equal("rabbitmq"))
+		})
+	})
+
+	When("A Barbican is created with notifications bus pointing to same cluster", func() {
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["notificationsBus"] = map[string]any{
+				"cluster": "rabbitmq", // Same as default messagingBus
+			}
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			// Simulate the notifications TransportURL being ready (separate from messaging)
+			notificationsTransportURLName := types.NamespacedName{
+				Namespace: barbicanTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-barbican-notifications-transport", barbicanTest.Instance.Name),
+			}
+			infra.SimulateTransportURLReady(notificationsTransportURLName)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+		})
+
+		It("should create separate TransportURLs even when using same cluster", func() {
+			// Verify that separate TransportURL CRs exist even with same cluster
+			Eventually(func(g Gomega) {
+				mainTransportURL := infra.GetTransportURL(barbicanTest.BarbicanTransportURL)
+				g.Expect(mainTransportURL).ToNot(BeNil())
+
+				notificationTransportURLName := types.NamespacedName{
+					Name:      fmt.Sprintf("%s-barbican-notifications-transport", barbicanTest.Instance.Name),
+					Namespace: barbicanTest.Instance.Namespace,
+				}
+				notificationTransportURL := infra.GetTransportURL(notificationTransportURLName)
+				g.Expect(notificationTransportURL).ToNot(BeNil())
+
+				// Verify they are different TransportURL CRs
+				g.Expect(mainTransportURL.Name).ToNot(Equal(notificationTransportURL.Name))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				g.Expect(barbican.Status.TransportURLSecret).ToNot(Equal(""))
+				g.Expect(barbican.Status.NotificationsURLSecret).ToNot(BeNil())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify the condition is set
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.NotificationBusInstanceReadyCondition,
+				corev1.ConditionTrue,
+			)
+		})
+
+		It("should have transport_url in oslo_messaging_notifications section", func() {
+			Eventually(func(g Gomega) {
+				confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+				g.Expect(confSecret).ShouldNot(BeNil())
+				conf := string(confSecret.Data["00-default.conf"])
+				// When notificationsBus points to same cluster, config should still have transport_url
+				g.Expect(conf).To(ContainSubstring("[oslo_messaging_notifications]"))
+				g.Expect(conf).To(ContainSubstring("driver=messagingv2"))
+				g.Expect(conf).To(ContainSubstring("transport_url="))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("A Barbican is created with notifications bus pointing to different cluster", func() {
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["notificationsBus"] = map[string]any{
+				"cluster": "rabbitmq-notification",
+				"user":    "barbican-notify",
+				"vhost":   "/notifications",
+			}
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-notification-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			// Need to simulate the second TransportURL for notifications
+			notificationTransportURL := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-barbican-notifications-transport", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+			infra.SimulateTransportURLReady(notificationTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+		})
+
+		It("should create separate TransportURL for notifications", func() {
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				g.Expect(barbican.Status.NotificationsURLSecret).ToNot(BeNil())
+				// Should be different secrets when cluster is different
+				g.Expect(*barbican.Status.NotificationsURLSecret).ToNot(
+					Equal(barbican.Status.TransportURLSecret))
+			}, timeout, interval).Should(Succeed())
+
+			// Verify the notification TransportURL was created with correct config
+			notificationTransportURLName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-barbican-notifications-transport", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+			transportURL := infra.GetTransportURL(notificationTransportURLName)
+			Expect(transportURL.Spec.RabbitmqClusterName).To(Equal("rabbitmq-notification"))
+			Expect(transportURL.Spec.Username).To(Equal("barbican-notify"))
+			Expect(transportURL.Spec.Vhost).To(Equal("/notifications"))
+
+			// Verify the condition is set
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.NotificationBusInstanceReadyCondition,
+				corev1.ConditionTrue,
+			)
+		})
+
+		It("should have separate transport_url in oslo_messaging_notifications section", func() {
+			Eventually(func(g Gomega) {
+				confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+				g.Expect(confSecret).ShouldNot(BeNil())
+				conf := string(confSecret.Data["00-default.conf"])
+				// Config should have transport_url in oslo_messaging_notifications
+				g.Expect(conf).To(ContainSubstring("[oslo_messaging_notifications]"))
+				g.Expect(conf).To(ContainSubstring("driver=messagingv2"))
+				g.Expect(conf).To(ContainSubstring("transport_url="))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("A Barbican is created with same RabbitMQ cluster but different vhost/user for notifications", func() {
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["messagingBus"] = map[string]any{
+				"user":  "main-user",
+				"vhost": "main-vhost",
+			}
+			spec["notificationsBus"] = map[string]any{
+				"cluster": "rabbitmq", // Same cluster as messaging
+				"user":    "notifications-user",
+				"vhost":   "notifications-vhost",
+			}
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			// Need to simulate the second TransportURL for notifications
+			notificationTransportURL := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-barbican-notifications-transport", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+			infra.SimulateTransportURLReady(notificationTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+		})
+
+		It("should create separate TransportURLs with different vhost/user even with same cluster", func() {
+			// Verify main TransportURL has main-specific config
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(barbicanTest.BarbicanTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal("main-user"))
+				g.Expect(transportURL.Spec.Vhost).To(Equal("main-vhost"))
+				g.Expect(transportURL.Spec.RabbitmqClusterName).To(Equal("rabbitmq"))
+			}, timeout, interval).Should(Succeed())
+
+			// Verify notifications TransportURL has notifications-specific config
+			notificationTransportURLName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-barbican-notifications-transport", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+			Eventually(func(g Gomega) {
+				notificationTransportURL := infra.GetTransportURL(notificationTransportURLName)
+				g.Expect(notificationTransportURL.Spec.Username).To(Equal("notifications-user"))
+				g.Expect(notificationTransportURL.Spec.Vhost).To(Equal("notifications-vhost"))
+				g.Expect(notificationTransportURL.Spec.RabbitmqClusterName).To(Equal("rabbitmq"))
+			}, timeout, interval).Should(Succeed())
+
+			// Verify that both TransportURLs exist and are different CRs
+			Eventually(func(g Gomega) {
+				mainTransportURL := infra.GetTransportURL(barbicanTest.BarbicanTransportURL)
+				notificationsTransportURL := infra.GetTransportURL(notificationTransportURLName)
+
+				// They should have the same cluster name
+				g.Expect(mainTransportURL.Spec.RabbitmqClusterName).To(Equal(notificationsTransportURL.Spec.RabbitmqClusterName))
+
+				// But different vhosts and users
+				g.Expect(mainTransportURL.Spec.Vhost).ToNot(Equal(notificationsTransportURL.Spec.Vhost))
+				g.Expect(mainTransportURL.Spec.Username).ToNot(Equal(notificationsTransportURL.Spec.Username))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("A Barbican notifications instance is disabled", func() {
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			// Start without notifications bus
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+		})
+
+		It("should not have notifications URL secret", func() {
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				g.Expect(barbican.Status.NotificationsURLSecret).To(BeNil())
+				g.Expect(barbican.Status.TransportURLSecret).ToNot(Equal(""))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should not have transport_url in oslo_messaging_notifications section", func() {
+			Eventually(func(g Gomega) {
+				confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+				g.Expect(confSecret).ShouldNot(BeNil())
+				conf := string(confSecret.Data["00-default.conf"])
+				// When notificationsBus is not configured, oslo_messaging_notifications should not have transport_url
+				g.Expect(conf).To(ContainSubstring("[oslo_messaging_notifications]"))
+				g.Expect(conf).To(ContainSubstring("driver=messagingv2"))
+				// Verify there's no transport_url immediately after oslo_messaging_notifications section
+				g.Expect(conf).ToNot(MatchRegexp(`\[oslo_messaging_notifications\][^\[]*transport_url=`))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("A Barbican starts with notifications enabled and then disables them", func() {
+		BeforeEach(func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["notificationsBus"] = map[string]any{
+				"cluster": "rabbitmq-notification",
+				"user":    "barbican-notify",
+				"vhost":   "/notifications",
+			}
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-notification-secret"))
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			// Simulate the notification TransportURL
+			notificationTransportURL := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-barbican-notifications-transport", barbicanTest.Instance.Name),
+				Namespace: barbicanTest.Instance.Namespace,
+			}
+			infra.SimulateTransportURLReady(notificationTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+		})
+
+		It("should initially have notifications enabled", func() {
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				g.Expect(barbican.Status.NotificationsURLSecret).ToNot(BeNil())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+				g.Expect(confSecret).ShouldNot(BeNil())
+				conf := string(confSecret.Data["00-default.conf"])
+				g.Expect(conf).To(ContainSubstring("[oslo_messaging_notifications]"))
+				g.Expect(conf).To(ContainSubstring("transport_url="))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should disable notifications when notificationsBus is removed", func() {
+			// Verify notifications are initially enabled
+			barbican := GetBarbican(barbicanTest.Instance)
+			Expect(barbican.Status.NotificationsURLSecret).ToNot(BeNil())
+
+			// Update the Barbican spec to remove notificationsBus
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				barbican.Spec.NotificationsBus = nil
+				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Wait for notifications to be disabled
+			Eventually(func(g Gomega) {
+				barbican := GetBarbican(barbicanTest.Instance)
+				g.Expect(barbican.Status.NotificationsURLSecret).To(BeNil())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify the config no longer has transport_url in oslo_messaging_notifications
+			Eventually(func(g Gomega) {
+				confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+				g.Expect(confSecret).ShouldNot(BeNil())
+				conf := string(confSecret.Data["00-default.conf"])
+				// Should still have the section but no transport_url
+				g.Expect(conf).To(ContainSubstring("[oslo_messaging_notifications]"))
+				g.Expect(conf).To(ContainSubstring("driver=messagingv2"))
+				g.Expect(conf).ToNot(MatchRegexp(`\[oslo_messaging_notifications\][^\[]*transport_url=`))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
 })
 
 var _ = Describe("Barbican Webhook", func() {

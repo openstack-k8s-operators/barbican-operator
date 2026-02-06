@@ -612,6 +612,15 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		return ctrlResult, err
 	}
 
+	// check for NotificationsURL secret if configured
+	if instance.Spec.NotificationsURLSecret != "" {
+		Log.Info(fmt.Sprintf("[API] Verify secret '%s'", instance.Spec.NotificationsURLSecret))
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.NotificationsURLSecret, []string{TransportURL}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+	}
+
 	// check for Simple Crypto Backend secret holding the KEK
 	if len(instance.Spec.EnabledSecretStores) == 0 || slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreSimpleCrypto) {
 		Log.Info(fmt.Sprintf("[API] Verify secret '%s'", instance.Spec.SimpleCryptoBackendSecret))

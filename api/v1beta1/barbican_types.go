@@ -149,6 +149,9 @@ type BarbicanStatus struct {
 	// TransportURLSecret - Secret containing RabbitMQ transportURL
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 
+	// NotificationsURLSecret - Secret containing RabbitMQ notificationsURL
+	NotificationsURLSecret *string `json:"notificationsURLSecret,omitempty"`
+
 	// Barbican Database Hostname
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
 

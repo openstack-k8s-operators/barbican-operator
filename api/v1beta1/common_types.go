@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -27,11 +28,19 @@ type BarbicanTemplate struct {
 	// DatabaseAccount - optional MariaDBAccount CR name used for barbican DB, defaults to barbican
 	DatabaseAccount string `json:"databaseAccount"`
 
-	// +kubebuilder:validation:Required
-	// +kubebuilder:default=rabbitmq
+	// +kubebuilder:validation:Optional
 	// RabbitMQ instance name
 	// Needed to request a transportURL that is created and used in Barbican
-	RabbitMqClusterName string `json:"rabbitMqClusterName"`
+	// Deprecated: Use MessagingBus.Cluster instead
+	RabbitMqClusterName string `json:"rabbitMqClusterName,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// MessagingBus configuration (username, vhost, and cluster)
+	MessagingBus rabbitmqv1.RabbitMqConfig `json:"messagingBus,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// NotificationsBus configuration (username, vhost, and cluster) for notifications
+	NotificationsBus *rabbitmqv1.RabbitMqConfig `json:"notificationsBus,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=osp-secret
