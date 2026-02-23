@@ -377,3 +377,16 @@ func GetSampleTopologySpec(
 	}
 	return topologySpec, topologySpecObj
 }
+
+// CreateBarbicanInvalidSecret creates a secret with an invalid password for testing
+func CreateBarbicanInvalidSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"AdminPassword":            []byte("12345678"),
+			"BarbicanPassword":         []byte(barbicanTest.BarbicanInvalidPassword),
+			"KeystoneDatabasePassword": []byte("12345678"),
+			"BarbicanSimpleCryptoKEK":  []byte("sEFmdFjDUqRM2VemYslV5yGNWjokioJXsg8Nrlc3drU="),
+		},
+	)
+}
