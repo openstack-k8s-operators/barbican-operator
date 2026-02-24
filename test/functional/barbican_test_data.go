@@ -52,6 +52,8 @@ const (
 // BarbicanTestData is the data structure used to provide input data to envTest
 type BarbicanTestData struct {
 	BarbicanPassword                     string
+	BarbicanInvalidPassword              string
+	BarbicanInvalidSecretName            string
 	BarbicanServiceUser                  string
 	ContainerImage                       string
 	DatabaseHostname                     string
@@ -243,10 +245,12 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		RabbitmqSecretName:  "rabbitmq-secret",
 		DatabaseInstance:    "openstack",
 		// Password used for service
-		BarbicanPassword:    "12345678",
-		BarbicanServiceUser: "barbican",
-		ContainerImage:      "test://barbican",
-		DatabaseHostname:    "database-hostname",
+		BarbicanPassword:          "12345678",
+		BarbicanInvalidPassword:   "c^sometext02%text%text02$someText&",
+		BarbicanInvalidSecretName: "test-osp-secret-invalid",
+		BarbicanServiceUser:       "barbican",
+		ContainerImage:            "test://barbican",
+		DatabaseHostname:          "database-hostname",
 		// A set of topologies to Test how the reference is propagated to the
 		// resulting StatefulSets and if a potential override produces the
 		// expected values

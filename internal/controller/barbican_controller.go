@@ -1319,10 +1319,17 @@ func (r *BarbicanReconciler) verifySecret(
 	envVars *map[string]env.Setter,
 ) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
-	hash, result, err := oko_secret.VerifySecret(
+
+	// All expectedFields are password fields, so we associate each with a
+	// password validator to ensure invalid detected patterns are rejected.
+	validateFields := map[string]oko_secret.Validator{}
+	for _, f := range expectedFields {
+		validateFields[f] = oko_secret.PasswordValidator{}
+	}
+	hash, result, err := oko_secret.VerifySecretFields(
 		ctx,
 		types.NamespacedName{Name: secretName, Namespace: instance.Namespace},
-		expectedFields,
+		validateFields,
 		h.GetClient(),
 		time.Second*10)
 	if err != nil {

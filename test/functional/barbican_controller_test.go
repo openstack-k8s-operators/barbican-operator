@@ -166,6 +166,29 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	When("Barbican CR is created with an invalid password", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanInvalidSecret(barbicanName.Namespace, barbicanTest.BarbicanInvalidSecretName))
+			spec := GetDefaultBarbicanSpec()
+			spec["secret"] = barbicanTest.BarbicanInvalidSecretName
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			// Simulate TransportURL ready to get past that dependency
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+		})
+		It("rejects the password and reports InputReadyCondition as False", func() {
+			expectedErrMsg := "Input data error occurred password does not meet the requirements"
+			th.ExpectConditionWithDetails(
+				barbicanName,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				condition.InputReadyCondition,
+				corev1.ConditionFalse,
+				condition.ErrorReason,
+				expectedErrMsg,
+			)
+		})
+	})
+
 	When("DB sync is completed", func() {
 		BeforeEach(func() {
 			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
