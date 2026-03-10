@@ -680,6 +680,50 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Index passwordSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.Barbican{}, passwordSecretField, func(rawObj client.Object) []string {
+		cr := rawObj.(*barbicanv1beta1.Barbican)
+		if cr.Spec.Secret == "" {
+			return nil
+		}
+		return []string{cr.Spec.Secret}
+	}); err != nil {
+		return err
+	}
+
+	// Index simpleCryptoBackendSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.Barbican{}, simpleCryptoBackendSecretField, func(rawObj client.Object) []string {
+		cr := rawObj.(*barbicanv1beta1.Barbican)
+		if cr.Spec.SimpleCryptoBackendSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.SimpleCryptoBackendSecret}
+	}); err != nil {
+		return err
+	}
+
+	// Index pkcs11LoginSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.Barbican{}, pkcs11LoginSecretField, func(rawObj client.Object) []string {
+		cr := rawObj.(*barbicanv1beta1.Barbican)
+		if cr.Spec.PKCS11 == nil || cr.Spec.PKCS11.LoginSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.PKCS11.LoginSecret}
+	}); err != nil {
+		return err
+	}
+
+	// Index pkcs11ClientDataSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.Barbican{}, pkcs11ClientDataSecretField, func(rawObj client.Object) []string {
+		cr := rawObj.(*barbicanv1beta1.Barbican)
+		if cr.Spec.PKCS11 == nil || cr.Spec.PKCS11.ClientDataSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.PKCS11.ClientDataSecret}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.Barbican{}).
 		Owns(&barbicanv1beta1.BarbicanAPI{}).
@@ -743,10 +787,8 @@ func (r *BarbicanReconciler) findObjectsForSrc(ctx context.Context, src client.O
 	for _, field := range []string{
 		passwordSecretField,
 		simpleCryptoBackendSecretField,
-		caBundleSecretNameField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
-		customServiceConfigSecretsField,
 		authAppCredSecretField,
 	} {
 		crList := &barbicanv1beta1.BarbicanList{}
