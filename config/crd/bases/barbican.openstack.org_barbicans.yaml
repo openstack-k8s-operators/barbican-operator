@@ -840,6 +840,13 @@ spec:
           status:
             description: BarbicanStatus defines the observed state of Barbican
             properties:
+              applicationCredentialSecret:
+                description: |-
+                  ApplicationCredentialSecret - the AC secret barbican is currently
+                  consuming and protecting with the openstack.org/barbican-ac-consumer
+                  finalizer. Tracked so the controller can remove its finalizer from the
+                  old secret when the openstack-operator rotates the reference.
+                type: string
               barbicanAPIReadyCount:
                 description: ReadyCount of Barbican API instances
                 format: int32
