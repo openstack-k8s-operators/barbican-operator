@@ -9,12 +9,12 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/openstack-k8s-operators/barbican-operator/api v0.0.0-00010101000000-000000000000
-	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260311104915-331074977ce0
-	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20260307080711-ebd6e8ef3085
+	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260314152256-401ddf989e8b
+	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20260314080138-c6521d3ff2dc
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260205083029-d03e9df035ef
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20260205083029-d03e9df035ef
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20260205083029-d03e9df035ef
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260307080955-7629caa7bb0c
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260314091348-d16e868e195f
 	go.uber.org/zap v1.27.1
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	gopkg.in/ini.v1 v1.67.1
