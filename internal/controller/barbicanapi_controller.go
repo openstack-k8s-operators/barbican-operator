@@ -333,8 +333,8 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		if err != nil {
 			return err
 		}
-		for _, data := range secret.Data {
-			customSecrets += string(data) + "\n"
+		for _, key := range slices.Sorted(maps.Keys(secret.Data)) {
+			customSecrets += string(secret.Data[key]) + "\n"
 		}
 	}
 	customData[barbican.CustomServiceConfigSecretsFileName] = customSecrets
@@ -388,7 +388,8 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 
 	apiEndpoints := make(map[string]string)
 
-	for endpointType, data := range barbicanEndpoints {
+	for _, endpointType := range slices.Sorted(maps.Keys(barbicanEndpoints)) {
+		data := barbicanEndpoints[endpointType]
 		endpointTypeStr := string(endpointType)
 		endpointName := barbican.ServiceName + "-" + endpointTypeStr
 		svcOverride := instance.Spec.Override.Service[endpointType]
