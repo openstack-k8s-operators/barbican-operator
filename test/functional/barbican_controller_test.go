@@ -1803,6 +1803,164 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	When("ApplicationCredential consumer finalizer is managed", func() {
+		var (
+			acSecretName          string
+			servicePasswordSecret string
+		)
+
+		BeforeEach(func() {
+			servicePasswordSecret = "ac-test-osp-secret" //nolint:gosec // G101
+
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateBarbicanMessageBusSecret(
+					barbicanTest.Instance.Namespace,
+					barbicanTest.RabbitmqSecretName,
+				),
+			)
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateBarbicanSecret(
+					barbicanTest.Instance.Namespace, servicePasswordSecret))
+
+			acSecretName = "ac-barbican-a1b2c-secret" //nolint:gosec // G101
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      acSecretName,
+				},
+				Data: map[string][]byte{
+					keystonev1.ACIDSecretKey:     []byte("a1b2ctest-ac-id"),
+					keystonev1.ACSecretSecretKey: []byte("test-ac-secret"),
+				},
+			}
+			DeferCleanup(k8sClient.Delete, ctx, secret)
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			spec := GetDefaultBarbicanSpec()
+			spec["secret"] = servicePasswordSecret
+			spec["simpleCryptoBackendSecret"] = servicePasswordSecret
+			spec["auth"] = map[string]any{
+				"applicationCredentialSecret": acSecretName,
+			}
+			DeferCleanup(th.DeleteInstance,
+				CreateBarbican(barbicanTest.Instance, spec))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}}}))
+
+			DeferCleanup(keystone.DeleteKeystoneAPI,
+				keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+		})
+
+		It("should add the consumer finalizer to the AC secret", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should track the consumed AC secret in status", func() {
+			Eventually(func(g Gomega) {
+				b := GetBarbican(barbicanTest.Instance)
+				g.Expect(b.Status.ApplicationCredentialSecret).To(Equal(acSecretName))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should move the finalizer from the old to the new secret on rotation", func() {
+			// Wait for the initial finalizer to appear
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Create a new AC secret
+			newACSecretName := "ac-barbican-x9y8z-secret" //nolint:gosec // G101
+			newSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      newACSecretName,
+				},
+				Data: map[string][]byte{
+					keystonev1.ACIDSecretKey:     []byte("x9y8zrotated-ac-id"),
+					keystonev1.ACSecretSecretKey: []byte("rotated-ac-secret"),
+				},
+			}
+			DeferCleanup(k8sClient.Delete, ctx, newSecret)
+			Expect(k8sClient.Create(ctx, newSecret)).To(Succeed())
+
+			// Update the Barbican CR to reference the new AC secret
+			Eventually(func(g Gomega) {
+				b := GetBarbican(barbicanTest.Instance)
+				b.Spec.Auth.ApplicationCredentialSecret = newACSecretName
+				g.Expect(k8sClient.Update(ctx, b)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// New secret should gain the consumer finalizer
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      newACSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Old secret should lose the consumer finalizer
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(barbican.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Status should reflect the new secret
+			Eventually(func(g Gomega) {
+				b := GetBarbican(barbicanTest.Instance)
+				g.Expect(b.Status.ApplicationCredentialSecret).To(Equal(newACSecretName))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should remove the consumer finalizer from AC secret on CR deletion", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			th.DeleteInstance(GetBarbican(barbicanTest.Instance))
+
+			secret := th.GetSecret(types.NamespacedName{
+				Namespace: barbicanTest.Instance.Namespace,
+				Name:      acSecretName,
+			})
+			Expect(secret.Finalizers).NotTo(
+				ContainElement(barbican.ACConsumerFinalizer))
+		})
+	})
+
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.

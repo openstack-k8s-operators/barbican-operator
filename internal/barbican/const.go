@@ -70,4 +70,6 @@ const (
 	BarbicanUID int64 = 42403
 	// BarbicanGID - based on https://github.com/openstack-k8s-operators/tcib/blob/main/container-images/kolla/base/uid_gid_manage.sh
 	BarbicanGID int64 = 42403
+	// ACConsumerFinalizer is added to AC secrets that barbican is actively consuming
+	ACConsumerFinalizer = "openstack.org/barbican-ac-consumer"
 )
