@@ -15,7 +15,7 @@ require (
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20260430090237-a4265c18a162
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20260430090237-a4265c18a162
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260428063048-3a190112bad3
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	gopkg.in/ini.v1 v1.67.1
 	k8s.io/api v0.31.14
