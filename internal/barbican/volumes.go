@@ -1,6 +1,9 @@
 package barbican
 
 import (
+	"fmt"
+	"slices"
+
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -143,6 +146,37 @@ func GetCustomConfigVolumeMount() corev1.VolumeMount {
 		MountPath: CustomConfigMountPoint,
 		ReadOnly:  true,
 	}
+}
+
+// GetConfigOverwriteVolumeMounts returns SubPath volume mounts that place
+// each defaultConfigOverwrite key as an individual file under /etc/barbican/.
+// SubPath mounts are used instead of a directory mount so that existing files
+// in /etc/barbican/ (barbican.conf, api-paste.ini, etc.) are not shadowed.
+// The overwrite data lives in the same config-data-custom Secret (merged via
+// CustomData).
+//
+// Backwards compatibility: the overwrite keys also remain accessible at
+// /etc/barbican/barbican.conf.d/<key> because the config-data-custom Secret
+// is already directory-mounted at /etc/barbican/barbican.conf.d/ by
+// GetCustomConfigVolumeMount. This preserves customer workarounds where e.g.
+// policy.yaml was referenced via customServiceConfig as:
+//
+//	[oslo_policy]
+//	policy_file = /etc/barbican/barbican.conf.d/policy.yaml
+func GetConfigOverwriteVolumeMounts(overwriteKeys []string) []corev1.VolumeMount {
+	mounts := make([]corev1.VolumeMount, 0, len(overwriteKeys))
+	sorted := make([]string, len(overwriteKeys))
+	copy(sorted, overwriteKeys)
+	slices.Sort(sorted)
+	for _, key := range sorted {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      CustomConfigVolume,
+			MountPath: fmt.Sprintf("%s/%s", ConfigOverwriteBasePath, key),
+			SubPath:   key,
+			ReadOnly:  true,
+		})
+	}
+	return mounts
 }
 
 // GetDBSyncVolumes - dbsync volumes

@@ -8,8 +8,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// GetWorkerVolumesAndMounts returns the volumes and mounts for a BarbicanWorker deployment
-func GetWorkerVolumesAndMounts(instance *barbicanv1beta1.BarbicanWorker) ([]corev1.Volume, []corev1.VolumeMount) {
+// GetWorkerVolumesAndMounts returns the volumes and mounts for a BarbicanWorker deployment.
+// overwriteKeys lists the defaultConfigOverwrite filenames that need SubPath
+// mounts into /etc/barbican/ (e.g. policy.yaml).
+func GetWorkerVolumesAndMounts(instance *barbicanv1beta1.BarbicanWorker, overwriteKeys []string) ([]corev1.Volume, []corev1.VolumeMount) {
 	workerVolumes := []corev1.Volume{
 		barbican.GetCustomConfigVolume(instance.Name),
 		barbican.GetLogVolume(),
@@ -20,6 +22,7 @@ func GetWorkerVolumesAndMounts(instance *barbicanv1beta1.BarbicanWorker) ([]core
 		barbican.GetKollaConfigVolumeMount(instance.Name),
 		barbican.GetLogVolumeMount(),
 	}
+	workerVolumeMounts = append(workerVolumeMounts, barbican.GetConfigOverwriteVolumeMounts(overwriteKeys)...)
 
 	// prepend general config volumes and mounts
 	workerVolumes = append(barbican.GetVolumes("barbican"), workerVolumes...)

@@ -130,6 +130,14 @@ spec:
               subPath: barbican-api-config.json
             - mountPath: /var/log/barbican
               name: logs
+            - mountPath: /etc/barbican/optional_policy.json
+              name: config-data-custom
+              readOnly: true
+              subPath: optional_policy.json
+            - mountPath: /etc/barbican/policy.json
+              name: config-data-custom
+              readOnly: true
+              subPath: policy.json
             - mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
               name: combined-ca-bundle
               readOnly: true

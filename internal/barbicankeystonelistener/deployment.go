@@ -24,13 +24,14 @@ func Deployment(
 	labels map[string]string,
 	annotations map[string]string,
 	topology *topologyv1.Topology,
+	overwriteKeys []string,
 ) *appsv1.Deployment {
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
 	args := []string{"-c", ServiceCommand}
 
-	keystoneListenerVolumes, keystoneListenerVolumeMounts := GetListenerVolumesAndMounts(instance)
+	keystoneListenerVolumes, keystoneListenerVolumeMounts := GetListenerVolumesAndMounts(instance, overwriteKeys)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
