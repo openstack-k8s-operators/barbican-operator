@@ -58,6 +58,9 @@ const (
 	CustomConfigVolume = "config-data-custom"
 	// CustomConfigMountPoint is the mount point for custom service config
 	CustomConfigMountPoint = "/etc/barbican/barbican.conf.d"
+	// ConfigOverwriteBasePath is the base directory where defaultConfigOverwrite
+	// files are placed via SubPath mounts (e.g. /etc/barbican/policy.yaml and /etc/barbican/api-paste.ini).
+	ConfigOverwriteBasePath = "/etc/barbican"
 	// ScriptVolume is the default volume name used to mount scripts
 	ScriptVolume = "scripts"
 	// ScriptMountPoint is the mount point for scripts

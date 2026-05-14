@@ -334,6 +334,11 @@ var _ = Describe("Barbican controller", func() {
 			th.AssertVolumeMountExists("config-data", "", container.VolumeMounts)
 			th.AssertVolumeMountExists("config-data-custom", "", container.VolumeMounts)
 
+			// defaultConfigOverwrite SubPath mounts (reuse config-data-custom volume)
+			th.AssertVolumeMountExists("config-data-custom", "api-custom.conf", container.VolumeMounts)
+			th.AssertVolumeMountExists("config-data-custom", "base-custom.conf", container.VolumeMounts)
+			th.AssertVolumeMountExists("config-data-custom", "policy.json", container.VolumeMounts)
+
 			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.key", container.VolumeMounts)
 			th.AssertVolumeMountExists(barbicanTest.InternalCertSecret.Name, "tls.crt", container.VolumeMounts)
 			th.AssertVolumeMountExists(barbicanTest.PublicCertSecret.Name, "tls.key", container.VolumeMounts)
@@ -372,36 +377,27 @@ var _ = Describe("Barbican controller", func() {
 			Expect(customData).To(Equal(barbicanTest.APICustomServiceConfig))
 		})
 
-		It("checks the relevant secrets contain the base and API defaultConfigOverwrite", func() {
+		It("checks the config-data secret contains defaultConfigOverwrite entries merged with custom config", func() {
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.InternalCertSecret))
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(barbicanTest.PublicCertSecret))
 			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
 
-			cf := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
 			Expect(cf).ShouldNot(BeNil())
+			// Base overwrite keys are present unless overridden by API-level keys
 			for fname, val := range barbicanTest.BaseDefaultConfigOverwrite {
-				customData := string(cf.Data[fname])
-				Expect(customData).To(Equal(val))
-			}
-
-			cf = th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
-			Expect(cf).ShouldNot(BeNil())
-			for fname, val := range barbicanTest.APIDefaultConfigOverwrite {
-				// all the API custom values should be there
-				customData := string(cf.Data[fname])
-				Expect(customData).To(Equal(val))
-			}
-			for fname, val := range barbicanTest.BaseDefaultConfigOverwrite {
-				_, ok := barbicanTest.APIDefaultConfigOverwrite[fname]
-				if ok {
-					// we've already checked this value
+				if _, overridden := barbicanTest.APIDefaultConfigOverwrite[fname]; overridden {
 					continue
 				}
 				customData := string(cf.Data[fname])
 				Expect(customData).To(Equal(val))
 			}
-
+			// API-level overwrite keys take precedence
+			for fname, val := range barbicanTest.APIDefaultConfigOverwrite {
+				customData := string(cf.Data[fname])
+				Expect(customData).To(Equal(val))
+			}
 		})
 		It("checks the relevant secrets contain the API CustomServiceConfigSecrets", func() {
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(barbicanTest.CABundleSecret))
@@ -420,6 +416,181 @@ var _ = Describe("Barbican controller", func() {
 			Expect(secret1).ShouldNot(BeNil())
 
 			Expect(customData).To(Equal(string(secret1.Data["secret1"]) + "\n" + string(secret2.Data["secret2"]) + "\n"))
+		})
+	})
+
+	When("Barbican defaultConfigOverwrite behavior", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					"openstack",
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+		})
+
+		It("produces no SubPath overwrite mounts when defaultConfigOverwrite is empty", func() {
+			spec := GetDefaultBarbicanSpec()
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
+
+			container := d.Spec.Template.Spec.Containers[1]
+			for _, vm := range container.VolumeMounts {
+				if vm.Name == "config-data-custom" && vm.SubPath != "" {
+					Fail(fmt.Sprintf("unexpected SubPath mount %q found when defaultConfigOverwrite is empty", vm.SubPath))
+				}
+			}
+		})
+
+		It("creates SubPath mounts only from API-level overwrite when parent has none", func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["barbicanAPI"] = map[string]any{
+				"defaultConfigOverwrite": map[string]string{
+					"policy.yaml": "api-only policy",
+				},
+			}
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
+			container := d.Spec.Template.Spec.Containers[1]
+			th.AssertVolumeMountExists("config-data-custom", "policy.yaml", container.VolumeMounts)
+
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			Expect(string(cf.Data["policy.yaml"])).To(Equal("api-only policy"))
+		})
+
+		It("mounts each overwrite key at /etc/barbican/<key> via SubPath", func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["defaultConfigOverwrite"] = map[string]string{
+				"logging.conf": "base logging config",
+			}
+			spec["barbicanAPI"] = map[string]any{
+				"defaultConfigOverwrite": map[string]string{
+					"policy.yaml": "api policy config",
+				},
+			}
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
+			container := d.Spec.Template.Spec.Containers[1]
+
+			foundPaths := map[string]bool{}
+			for _, vm := range container.VolumeMounts {
+				if vm.Name == "config-data-custom" && vm.SubPath != "" {
+					foundPaths[vm.MountPath] = true
+					Expect(vm.ReadOnly).To(BeTrue())
+				}
+			}
+			Expect(foundPaths).To(HaveKey("/etc/barbican/policy.yaml"))
+			Expect(foundPaths).To(HaveKey("/etc/barbican/logging.conf"))
+		})
+
+		It("preserves .conf.d config keys alongside overwrite keys in the same secret", func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["defaultConfigOverwrite"] = map[string]string{
+				"policy.yaml": "my custom policy",
+			}
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+
+			// Overwrite key is present
+			Expect(string(cf.Data["policy.yaml"])).To(Equal("my custom policy"))
+
+			// Standard .conf.d keys are still present
+			Expect(cf.Data).To(HaveKey("00-default.conf"))
+			Expect(cf.Data).To(HaveKey("02-service-custom.conf"))
+		})
+
+		// This test guards the backwards-compatible behaviour for
+		// defaultConfigOverwrite. Overwrite keys must be accessible at BOTH:
+		//   /etc/barbican/<key>              (correct path, via SubPath mount)
+		//   /etc/barbican/barbican.conf.d/<key> (old buggy path, via directory mount)
+		//
+		// The .conf.d/ path works because the overwrite data is merged into
+		// the config-data-custom Secret, which is directory-mounted at
+		// /etc/barbican/barbican.conf.d/. This preserves customer workarounds
+		// where e.g. policy.yaml was referenced via customServiceConfig:
+		//   [oslo_policy]
+		//   policy_file = /etc/barbican/barbican.conf.d/policy.yaml
+		//
+		// If this test or the architecture changes, existing workarounds will
+		// break. Update release notes accordingly.
+		It("keeps overwrite keys accessible in both /etc/barbican/ and .conf.d/ for backwards compatibility", func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["barbicanAPI"] = map[string]any{
+				"defaultConfigOverwrite": map[string]string{
+					"barbican-api-paste.ini": "[pipeline:barbican_api]\npipeline = audit barbican_api_v1",
+					"policy.yaml":            "custom-policy-content",
+				},
+			}
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
+			container := d.Spec.Template.Spec.Containers[1]
+
+			By("checking SubPath mounts at /etc/barbican/<key>")
+			for _, key := range []string{"barbican-api-paste.ini", "policy.yaml"} {
+				th.AssertVolumeMountExists("config-data-custom", key, container.VolumeMounts)
+			}
+
+			By("checking the directory mount at /etc/barbican/barbican.conf.d covers overwrite keys")
+			hasConfDMount := false
+			for _, vm := range container.VolumeMounts {
+				if vm.Name == "config-data-custom" && vm.MountPath == "/etc/barbican/barbican.conf.d" && vm.SubPath == "" {
+					hasConfDMount = true
+					break
+				}
+			}
+			Expect(hasConfDMount).To(BeTrue(),
+				"config-data-custom must be directory-mounted at /etc/barbican/barbican.conf.d "+
+					"so overwrite keys are also accessible at the old .conf.d/ path")
+
+			By("checking the secret contains the overwrite keys")
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			Expect(string(cf.Data["barbican-api-paste.ini"])).To(Equal("[pipeline:barbican_api]\npipeline = audit barbican_api_v1"))
+			Expect(string(cf.Data["policy.yaml"])).To(Equal("custom-policy-content"))
 		})
 	})
 

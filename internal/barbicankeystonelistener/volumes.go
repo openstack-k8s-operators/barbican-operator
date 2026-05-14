@@ -6,8 +6,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// GetListenerVolumesAndMounts returns the volumes and mounts for a BarbicanKeystoneListener deployment
-func GetListenerVolumesAndMounts(instance *barbicanv1beta1.BarbicanKeystoneListener) ([]corev1.Volume, []corev1.VolumeMount) {
+// GetListenerVolumesAndMounts returns the volumes and mounts for a BarbicanKeystoneListener deployment.
+// overwriteKeys lists the defaultConfigOverwrite filenames that need SubPath
+// mounts into /etc/barbican/ (e.g. policy.yaml).
+func GetListenerVolumesAndMounts(instance *barbicanv1beta1.BarbicanKeystoneListener, overwriteKeys []string) ([]corev1.Volume, []corev1.VolumeMount) {
 	listenerVolumes := []corev1.Volume{
 		barbican.GetCustomConfigVolume(instance.Name),
 		barbican.GetLogVolume(),
@@ -18,6 +20,7 @@ func GetListenerVolumesAndMounts(instance *barbicanv1beta1.BarbicanKeystoneListe
 		barbican.GetKollaConfigVolumeMount(instance.Name),
 		barbican.GetLogVolumeMount(),
 	}
+	listenerVolumeMounts = append(listenerVolumeMounts, barbican.GetConfigOverwriteVolumeMounts(overwriteKeys)...)
 
 	// prepend general config volumes and mounts
 	listenerVolumes = append(barbican.GetVolumes("barbican"), listenerVolumes...)

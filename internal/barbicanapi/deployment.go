@@ -26,6 +26,7 @@ func Deployment(
 	labels map[string]string,
 	annotations map[string]string,
 	topology *topologyv1.Topology,
+	overwriteKeys []string,
 ) (*appsv1.Deployment, error) {
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
@@ -58,7 +59,7 @@ func Deployment(
 	}
 	readinessProbe.HTTPGet = livenessProbe.HTTPGet
 
-	apiVolumes, apiVolumeMounts, err := GetAPIVolumesAndMounts(instance)
+	apiVolumes, apiVolumeMounts, err := GetAPIVolumesAndMounts(instance, overwriteKeys)
 	if err != nil {
 		return nil, err
 	}

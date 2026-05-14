@@ -102,7 +102,6 @@ func GenerateConfigsGeneric(
 	scripts bool,
 ) error {
 	cms := []util.Template{
-		// Templates where the BarbicanAPI config is stored
 		{
 			Name:          fmt.Sprintf("%s-config-data", instance.GetName()),
 			Namespace:     instance.GetNamespace(),
@@ -124,6 +123,30 @@ func GenerateConfigsGeneric(
 		})
 	}
 	return secret.EnsureSecrets(ctx, h, instance, cms, envVars)
+}
+
+// collectOverwriteKeys returns the merged set of defaultConfigOverwrite keys
+// from both the parent Barbican CR and the component's own DefaultConfigOverwrite.
+// These keys are used to create per-file SubPath volume mounts into /etc/barbican/.
+// The parentOverwrite map is passed from the already-fetched parent Barbican
+// CR to avoid a redundant API call (generateServiceConfigs already fetches it).
+func collectOverwriteKeys(
+	parentOverwrite map[string]string,
+	componentOverwrite map[string]string,
+) []string {
+	merged := make(map[string]struct{}, len(parentOverwrite)+len(componentOverwrite))
+	for k := range parentOverwrite {
+		merged[k] = struct{}{}
+	}
+	for k := range componentOverwrite {
+		merged[k] = struct{}{}
+	}
+	keys := make([]string, 0, len(merged))
+	for k := range merged {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // GenerateSecretStoreTemplateMap generates a template map for configured secret stores
