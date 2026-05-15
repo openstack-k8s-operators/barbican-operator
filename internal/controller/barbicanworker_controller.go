@@ -339,7 +339,7 @@ func (r *BarbicanWorkerReconciler) generateServiceConfigs(
 	// This gets overridden in the PKCS11 section below if needed.
 	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
 
-	return parentOverwrite, GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
+	return parentOverwrite, GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false, []string{})
 }
 
 func (r *BarbicanWorkerReconciler) reconcileInit(

@@ -345,7 +345,7 @@ func (r *BarbicanKeystoneListenerReconciler) generateServiceConfigs(
 	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
 	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
 
-	return parentOverwrite, GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
+	return parentOverwrite, GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false, []string{})
 }
 
 func (r *BarbicanKeystoneListenerReconciler) reconcileInit(
