@@ -978,7 +978,7 @@ func (r *BarbicanReconciler) generateServiceConfig(
 	templateParameters["VHosts"] = httpdVhostConfig
 	templateParameters["TimeOut"] = instance.Spec.APITimeout
 
-	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true)
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true, []string{"ssl.conf"})
 }
 
 func (r *BarbicanReconciler) transportURLCreateOrUpdate(

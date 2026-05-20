@@ -100,16 +100,18 @@ func GenerateConfigsGeneric(
 	customData map[string]string,
 	cmLabels map[string]string,
 	scripts bool,
+	commonTemplates []string,
 ) error {
 	cms := []util.Template{
 		{
-			Name:          fmt.Sprintf("%s-config-data", instance.GetName()),
-			Namespace:     instance.GetNamespace(),
-			Type:          util.TemplateTypeConfig,
-			InstanceType:  instance.GetObjectKind().GroupVersionKind().Kind,
-			ConfigOptions: templateParameters,
-			CustomData:    customData,
-			Labels:        cmLabels,
+			Name:            fmt.Sprintf("%s-config-data", instance.GetName()),
+			Namespace:       instance.GetNamespace(),
+			Type:            util.TemplateTypeConfig,
+			InstanceType:    instance.GetObjectKind().GroupVersionKind().Kind,
+			ConfigOptions:   templateParameters,
+			CustomData:      customData,
+			Labels:          cmLabels,
+			CommonTemplates: commonTemplates,
 		},
 	}
 	if scripts {
