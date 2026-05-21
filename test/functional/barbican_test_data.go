@@ -47,6 +47,10 @@ const (
 	PKCS11LoginSecret = "pkcs11-login" // #nosec G101
 	// PKCS11ClientDataSecret -
 	PKCS11ClientDataSecret = "pkcs11-client-data" // #nosec G101
+	// ExtraMountsSecretName -
+	ExtraMountsSecretName = "httpd-custom-config" // #nosec G101
+	// ExtraMountsMountPath -
+	ExtraMountsMountPath = "/etc/httpd/conf_custom"
 )
 
 // BarbicanTestData is the data structure used to provide input data to envTest

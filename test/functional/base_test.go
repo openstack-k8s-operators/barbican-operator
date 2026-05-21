@@ -378,6 +378,47 @@ func GetSampleTopologySpec(
 	return topologySpec, topologySpecObj
 }
 
+// GetExtraMounts returns an ExtraMounts spec for testing, simulating
+// an httpd override ConfigMap mounted into the BarbicanAPI containers.
+func GetExtraMounts() []map[string]any {
+	return []map[string]any{
+		{
+			"name":   "httpd-overrides",
+			"region": "az0",
+			"extraVol": []map[string]any{
+				{
+					"extraVolType": ExtraMountsSecretName,
+					"propagation": []string{
+						"BarbicanAPI",
+					},
+					"volumes": []map[string]any{
+						{
+							"name": ExtraMountsSecretName,
+							"secret": map[string]any{
+								"secretName": ExtraMountsSecretName,
+							},
+						},
+					},
+					"mounts": []map[string]any{
+						{
+							"name":      ExtraMountsSecretName,
+							"mountPath": ExtraMountsMountPath,
+							"readOnly":  true,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// GetExtraMountsBarbicanSpec returns a Barbican spec with ExtraMounts configured.
+func GetExtraMountsBarbicanSpec() map[string]any {
+	spec := GetDefaultBarbicanSpec()
+	spec["extraMounts"] = GetExtraMounts()
+	return spec
+}
+
 // CreateBarbicanInvalidSecret creates a secret with an invalid password for testing
 func CreateBarbicanInvalidSecret(namespace string, name string) *corev1.Secret {
 	return th.CreateSecret(

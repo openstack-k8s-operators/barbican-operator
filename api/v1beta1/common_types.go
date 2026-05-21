@@ -1,9 +1,10 @@
 package v1beta1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -73,6 +74,10 @@ type BarbicanTemplate struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="simple_crypto"
 	GlobalDefaultSecretStore SecretStore `json:"globalDefaultSecretStore" yaml:"globalDefaultSecretStore"`
+
+	// +kubebuilder:validation:Optional
+	// ExtraMounts containing conf files and credentials
+	ExtraMounts []BarbicanExtraVolMounts `json:"extraMounts,omitempty"`
 }
 
 // BarbicanComponentTemplate - Variables used by every sub-component of Barbican
@@ -180,6 +185,27 @@ type PasswordSelector struct {
 	// Fields containing additional Key Encryption Keys(KEK) used for the Simple Crypto backend
 	// It is expected that these fields will exist in the secret referenced in SimpleCryptoBackendSecret
 	SimpleCryptoAdditionalKEKs []string `json:"simplecryptoadditionalkeks,omitempty"`
+}
+
+// BarbicanExtraVolMounts exposes additional parameters processed by the barbican-operator
+// and defines the common VolMounts structure provided by the main storage module
+type BarbicanExtraVolMounts struct {
+	// +kubebuilder:validation:Optional
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Optional
+	Region string `json:"region,omitempty"`
+	// +kubebuilder:validation:Required
+	VolMounts []storage.VolMounts `json:"extraVol"`
+}
+
+// Propagate is a function used to filter VolMounts according to the specified
+// PropagationType array
+func (g *BarbicanExtraVolMounts) Propagate(svc []storage.PropagationType) []storage.VolMounts {
+	var vl []storage.VolMounts
+	for _, gv := range g.VolMounts {
+		vl = append(vl, gv.Propagate(svc)...)
+	}
+	return vl
 }
 
 // ValidateTopology -

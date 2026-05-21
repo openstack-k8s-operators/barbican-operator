@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -177,6 +178,26 @@ func GetConfigOverwriteVolumeMounts(overwriteKeys []string) []corev1.VolumeMount
 		})
 	}
 	return mounts
+}
+
+// GetExtraVolumes returns the volumes and volume mounts derived from the
+// ExtraMounts spec, filtered by the given propagation types.
+func GetExtraVolumes(extraMounts []barbicanv1beta1.BarbicanExtraVolMounts, svc []storage.PropagationType) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var mounts []corev1.VolumeMount
+	for _, exv := range extraMounts {
+		for _, vol := range exv.Propagate(svc) {
+			for _, v := range vol.Volumes {
+				volumeSource, _ := v.ToCoreVolumeSource()
+				volumes = append(volumes, corev1.Volume{
+					Name:         v.Name,
+					VolumeSource: *volumeSource,
+				})
+			}
+			mounts = append(mounts, vol.Mounts...)
+		}
+	}
+	return volumes, mounts
 }
 
 // GetDBSyncVolumes - dbsync volumes
