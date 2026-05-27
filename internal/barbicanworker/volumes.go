@@ -5,6 +5,7 @@ import (
 
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	barbican "github.com/openstack-k8s-operators/barbican-operator/internal/barbican"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -39,6 +40,14 @@ func GetWorkerVolumesAndMounts(instance *barbicanv1beta1.BarbicanWorker, overwri
 		workerVolumes = append(workerVolumes, barbican.GetHSMVolumes(*instance.Spec.PKCS11)...)
 		workerVolumeMounts = append(workerVolumeMounts, barbican.GetHSMVolumeMounts()...)
 	}
+
+	// ExtraMounts
+	extraVols, extraMounts := barbican.GetExtraVolumes(
+		instance.Spec.ExtraMounts,
+		[]storage.PropagationType{barbican.BarbicanWorker, barbican.Barbican},
+	)
+	workerVolumes = append(workerVolumes, extraVols...)
+	workerVolumeMounts = append(workerVolumeMounts, extraMounts...)
 
 	return workerVolumes, workerVolumeMounts
 }

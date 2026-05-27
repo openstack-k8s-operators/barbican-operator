@@ -2590,4 +2590,56 @@ var _ = Describe("Barbican Webhook", func() {
 			return component, fmt.Sprintf("%s.topologyRef", component)
 		}),
 	)
+
+	When("Barbican CR instance is built with ExtraMounts", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetExtraMountsBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+		})
+
+		It("ExtraMounts are propagated to the BarbicanAPI sub-CR", func() {
+			barbicanAPI := GetBarbicanAPI(barbicanTest.BarbicanAPI)
+			Expect(barbicanAPI.Spec.ExtraMounts).To(HaveLen(1))
+			Expect(barbicanAPI.Spec.ExtraMounts[0].VolMounts).To(HaveLen(1))
+		})
+
+		It("ExtraMounts are propagated to the BarbicanWorker sub-CR", func() {
+			barbicanWorker := GetBarbicanWorker(barbicanTest.BarbicanWorker)
+			Expect(barbicanWorker.Spec.ExtraMounts).To(HaveLen(1))
+		})
+
+		It("ExtraMounts are propagated to the BarbicanKeystoneListener sub-CR", func() {
+			barbicanListener := GetBarbicanKeystoneListener(barbicanTest.BarbicanKeystoneListener)
+			Expect(barbicanListener.Spec.ExtraMounts).To(HaveLen(1))
+		})
+
+		It("Check the extraMounts volume and mount in the API Deployment", func() {
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPIDeployment)
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
+			// Assert the extra volume exists
+			th.AssertVolumeExists(ExtraMountsSecretName, d.Spec.Template.Spec.Volumes)
+			// Get the barbican-api container (index 1: 0=log sidecar, 1=api)
+			Expect(d.Spec.Template.Spec.Containers).To(HaveLen(2))
+			container := d.Spec.Template.Spec.Containers[1]
+			// Assert the mount exists with the correct path
+			th.AssertVolumeMountExists(ExtraMountsSecretName, "", container.VolumeMounts)
+		})
+	})
 })

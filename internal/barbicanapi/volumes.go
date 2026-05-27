@@ -3,11 +3,11 @@ package barbicanapi
 import (
 	"slices"
 
-	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
-
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	barbican "github.com/openstack-k8s-operators/barbican-operator/internal/barbican"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -61,6 +61,14 @@ func GetAPIVolumesAndMounts(instance *barbicanv1beta1.BarbicanAPI, overwriteKeys
 		apiVolumes = append(apiVolumes, barbican.GetHSMVolumes(*instance.Spec.PKCS11)...)
 		apiVolumeMounts = append(apiVolumeMounts, barbican.GetHSMVolumeMounts()...)
 	}
+
+	// ExtraMounts
+	extraVols, extraMounts := barbican.GetExtraVolumes(
+		instance.Spec.ExtraMounts,
+		[]storage.PropagationType{barbican.BarbicanAPI, barbican.Barbican},
+	)
+	apiVolumes = append(apiVolumes, extraVols...)
+	apiVolumeMounts = append(apiVolumeMounts, extraMounts...)
 
 	return apiVolumes, apiVolumeMounts, nil
 }

@@ -3,6 +3,7 @@ package barbicankeystonelistener
 import (
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	barbican "github.com/openstack-k8s-operators/barbican-operator/internal/barbican"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -31,6 +32,14 @@ func GetListenerVolumesAndMounts(instance *barbicanv1beta1.BarbicanKeystoneListe
 		listenerVolumes = append(listenerVolumes, instance.Spec.TLS.CreateVolume())
 		listenerVolumeMounts = append(listenerVolumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
 	}
+
+	// ExtraMounts
+	extraVols, extraMounts := barbican.GetExtraVolumes(
+		instance.Spec.ExtraMounts,
+		[]storage.PropagationType{barbican.BarbicanKeystoneListener, barbican.Barbican},
+	)
+	listenerVolumes = append(listenerVolumes, extraVols...)
+	listenerVolumeMounts = append(listenerVolumeMounts, extraMounts...)
 
 	return listenerVolumes, listenerVolumeMounts
 }
