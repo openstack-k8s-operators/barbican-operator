@@ -389,6 +389,23 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		return ctrl.Result{}, err
 	}
 
+	// Add consumer finalizer to the new AC secret early, before deployment.
+	// The old secret's finalizer is removed later (after all services deploy)
+	// so that rapid rotations don't revoke a credential still in use by pods.
+	if instance.Spec.Auth.ApplicationCredentialSecret != "" {
+		if err := keystonev1.ManageACSecretFinalizer(ctx, helper, instance.Namespace,
+			instance.Spec.Auth.ApplicationCredentialSecret,
+			"",
+			barbican.ACConsumerFinalizer); err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.ServiceConfigReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.ServiceConfigReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+	}
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
 	// networks to attach to
@@ -517,6 +534,27 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 
 	// TODO(dmendiza): Understand what Glance is doing with the API conditions and maybe do it here too
 
+	// Manage the old AC secret's finalizer and status tracking.
+	// On rotation (old != new), only remove the old secret's finalizer after
+	// all sub-services are ready with the new credentials. This prevents
+	// premature revocation during rapid rotations.
+	isRotation := instance.Status.ApplicationCredentialSecret != "" && instance.Status.ApplicationCredentialSecret != instance.Spec.Auth.ApplicationCredentialSecret
+
+	if isRotation {
+		allServicesReady := instance.Status.Conditions.IsTrue(barbicanv1beta1.BarbicanAPIReadyCondition) &&
+			instance.Status.Conditions.IsTrue(barbicanv1beta1.BarbicanWorkerReadyCondition) &&
+			instance.Status.Conditions.IsTrue(barbicanv1beta1.BarbicanKeystoneListenerReadyCondition)
+		if allServicesReady {
+			if err := keystonev1.RemoveACSecretConsumerFinalizer(ctx, helper, instance.Namespace,
+				instance.Status.ApplicationCredentialSecret, barbican.ACConsumerFinalizer); err != nil {
+				return ctrl.Result{}, err
+			}
+			instance.Status.ApplicationCredentialSecret = instance.Spec.Auth.ApplicationCredentialSecret
+		}
+	} else {
+		instance.Status.ApplicationCredentialSecret = instance.Spec.Auth.ApplicationCredentialSecret
+	}
+
 	// Update the lastObserved generation before evaluating conditions
 	instance.Status.ObservedGeneration = instance.Generation
 	// We reached the end of the Reconcile, update the Ready condition based on
@@ -608,6 +646,19 @@ func (r *BarbicanReconciler) reconcileDelete(ctx context.Context, instance *barb
 				return ctrl.Result{}, err
 			}
 			util.LogForObject(helper, fmt.Sprintf("Removed finalizer from BarbicanKeystoneListener %s", barbicanKeystoneListener.Name), barbicanKeystoneListener)
+		}
+	}
+
+	// Remove consumer finalizer from AC secrets barbican was consuming.
+	// Check both status and spec to handle the edge case where the reconciler
+	// crashed after adding the finalizer but before updating the status.
+	for _, secretName := range []string{
+		instance.Status.ApplicationCredentialSecret,
+		instance.Spec.Auth.ApplicationCredentialSecret,
+	} {
+		if err := keystonev1.RemoveACSecretConsumerFinalizer(ctx, helper, instance.Namespace,
+			secretName, barbican.ACConsumerFinalizer); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 
