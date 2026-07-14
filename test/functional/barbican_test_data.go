@@ -113,7 +113,7 @@ type BarbicanTestData struct {
 // used in the test
 func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 	m := barbicanName
-	return BarbicanTestData{
+	return BarbicanTestData{ //nolint:gosec
 		Instance: m,
 
 		Barbican: types.NamespacedName{
