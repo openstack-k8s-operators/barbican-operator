@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -56,8 +55,6 @@ func SetupBarbicanDefaults(defaults BarbicanDefaults) {
 	barbicanDefaults = defaults
 	barbicanlog.Info("Barbican defaults initialized", "defaults", defaults)
 }
-
-var _ webhook.Defaulter = &Barbican{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Barbican) Default() {
@@ -98,8 +95,6 @@ func (spec *BarbicanSpecCore) Default() {
 	}
 	spec.BarbicanSpecBase.Default()
 }
-
-var _ webhook.Validator = &Barbican{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Barbican) ValidateCreate() (admission.Warnings, error) {
