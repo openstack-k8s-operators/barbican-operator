@@ -3,6 +3,7 @@ package functional
 import (
 	"fmt"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2" //revive:disable:dot-imports
 	. "github.com/onsi/gomega"    //revive:disable:dot-imports
@@ -169,6 +170,7 @@ var _ = Describe("Barbican controller", func() {
 	When("Barbican CR is created with an invalid password", func() {
 		BeforeEach(func() {
 			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanInvalidSecret(barbicanName.Namespace, barbicanTest.BarbicanInvalidSecretName))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, "rabbitmq-secret"))
 			spec := GetDefaultBarbicanSpec()
 			spec["secret"] = barbicanTest.BarbicanInvalidSecretName
 			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
@@ -2348,6 +2350,7 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
 		It("should create separate TransportURLs even when using same cluster", func() {
@@ -2427,6 +2430,7 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
 		It("should create separate TransportURL for notifications", func() {
@@ -2564,6 +2568,7 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
 		It("should not have notifications URL secret", func() {
@@ -2620,6 +2625,7 @@ var _ = Describe("Barbican controller", func() {
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
 			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
 		})
 
 		It("should initially have notifications enabled", func() {
@@ -2649,9 +2655,26 @@ var _ = Describe("Barbican controller", func() {
 				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
-			// Wait for notifications to be disabled
+			// Wait for notifications to be disabled. Teardown of the
+			// notifications TransportURL/secret now only fires once the
+			// workload has rolled out the config that no longer references
+			// the notifications bus (guardReady/allServicesReady). Re-simulate
+			// the full readiness chain for the rolled generation on every
+			// iteration so allServicesReady can become true, then assert the
+			// notifications secret ref goes nil.
 			Eventually(func(g Gomega) {
+				keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPI)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListener)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanWorker)
+				// Trigger a parent reconcile by touching the Barbican CR
 				barbican := GetBarbican(barbicanTest.Instance)
+				if barbican.Annotations == nil {
+					barbican.Annotations = map[string]string{}
+				}
+				barbican.Annotations["test-reconcile-trigger"] = fmt.Sprintf("%d", time.Now().UnixNano())
+				g.Expect(k8sClient.Update(ctx, barbican)).To(Succeed())
+				barbican = GetBarbican(barbicanTest.Instance)
 				g.Expect(barbican.Status.NotificationsURLSecret).To(BeNil())
 			}, timeout, interval).Should(Succeed())
 
@@ -2814,6 +2837,251 @@ var _ = Describe("Barbican Webhook", func() {
 			container := d.Spec.Template.Spec.Containers[1]
 			// Assert the mount exists with the correct path
 			th.AssertVolumeMountExists(ExtraMountsSecretName, "", container.VolumeMounts)
+		})
+	})
+
+	When("TransportURL consumer finalizer is managed", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateBarbicanMessageBusSecret(
+					barbicanTest.Instance.Namespace,
+					barbicanTest.RabbitmqSecretName,
+				),
+			)
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetDefaultBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			DeferCleanup(keystone.DeleteKeystoneAPI,
+				keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+		})
+
+		It("should add the consumer finalizer to the transport secret", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      barbicanTest.RabbitmqSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should remove the consumer finalizer from transport secret on CR deletion", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      barbicanTest.RabbitmqSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			th.DeleteInstance(GetBarbican(barbicanTest.Instance))
+
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      barbicanTest.RabbitmqSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should move the finalizer from the old to the new secret on transport rotation", func() {
+			oldSecretName := barbicanTest.RabbitmqSecretName
+			newSecretName := "rabbitmq-secret-rotated"
+
+			// Wait for the consumer finalizer to be added to the old secret
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Get barbican to fully ready state
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPI)
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListener)
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanWorker)
+			Eventually(func(g Gomega) {
+				b := GetBarbican(barbicanTest.Instance)
+				g.Expect(b.Status.Conditions.IsTrue(condition.ReadyCondition)).To(BeTrue())
+				g.Expect(b.Status.TransportURLSecret).To(Equal(oldSecretName))
+			}, timeout, interval).Should(Succeed())
+
+			// Create the new rotated secret with DIFFERENT content
+			newSecret := th.CreateSecret(
+				types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      newSecretName,
+				},
+				map[string][]byte{
+					"transport_url": []byte("rabbit://rotated-user:rotated-pass@rabbitmq/fake"),
+				},
+			)
+			DeferCleanup(k8sClient.Delete, ctx, newSecret)
+
+			// Simulate transport rotation: update TransportURL status with new secret name
+			Eventually(func(g Gomega) {
+				transport := infra.GetTransportURL(barbicanTest.BarbicanTransportURL)
+				transport.Status.SecretName = newSecretName
+				g.Expect(k8sClient.Status().Update(ctx, transport)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify finalizer is added to the new secret
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      newSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// The old secret's finalizer should NOT be removed yet — sub-CRs
+			// are re-deploying with new credentials and are not ready
+			Consistently(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Simulate sub-CRs becoming ready with the new credentials
+			Eventually(func(g Gomega) {
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPI)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListener)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanWorker)
+				// Trigger a parent reconcile by touching the Barbican CR
+				b := GetBarbican(barbicanTest.Instance)
+				if b.Annotations == nil {
+					b.Annotations = map[string]string{}
+				}
+				b.Annotations["test-reconcile-trigger"] = fmt.Sprintf("%d", time.Now().UnixNano())
+				g.Expect(k8sClient.Update(ctx, b)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify old finalizer is removed and status updated
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(barbican.TransportConsumerFinalizer))
+				b := GetBarbican(barbicanTest.Instance)
+				g.Expect(b.Status.TransportURLSecret).To(Equal(newSecretName))
+			}, 10*time.Second, interval).Should(Succeed())
+		})
+
+		It("should hold the finalizer until the last sub-CR is ready", func() {
+			oldSecretName := barbicanTest.RabbitmqSecretName
+			newSecretName := "rabbitmq-secret-rotated"
+
+			// Get barbican to fully ready state
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPI)
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListener)
+			th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanWorker)
+			Eventually(func(g Gomega) {
+				b := GetBarbican(barbicanTest.Instance)
+				g.Expect(b.Status.Conditions.IsTrue(condition.ReadyCondition)).To(BeTrue())
+			}, timeout, interval).Should(Succeed())
+
+			// Create the new rotated secret
+			newSecret := th.CreateSecret(
+				types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      newSecretName,
+				},
+				map[string][]byte{
+					"transport_url": []byte("rabbit://rotated-user:rotated-pass@rabbitmq/fake"),
+				},
+			)
+			DeferCleanup(k8sClient.Delete, ctx, newSecret)
+
+			// Trigger rotation
+			Eventually(func(g Gomega) {
+				transport := infra.GetTransportURL(barbicanTest.BarbicanTransportURL)
+				transport.Status.SecretName = newSecretName
+				g.Expect(k8sClient.Status().Update(ctx, transport)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Wait for new secret to get the finalizer
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      newSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Simulate only BarbicanAPI and BarbicanKeystoneListener ready,
+			// but NOT BarbicanWorker.
+			// The finalizer on the old secret MUST be held.
+			Eventually(func(g Gomega) {
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPI)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListener)
+				b := GetBarbican(barbicanTest.Instance)
+				if b.Annotations == nil {
+					b.Annotations = map[string]string{}
+				}
+				b.Annotations["test-reconcile-trigger"] = fmt.Sprintf("%d", time.Now().UnixNano())
+				g.Expect(k8sClient.Update(ctx, b)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify old secret's finalizer is still held (BarbicanWorker not ready)
+			Consistently(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Now simulate all sub-CRs ready including BarbicanWorker
+			Eventually(func(g Gomega) {
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanAPI)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanKeystoneListener)
+				th.SimulateDeploymentReplicaReady(barbicanTest.BarbicanWorker)
+				b := GetBarbican(barbicanTest.Instance)
+				if b.Annotations == nil {
+					b.Annotations = map[string]string{}
+				}
+				b.Annotations["test-reconcile-trigger"] = fmt.Sprintf("%d", time.Now().UnixNano())
+				g.Expect(k8sClient.Update(ctx, b)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Now the finalizer should be released
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: barbicanTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(barbican.TransportConsumerFinalizer))
+			}, 10*time.Second, interval).Should(Succeed())
 		})
 	})
 })
