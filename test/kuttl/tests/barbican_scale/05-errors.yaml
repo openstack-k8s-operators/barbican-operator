@@ -1,13 +1,19 @@
 #
 # Check for:
 #
-# No BarbicanAPI CR
+# No Barbican CR
+# No MariaDBDatabase CR
 # No Deployment for BarbicanAPI CR
 # No Pods in barbican Deployment
 # No Barbican Services
 #
 apiVersion: barbican.openstack.org/v1beta1
 kind: Barbican
+metadata:
+  name: barbican
+---
+apiVersion: mariadb.openstack.org/v1beta1
+kind: MariaDBDatabase
 metadata:
   name: barbican
 ---
