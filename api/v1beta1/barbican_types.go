@@ -32,14 +32,10 @@ const (
 
 	// Container image fall-back defaults
 
-	// BarbicanAPIContainerImage is the fall-back container image for BarbicanAPI
-	BarbicanAPIContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-api:current-podified"
-
-	// BarbicanWorkerContainerImage is the fall-back container image for BarbicanAPI
-	BarbicanWorkerContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-worker:current-podified"
-
-	// BarbicanKeystoneListenerContainerImage is the fall-back container image for BarbicanAPI
-	BarbicanKeystoneListenerContainerImage = "quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener:current-podified"
+	// BarbicanContainerImage is the fall-back container image for all Barbican
+	// services (API, Worker, KeystoneListener). S2I consolidates these into a
+	// single openstack-barbican-api image.
+	BarbicanContainerImage = "quay.io/openstack-s2i-containers/openstack-barbican-api:master-latest"
 
 	// APITimeout is the default Barbican API timeout
 	APITimeout = 90
@@ -215,11 +211,14 @@ func init() {
 
 // SetupDefaults - initializes any CRD field defaults based on environment variables (the defaulting mechanism itself is implemented via webhooks)
 func SetupDefaults() {
-	// Acquire environmental defaults and initialize Barbican defaults with them
+	// Acquire environmental defaults and initialize Barbican defaults with them.
+	// All Barbican services share one S2I image; a single RELATED_IMAGE env var
+	// feeds every field (same pattern as Aodh / telemetry-operator).
+	image := util.GetEnvVar("RELATED_IMAGE_BARBICAN_IMAGE_URL_DEFAULT", BarbicanContainerImage)
 	barbicanDefaults := BarbicanDefaults{
-		APIContainerImageURL:              util.GetEnvVar("RELATED_IMAGE_BARBICAN_API_IMAGE_URL_DEFAULT", BarbicanAPIContainerImage),
-		WorkerContainerImageURL:           util.GetEnvVar("RELATED_IMAGE_BARBICAN_WORKER_IMAGE_URL_DEFAULT", BarbicanWorkerContainerImage),
-		KeystoneListenerContainerImageURL: util.GetEnvVar("RELATED_IMAGE_BARBICAN_KEYSTONE_LISTENER_IMAGE_URL_DEFAULT", BarbicanKeystoneListenerContainerImage),
+		APIContainerImageURL:              image,
+		WorkerContainerImageURL:           image,
+		KeystoneListenerContainerImageURL: image,
 		BarbicanAPITimeout:                APITimeout,
 	}
 
