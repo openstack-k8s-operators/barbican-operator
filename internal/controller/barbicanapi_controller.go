@@ -84,8 +84,9 @@ func (r *BarbicanAPIReconciler) GetScheme() *runtime.Scheme {
 // BarbicanAPIReconciler reconciles a BarbicanAPI object
 type BarbicanAPIReconciler struct {
 	client.Client
-	Kclient kubernetes.Interface
-	Scheme  *runtime.Scheme
+	Kclient   kubernetes.Interface
+	Scheme    *runtime.Scheme
+	APIReader client.Reader
 }
 
 // GetLogger returns a logger object with a prefix of "controller.name" and additional controller context fields
@@ -174,6 +175,8 @@ func (r *BarbicanAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	)
 
 	instance.Status.Conditions.Init(&cl)
+	// Always mark the Generation as observed early on
+	instance.Status.ObservedGeneration = instance.Generation
 
 	Log.Info(fmt.Sprintf("Add finalizer %s", instance.Name))
 	// If we're not deleting this and the service object doesn't have our finalizer, add it.
@@ -927,12 +930,23 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// Replicas > ReadyReplicas.
 	// In addition, make sure the controller sees the last Generation
 	// by comparing it with the ObservedGeneration.
-	if deployment.IsReady(deploy) {
+	ready, err := deployment.IsReadyForInput(ctx, r.APIReader, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, inputHash)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check deployment readiness for %s: %w", instance.Name, err)
+	}
+	if ready {
 		oldDepName := fmt.Sprintf("%s-api", instance.Name)
 		if err := cleanupOldDeployment(ctx, r.Client, instance, oldDepName); err != nil {
 			return ctrl.Result{}, err
 		}
 		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
+
+		// Only update AppliedInputSecretHash after rollout is confirmed
+		inputSecretHash, err := util.ObjectHash([]string{instance.Spec.TransportURLSecret, instance.Spec.NotificationsURLSecret})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to compute input secret hash for %s: %w", instance.Name, err)
+		}
+		instance.Status.AppliedInputSecretHash = inputSecretHash
 	} else {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DeploymentReadyCondition,
@@ -943,7 +957,6 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 	// create Deployment - end
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' in barbicanAPI successfully", instance.Name))
-
 	// We reached the end of the Reconcile, update the Ready condition based on
 	// the sub conditions
 	if instance.Status.Conditions.AllSubConditionIsTrue() {
