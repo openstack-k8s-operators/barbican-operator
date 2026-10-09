@@ -86,6 +86,16 @@ func (spec *BarbicanSpecBase) Default() {
 	if spec.MessagingBus.Cluster == "" {
 		spec.MessagingBus.Cluster = "rabbitmq"
 	}
+
+	// Each secret store mounts its client data at its own default path so
+	// that stores enabled together do not collide on a single mount point.
+	if spec.PKCS11 != nil && spec.PKCS11.ClientDataPath == "" {
+		spec.PKCS11.ClientDataPath = DefaultPKCS11ClientDataPath
+	}
+
+	if spec.KMIP != nil && spec.KMIP.ClientDataPath == "" {
+		spec.KMIP.ClientDataPath = DefaultKMIPClientDataPath
+	}
 }
 
 // Default - set defaults for this BarbicanSpecBase. NOTE: this version is used by the OpenStackControlplane webhook
@@ -128,8 +138,10 @@ func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string)
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		spec.BarbicanAPI.Override.Service)...)
 
-	// pkcs11 verifications
+	// secret store verifications
 	spec.ValidatePKCS11(basePath, &allErrs)
+	spec.ValidateKMIP(basePath, &allErrs)
+	spec.ValidateClientDataPaths(basePath, &allErrs)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 
@@ -138,12 +150,60 @@ func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string)
 
 // ValidatePKCS11 validates that PKCS11 configuration is provided when PKCS11 is an enabled secret store
 func (spec *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.ErrorList) {
-	if slices.Contains(spec.EnabledSecretStores, SecretStorePKCS11) {
-		if spec.PKCS11 == nil {
-			*allErrs = append(*allErrs, field.Required(basePath.Child("PKCS11"),
-				"PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
-			)
-		}
+	if !slices.Contains(spec.EnabledSecretStores, SecretStorePKCS11) {
+		return
+	}
+
+	if spec.PKCS11 == nil {
+		*allErrs = append(*allErrs, field.Required(basePath.Child("PKCS11"),
+			"PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
+		)
+		return
+	}
+
+	if spec.PKCS11.ClientDataSecret == "" {
+		*allErrs = append(*allErrs, field.Required(basePath.Child("pkcs11").Child("clientDataSecret"),
+			"clientDataSecret is required when pkcs11 is an enabled SecretStore"),
+		)
+	}
+}
+
+// ValidateKMIP validates that KMIP configuration is provided when kmip is an enabled secret store
+func (spec *BarbicanSpec) ValidateKMIP(basePath *field.Path, allErrs *field.ErrorList) {
+	if !slices.Contains(spec.EnabledSecretStores, SecretStoreKMIP) {
+		return
+	}
+
+	if spec.KMIP == nil {
+		*allErrs = append(*allErrs, field.Required(basePath.Child("kmip"),
+			"KMIP specification is missing, KMIP is required when kmip is an enabled SecretStore"),
+		)
+		return
+	}
+
+	if spec.KMIP.ClientDataSecret == "" {
+		*allErrs = append(*allErrs, field.Required(basePath.Child("kmip").Child("clientDataSecret"),
+			"clientDataSecret is required when kmip is an enabled SecretStore"),
+		)
+	}
+}
+
+// ValidateClientDataPaths validates that no two enabled secret stores mount
+// their client data at the same path. Both mounts land in the same pod, so
+// identical paths would be rejected by the API server as a duplicate mount.
+func (spec *BarbicanSpec) ValidateClientDataPaths(basePath *field.Path, allErrs *field.ErrorList) {
+	if !slices.Contains(spec.EnabledSecretStores, SecretStorePKCS11) ||
+		!slices.Contains(spec.EnabledSecretStores, SecretStoreKMIP) ||
+		spec.PKCS11 == nil || spec.KMIP == nil {
+		return
+	}
+
+	kmipPath := spec.KMIP.PathOrDefault(DefaultKMIPClientDataPath)
+	if kmipPath == spec.PKCS11.PathOrDefault(DefaultPKCS11ClientDataPath) {
+		*allErrs = append(*allErrs, field.Invalid(
+			basePath.Child("kmip").Child("clientDataPath"), kmipPath,
+			"clientDataPath must differ from spec.pkcs11.clientDataPath when both pkcs11 and kmip are enabled SecretStores"),
+		)
 	}
 }
 
@@ -204,8 +264,10 @@ func (spec *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path,
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		spec.BarbicanAPI.Override.Service)...)
 
-	// pkcs11 verifications
+	// secret store verifications
 	spec.ValidatePKCS11(basePath, &allErrs)
+	spec.ValidateKMIP(basePath, &allErrs)
+	spec.ValidateClientDataPaths(basePath, &allErrs)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 	return allWarns, allErrs
