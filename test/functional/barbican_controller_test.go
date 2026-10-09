@@ -1439,6 +1439,111 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	When("A Barbican with kmip plugin is created", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateKMIPClientDataSecret(barbicanTest.Instance.Namespace, KMIPClientDataSecret))
+
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, GetKMIPBarbicanSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					GetBarbican(barbicanTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			DeferCleanup(th.DeleteInstance, CreateBarbicanAPI(barbicanTest.Instance, GetKMIPBarbicanAPISpec()))
+		})
+
+		It("Mounts the KMIP client data into the API deployment", func() {
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			BarbicanAPIExists(barbicanTest.Instance)
+
+			d := th.GetDeployment(barbicanTest.BarbicanAPIDeployment)
+			container := d.Spec.Template.Spec.Containers[1]
+			Expect(container.Name).To(Equal(barbican.ComponentAPI))
+
+			foundMount := false
+			indexMount := 0
+			for index, volumeMount := range container.VolumeMounts {
+				if volumeMount.Name == barbican.KMIPClientDataVolume {
+					foundMount = true
+					indexMount = index
+					break
+				}
+			}
+			Expect(foundMount).To(BeTrue())
+			Expect(container.VolumeMounts[indexMount].MountPath).To(Equal(KMIPClientDataPath))
+
+			// kmip must not drag in the pkcs11 client data mount
+			for _, volumeMount := range container.VolumeMounts {
+				Expect(volumeMount.Name).ShouldNot(Equal(barbican.PKCS11ClientDataVolume))
+			}
+		})
+
+		It("Verifies the Barbican KMIP struct is in good shape", func() {
+			Barbican := GetBarbican(barbicanTest.Instance)
+			Expect(Barbican.Spec.EnabledSecretStores).Should(Equal([]barbicanv1beta1.SecretStore{"kmip"}))
+			Expect(Barbican.Spec.GlobalDefaultSecretStore).Should(Equal(barbicanv1beta1.SecretStore("kmip")))
+
+			kmip := Barbican.Spec.KMIP
+			Expect(kmip).ShouldNot(BeNil())
+			Expect(kmip.ClientDataSecret).Should(Equal(KMIPClientDataSecret))
+			Expect(kmip.ClientDataPath).Should(Equal(KMIPClientDataPath))
+		})
+
+		It("Verifies the BarbicanAPI KMIP struct is in good shape", func() {
+			BarbicanAPI := GetBarbicanAPI(barbicanTest.Instance)
+			Expect(BarbicanAPI.Spec.EnabledSecretStores).Should(Equal([]barbicanv1beta1.SecretStore{"kmip"}))
+			Expect(BarbicanAPI.Spec.GlobalDefaultSecretStore).Should(Equal(barbicanv1beta1.SecretStore("kmip")))
+
+			kmip := BarbicanAPI.Spec.KMIP
+			Expect(kmip).ShouldNot(BeNil())
+			Expect(kmip.ClientDataSecret).Should(Equal(KMIPClientDataSecret))
+			Expect(kmip.ClientDataPath).Should(Equal(KMIPClientDataPath))
+		})
+
+		It("Verifies if 00-default.conf and 01-custom.conf have the right contents for Barbican.", func() {
+			confSecret := th.GetSecret(barbicanTest.BarbicanConfigSecret)
+			Expect(confSecret).ShouldNot(BeNil())
+
+			conf := confSecret.Data["00-default.conf"]
+			Expect(conf).To(
+				ContainSubstring("stores_lookup_suffix = kmip"))
+			Expect(conf).To(
+				ContainSubstring("[secretstore:kmip]\nsecret_store_plugin = kmip_plugin\nglobal_default = true"))
+			// the pkcs11 store is not enabled, so its section must be absent
+			Expect(conf).ShouldNot(
+				ContainSubstring("[secretstore:pkcs11]"))
+
+			conf = confSecret.Data["01-custom.conf"]
+			Expect(conf).To(
+				ContainSubstring(KMIPCustomData))
+		})
+
+		It("Does not run the PKCS11 prep job", func() {
+			BarbicanExists(barbicanTest.Instance)
+
+			th.ExpectCondition(
+				barbicanTest.Instance,
+				ConditionGetterFunc(BarbicanConditionGetter),
+				controllers.PKCS11PrepReadyCondition,
+				corev1.ConditionTrue,
+			)
+			th.AssertJobDoesNotExist(barbicanTest.BarbicanPKCS11Prep)
+		})
+	})
+
 	When("Deployment rollout is progressing", func() {
 		BeforeEach(func() {
 			spec := GetDefaultBarbicanSpec()

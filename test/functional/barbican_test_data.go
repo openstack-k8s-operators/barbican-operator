@@ -47,6 +47,8 @@ const (
 	PKCS11LoginSecret = "pkcs11-login" // #nosec G101
 	// PKCS11ClientDataSecret -
 	PKCS11ClientDataSecret = "pkcs11-client-data" // #nosec G101
+	// KMIPClientDataSecret -
+	KMIPClientDataSecret = "kmip-client-data" // #nosec G101
 	// ExtraMountsSecretName -
 	ExtraMountsSecretName = "httpd-custom-config" // #nosec G101
 	// ExtraMountsMountPath -
@@ -90,6 +92,7 @@ type BarbicanTestData struct {
 	BarbicanKeystoneListenerConfigSecret types.NamespacedName
 	BarbicanPKCS11LoginSecret            types.NamespacedName
 	BarbicanPKCS11ClientDataSecret       types.NamespacedName
+	BarbicanKMIPClientDataSecret         types.NamespacedName
 	BarbicanConfigScripts                types.NamespacedName
 	BarbicanConfigMapData                types.NamespacedName
 	BarbicanScheduler                    types.NamespacedName
@@ -216,6 +219,10 @@ func GetBarbicanTestData(barbicanName types.NamespacedName) BarbicanTestData {
 		BarbicanPKCS11ClientDataSecret: types.NamespacedName{
 			Namespace: barbicanName.Namespace,
 			Name:      PKCS11ClientDataSecret,
+		},
+		BarbicanKMIPClientDataSecret: types.NamespacedName{
+			Namespace: barbicanName.Namespace,
+			Name:      KMIPClientDataSecret,
 		},
 		BarbicanConfigScripts: types.NamespacedName{
 			Namespace: barbicanName.Namespace,

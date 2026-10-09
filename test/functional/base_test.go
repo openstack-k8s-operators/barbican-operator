@@ -276,6 +276,52 @@ func CreatePKCS11ClientDataSecret(namespace string, name string) *corev1.Secret 
 
 // ========== End of PKCS11 Stuff ============
 
+// ========== KMIP Stuff ============
+
+// KMIPCustomData holds the [kmip_plugin] settings. The operator only renders
+// the [secretstore:kmip] section, so everything that points at the mounted
+// client data comes in through customServiceConfig.
+const KMIPCustomData = `[kmip_plugin]
+host = kmip.example.com
+port = 5696
+certfile = /usr/local/kmip/Client.pem
+keyfile = /usr/local/kmip/Client.key
+ca_certs = /usr/local/kmip/CACert.pem
+pkcs1_only = false`
+
+func GetKMIPBarbicanSpec() map[string]any {
+	spec := GetDefaultBarbicanSpec()
+	maps.Copy(spec, map[string]any{
+		"customServiceConfig":      KMIPCustomData,
+		"enabledSecretStores":      []string{"kmip"},
+		"globalDefaultSecretStore": "kmip",
+		"kmip": map[string]any{
+			"clientDataPath":   KMIPClientDataPath,
+			"clientDataSecret": KMIPClientDataSecret,
+		},
+	})
+	return spec
+}
+
+func GetKMIPBarbicanAPISpec() map[string]any {
+	spec := GetKMIPBarbicanSpec()
+	maps.Copy(spec, GetDefaultBarbicanAPISpec())
+	return spec
+}
+
+func CreateKMIPClientDataSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"CACert.pem": []byte("dummy-data"),
+			"Client.pem": []byte("dummy-data"),
+			"Client.key": []byte("dummy-data"),
+		},
+	)
+}
+
+// ========== End of KMIP Stuff ============
+
 func GetDefaultBarbicanAPISpec() map[string]any {
 	return map[string]any{
 		"secret":                    SecretName,

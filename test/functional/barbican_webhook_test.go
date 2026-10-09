@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2" //revive:disable:dot-imports
 	. "github.com/onsi/gomega"    //revive:disable:dot-imports
 
+	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -75,4 +76,105 @@ var _ = Describe("Barbican webhook", func() {
 				ContainSubstring("use \"spec.messagingBus.cluster\" instead"))
 		}, timeout, interval).Should(Succeed())
 	})
+
+	It("rejects a kmip secret store without a kmip spec", func() {
+		spec := GetDefaultBarbicanSpec()
+		spec["enabledSecretStores"] = []string{"kmip"}
+
+		_, err := createBarbicanForWebhook(spec, "barbican-kmip-missing")
+		Expect(err).Should(HaveOccurred())
+
+		var statusError *k8s_errors.StatusError
+		Expect(errors.As(err, &statusError)).To(BeTrue())
+		Expect(statusError.ErrStatus.Details.Kind).To(Equal("Barbican"))
+		Expect(statusError.ErrStatus.Message).To(
+			ContainSubstring("KMIP is required when kmip is an enabled SecretStore"))
+	})
+
+	It("rejects a kmip spec without a clientDataSecret", func() {
+		spec := GetDefaultBarbicanSpec()
+		spec["enabledSecretStores"] = []string{"kmip"}
+		spec["kmip"] = map[string]any{
+			"clientDataPath": KMIPClientDataPath,
+		}
+
+		_, err := createBarbicanForWebhook(spec, "barbican-kmip-no-secret")
+		Expect(err).Should(HaveOccurred())
+
+		var statusError *k8s_errors.StatusError
+		Expect(errors.As(err, &statusError)).To(BeTrue())
+		Expect(statusError.ErrStatus.Message).To(
+			ContainSubstring("clientDataSecret is required when kmip is an enabled SecretStore"))
+	})
+
+	It("rejects pkcs11 and kmip sharing a clientDataPath", func() {
+		spec := GetDefaultBarbicanSpec()
+		spec["enabledSecretStores"] = []string{"pkcs11", "kmip"}
+		spec["pkcs11"] = map[string]any{
+			"loginSecret":      PKCS11LoginSecret,
+			"clientDataSecret": PKCS11ClientDataSecret,
+			"clientDataPath":   "/etc/shared-client",
+		}
+		spec["kmip"] = map[string]any{
+			"clientDataSecret": KMIPClientDataSecret,
+			"clientDataPath":   "/etc/shared-client",
+		}
+
+		_, err := createBarbicanForWebhook(spec, "barbican-clientdata-clash")
+		Expect(err).Should(HaveOccurred())
+
+		var statusError *k8s_errors.StatusError
+		Expect(errors.As(err, &statusError)).To(BeTrue())
+		Expect(statusError.ErrStatus.Message).To(
+			ContainSubstring("clientDataPath must differ from spec.pkcs11.clientDataPath"))
+	})
+
+	It("defaults the per secret store clientDataPath", func() {
+		spec := GetDefaultBarbicanSpec()
+		spec["enabledSecretStores"] = []string{"pkcs11", "kmip"}
+		spec["pkcs11"] = map[string]any{
+			"loginSecret":      PKCS11LoginSecret,
+			"clientDataSecret": PKCS11ClientDataSecret,
+		}
+		spec["kmip"] = map[string]any{
+			"clientDataSecret": KMIPClientDataSecret,
+		}
+
+		barbicanName, err := createBarbicanForWebhook(spec, "barbican-clientdata-defaults")
+		Expect(err).ShouldNot(HaveOccurred())
+
+		// Each store falls back to its own default path, so the two mounts
+		// never land on the same point.
+		Barbican := GetBarbican(barbicanName)
+		Expect(Barbican.Spec.PKCS11.ClientDataPath).To(Equal(barbicanv1beta1.DefaultPKCS11ClientDataPath))
+		Expect(Barbican.Spec.KMIP.ClientDataPath).To(Equal(barbicanv1beta1.DefaultKMIPClientDataPath))
+	})
 })
+
+// createBarbicanForWebhook creates a Barbican from a raw spec so that the
+// admission webhooks run against it, and registers it for cleanup.
+func createBarbicanForWebhook(spec map[string]any, name string) (types.NamespacedName, error) {
+	barbicanName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	unstructuredObj := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "barbican.openstack.org/v1beta1",
+		"kind":       "Barbican",
+		"metadata": map[string]any{
+			"name":      barbicanName.Name,
+			"namespace": barbicanName.Namespace,
+		},
+		"spec": spec,
+	}}
+
+	_, err := controllerutil.CreateOrPatch(
+		ctx, k8sClient, unstructuredObj, func() error { return nil })
+
+	DeferCleanup(func() {
+		_ = k8sClient.Delete(ctx, unstructuredObj)
+	})
+
+	return barbicanName, err
+}
