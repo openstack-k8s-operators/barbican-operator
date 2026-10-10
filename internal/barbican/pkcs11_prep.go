@@ -38,9 +38,13 @@ func PKCS11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string,
 		pkcs11Mounts = append(pkcs11Mounts, instance.Spec.BarbicanAPI.TLS.CreateVolumeMounts(nil)...)
 	}
 
-	// add any HSM volumes
-	pkcs11Volumes = append(pkcs11Volumes, GetHSMVolumes(*instance.Spec.PKCS11)...)
-	pkcs11Mounts = append(pkcs11Mounts, GetHSMVolumeMounts(instance.Spec.PKCS11.ClientDataPath)...)
+	// add the HSM vendor client data. This job only ever runs for the pkcs11
+	// secret store, so no other store's client data is mounted here.
+	pkcs11Volumes = append(pkcs11Volumes,
+		getClientDataVolume(PKCS11ClientDataVolume, instance.Spec.PKCS11.ClientDataSpec))
+	pkcs11Mounts = append(pkcs11Mounts,
+		getClientDataVolumeMount(PKCS11ClientDataVolume, instance.Spec.PKCS11.ClientDataSpec,
+			barbicanv1beta1.DefaultPKCS11ClientDataPath))
 
 	// This job runs as root (not a kolla artifact): the vendor HSM client
 	// library setup performed by generate_pkcs11_keys.sh is not verified to

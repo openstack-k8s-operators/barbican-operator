@@ -175,6 +175,7 @@ func GenerateSecretStoreTemplateMap(
 		"GlobalDefaultSecretStore": globalDefaultSecretStore,
 		"SimpleCryptoEnabled":      slices.Contains(stores, "simple_crypto"),
 		"PKCS11CryptoEnabled":      slices.Contains(stores, "pkcs11"),
+		"KMIPEnabled":              slices.Contains(stores, "kmip"),
 	}
 	return tempMap, nil
 }

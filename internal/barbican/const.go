@@ -71,6 +71,8 @@ const (
 	ScriptMountPoint = "/usr/local/bin/container-scripts"
 	// PKCS11ClientDataVolume is the volume used to mount PKCS11 client Data
 	PKCS11ClientDataVolume = "pkcs11-client-data"
+	// KMIPClientDataVolume is the volume used to mount KMIP client Data
+	KMIPClientDataVolume = "kmip-client-data"
 	// ACConsumerFinalizer is added to AC secrets that barbican is actively consuming
 	ACConsumerFinalizer = "openstack.org/barbican-ac-consumer"
 

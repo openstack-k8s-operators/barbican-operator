@@ -74,6 +74,9 @@ const (
 
 	// PKCS11 Constants
 	PKCS11ClientDataPath = "/usr/local/luna"
+
+	// KMIP Constants
+	KMIPClientDataPath = "/usr/local/kmip"
 )
 
 func TestAPIs(t *testing.T) {

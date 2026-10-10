@@ -19,40 +19,30 @@ spec:
     database: BarbicanDatabasePassword
     service: BarbicanPassword
     simplecryptokek: BarbicanSimpleCryptoKEK
-    pkcs11pin: BarbicanPKCS11Pin
   preserveJobs: true
+  # The operator renders the [secretstore:kmip] section itself. Everything
+  # under [kmip_plugin] is supplied here, with the certificate paths pointing
+  # into the directory where clientDataSecret is mounted.
   customServiceConfig: |
     [DEFAULT]
     debug = True
 
-    [secretstore:pkcs11]
-    secret_store_plugin = store_crypto
-    crypto_plugin = p11_crypto
-
-    [p11_crypto_plugin]
-    plugin_name = PKCS11
-    library_path = /usr/local/luna/libs/64/libCryptoki2.so
-    token_labels = some_token_label
-    mkek_label = some_mkek_label
-    mkek_length = 123455
-    hmac_label = some_hmac_label
-    encryption_mechanism = CKM_AES_GCM
-    aes_gcm_generate_iv = true
-    hmac_key_type = CKK_GENERIC_SECRET
-    hmac_keygen_mechanism = CKM_GENERIC_SECRET_KEY_GEN
-    hmac_mechanism = CKM_SHA256_HMAC
-    key_wrap_mechanism = CKM_AES_CBC_PAD
-    key_wrap_generate_iv = true
-    always_set_cka_sensitive = true
-    os_locking_ok = false
-  globalDefaultSecretStore: pkcs11
+    [kmip_plugin]
+    host = kmip.example.com
+    port = 5696
+    certfile = /etc/kmip-client/Client.pem
+    keyfile = /etc/kmip-client/Client.key
+    ca_certs = /etc/kmip-client/CACert.pem
+    pkcs1_only = false
+  globalDefaultSecretStore: kmip
   enabledSecretStores:
     - simple_crypto
-    - pkcs11
-  pkcs11:
-    loginSecret: my_luna_login_secret
-    clientDataSecret: my_luna_data_secret
-    clientDataPath: /usr/local/luna
+    - kmip
+  kmip:
+    clientDataSecret: my_kmip_data_secret
+    # Defaults to /etc/kmip-client. When pkcs11 is also enabled, this must
+    # differ from spec.pkcs11.clientDataPath.
+    clientDataPath: /etc/kmip-client
   barbicanAPI:
     containerImage: my_custom_barbican_api_image
     replicas: 1
