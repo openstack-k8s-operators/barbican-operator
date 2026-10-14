@@ -1545,6 +1545,16 @@ var _ = Describe("Barbican controller", func() {
 				ContainSubstring("\"dest\": \"" + KMIPClientDataPath + "\""))
 		})
 
+		It("Verifies the BarbicanAPI spec carries the kmip_plugin settings", func() {
+			// The operator only renders [secretstore:kmip], so the settings
+			// that point at the mounted client data have to arrive through
+			// customServiceConfig. GetKMIPBarbicanAPISpec composes the default
+			// API spec over the KMIP one, so guard against that overlay
+			// silently dropping them again.
+			BarbicanAPI := GetBarbicanAPI(barbicanTest.Instance)
+			Expect(BarbicanAPI.Spec.CustomServiceConfig).To(Equal(KMIPCustomData))
+		})
+
 		It("Does not run the PKCS11 prep job", func() {
 			BarbicanExists(barbicanTest.Instance)
 
