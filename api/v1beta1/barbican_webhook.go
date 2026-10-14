@@ -139,23 +139,30 @@ func (spec *BarbicanSpec) ValidateCreate(basePath *field.Path, namespace string)
 		spec.BarbicanAPI.Override.Service)...)
 
 	// secret store verifications
-	spec.ValidatePKCS11(basePath, &allErrs)
-	spec.ValidateKMIP(basePath, &allErrs)
-	spec.ValidateClientDataPaths(basePath, &allErrs)
+	spec.ValidateSecretStores(basePath, &allErrs)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 
 	return allWarns, allErrs
 }
 
+// ValidateSecretStores runs the secret store validations shared by BarbicanSpec
+// and BarbicanSpecCore. The OpenStackControlplane webhook only sees the Core
+// variant, so these have to live on the base to be enforced there as well.
+func (spec *BarbicanSpecBase) ValidateSecretStores(basePath *field.Path, allErrs *field.ErrorList) {
+	spec.ValidatePKCS11(basePath, allErrs)
+	spec.ValidateKMIP(basePath, allErrs)
+	spec.ValidateClientDataPaths(basePath, allErrs)
+}
+
 // ValidatePKCS11 validates that PKCS11 configuration is provided when PKCS11 is an enabled secret store
-func (spec *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.ErrorList) {
+func (spec *BarbicanSpecBase) ValidatePKCS11(basePath *field.Path, allErrs *field.ErrorList) {
 	if !slices.Contains(spec.EnabledSecretStores, SecretStorePKCS11) {
 		return
 	}
 
 	if spec.PKCS11 == nil {
-		*allErrs = append(*allErrs, field.Required(basePath.Child("PKCS11"),
+		*allErrs = append(*allErrs, field.Required(basePath.Child("pkcs11"),
 			"PKCS11 specification is missing, PKCS11 is required when pkcs11 is an enabled SecretStore"),
 		)
 		return
@@ -169,7 +176,7 @@ func (spec *BarbicanSpec) ValidatePKCS11(basePath *field.Path, allErrs *field.Er
 }
 
 // ValidateKMIP validates that KMIP configuration is provided when kmip is an enabled secret store
-func (spec *BarbicanSpec) ValidateKMIP(basePath *field.Path, allErrs *field.ErrorList) {
+func (spec *BarbicanSpecBase) ValidateKMIP(basePath *field.Path, allErrs *field.ErrorList) {
 	if !slices.Contains(spec.EnabledSecretStores, SecretStoreKMIP) {
 		return
 	}
@@ -191,7 +198,7 @@ func (spec *BarbicanSpec) ValidateKMIP(basePath *field.Path, allErrs *field.Erro
 // ValidateClientDataPaths validates that no two enabled secret stores mount
 // their client data at the same path. Both mounts land in the same pod, so
 // identical paths would be rejected by the API server as a duplicate mount.
-func (spec *BarbicanSpec) ValidateClientDataPaths(basePath *field.Path, allErrs *field.ErrorList) {
+func (spec *BarbicanSpecBase) ValidateClientDataPaths(basePath *field.Path, allErrs *field.ErrorList) {
 	if !slices.Contains(spec.EnabledSecretStores, SecretStorePKCS11) ||
 		!slices.Contains(spec.EnabledSecretStores, SecretStoreKMIP) ||
 		spec.PKCS11 == nil || spec.KMIP == nil {
@@ -216,6 +223,9 @@ func (spec *BarbicanSpecCore) ValidateCreate(basePath *field.Path, namespace str
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		spec.BarbicanAPI.Override.Service)...)
+
+	// secret store verifications
+	spec.ValidateSecretStores(basePath, &allErrs)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 	return allWarns, allErrs
@@ -265,9 +275,7 @@ func (spec *BarbicanSpec) ValidateUpdate(old BarbicanSpec, basePath *field.Path,
 		spec.BarbicanAPI.Override.Service)...)
 
 	// secret store verifications
-	spec.ValidatePKCS11(basePath, &allErrs)
-	spec.ValidateKMIP(basePath, &allErrs)
-	spec.ValidateClientDataPaths(basePath, &allErrs)
+	spec.ValidateSecretStores(basePath, &allErrs)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 	return allWarns, allErrs
@@ -333,6 +341,9 @@ func (spec *BarbicanSpecCore) ValidateUpdate(old BarbicanSpecCore, basePath *fie
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("barbicanAPI").Child("override").Child("service"),
 		spec.BarbicanAPI.Override.Service)...)
+
+	// secret store verifications
+	spec.ValidateSecretStores(basePath, &allErrs)
 
 	allErrs = append(allErrs, spec.ValidateBarbicanTopology(basePath, namespace)...)
 	return allWarns, allErrs
