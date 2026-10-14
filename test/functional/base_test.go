@@ -249,6 +249,10 @@ func GetPKCS11BarbicanSpec() map[string]any {
 func GetPKCS11BarbicanAPISpec() map[string]any {
 	spec := GetPKCS11BarbicanSpec()
 	maps.Copy(spec, GetDefaultBarbicanAPISpec())
+	// GetDefaultBarbicanAPISpec brings its own customServiceConfig, which
+	// would otherwise drop the [p11_crypto_plugin] settings this fixture
+	// exists to supply.
+	spec["customServiceConfig"] = PKCS11CustomData
 	return spec
 }
 
@@ -306,6 +310,10 @@ func GetKMIPBarbicanSpec() map[string]any {
 func GetKMIPBarbicanAPISpec() map[string]any {
 	spec := GetKMIPBarbicanSpec()
 	maps.Copy(spec, GetDefaultBarbicanAPISpec())
+	// GetDefaultBarbicanAPISpec brings its own customServiceConfig, which
+	// would otherwise drop the [kmip_plugin] settings this fixture exists to
+	// supply.
+	spec["customServiceConfig"] = KMIPCustomData
 	return spec
 }
 
