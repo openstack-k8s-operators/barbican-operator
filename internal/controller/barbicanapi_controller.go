@@ -420,7 +420,7 @@ func (r *BarbicanAPIReconciler) reconcileInit(
 				Labels:    exportLabels,
 				Selector:  serviceLabels,
 				Port: service.GenericServicePort{
-					Name:     endpointName,
+					Name:     endpointTypeStr,
 					Port:     data.Port,
 					Protocol: corev1.ProtocolTCP,
 				},

@@ -3,6 +3,7 @@ package functional
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2" //revive:disable:dot-imports
@@ -18,7 +19,9 @@ import (
 	controllers "github.com/openstack-k8s-operators/barbican-operator/internal/controller"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/clusterdns"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1968,6 +1971,112 @@ var _ = Describe("Barbican controller", func() {
 			}
 
 		})
+
+		When("the public Service is a LoadBalancer without an endpointURL", func() {
+			BeforeEach(func() {
+				instance := GetBarbican(barbicanTest.Barbican)
+				setBarbicanLoadBalancer(instance, service.EndpointPublic, nil)
+				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+			})
+
+			It("keeps the in-cluster DNS hostname and endpoint port names", func() {
+				publicService := &corev1.Service{}
+				internalService := &corev1.Service{}
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, barbicanTest.BarbicanServicePublic, publicService)).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, barbicanTest.BarbicanServiceInternal, internalService)).To(Succeed())
+					g.Expect(publicService.Name).To(Equal("barbican-public"))
+					g.Expect(internalService.Name).To(Equal("barbican-internal"))
+					g.Expect(publicService.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
+					g.Expect(internalService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+					g.Expect(publicService.Spec.Ports).To(HaveLen(1))
+					g.Expect(internalService.Spec.Ports).To(HaveLen(1))
+					g.Expect(publicService.Spec.Ports[0].Name).To(Equal("public"))
+					g.Expect(internalService.Spec.Ports[0].Name).To(Equal("internal"))
+					g.Expect(publicService.Annotations[service.AnnotationHostnameKey]).To(Equal(
+						fmt.Sprintf("barbican-public.%s.svc", namespace)))
+				}, timeout, interval).Should(Succeed())
+			})
+		})
+
+		When("the public LoadBalancer Service has a custom endpointURL", func() {
+			BeforeEach(func() {
+				instance := GetBarbican(barbicanTest.Barbican)
+				endpointURL := "https://barbican.example.com:9311"
+				setBarbicanLoadBalancer(instance, service.EndpointPublic, &endpointURL)
+				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+			})
+
+			It("renders the public vhost alias and keeps the in-cluster DNS name", func() {
+				publicService := &corev1.Service{}
+				internalService := &corev1.Service{}
+				configSecret := &corev1.Secret{}
+				publicServiceAlias := fmt.Sprintf("barbican-public.%s.svc", namespace)
+				publicServiceFQDN := publicServiceAlias + "." + clusterdns.GetDNSClusterDomain()
+				internalServiceAlias := fmt.Sprintf("barbican-internal.%s.svc", namespace)
+				internalServiceFQDN := internalServiceAlias + "." + clusterdns.GetDNSClusterDomain()
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, barbicanTest.BarbicanServicePublic, publicService)).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, barbicanTest.BarbicanServiceInternal, internalService)).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, barbicanTest.BarbicanConfigSecret, configSecret)).To(Succeed())
+
+					g.Expect(publicService.Name).To(Equal("barbican-public"))
+					g.Expect(internalService.Name).To(Equal("barbican-internal"))
+					g.Expect(publicService.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
+					g.Expect(internalService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+					g.Expect(publicService.Spec.Ports).To(HaveLen(1))
+					g.Expect(internalService.Spec.Ports).To(HaveLen(1))
+					g.Expect(publicService.Spec.Ports[0].Name).To(Equal("public"))
+					g.Expect(internalService.Spec.Ports[0].Name).To(Equal("internal"))
+					g.Expect(publicService.Annotations).To(HaveKeyWithValue(service.AnnotationHostnameKey, publicServiceAlias))
+
+					config := string(configSecret.Data["10-barbican_wsgi_main.conf"])
+					g.Expect(config).To(ContainSubstring("<VirtualHost *:9311>"))
+					g.Expect(config).To(ContainSubstring("ServerName barbican.example.com"))
+					g.Expect(config).To(ContainSubstring(
+						fmt.Sprintf("ServerAlias %s\n  ServerAlias %s", publicServiceAlias, publicServiceFQDN)))
+					g.Expect(config).To(ContainSubstring(fmt.Sprintf("ServerName barbican-internal.%s.svc", namespace)))
+					g.Expect(config).To(ContainSubstring("ServerAlias " + internalServiceFQDN))
+					g.Expect(strings.Count(config, "ServerAlias ")).To(Equal(3))
+				}, timeout, interval).Should(Succeed())
+			})
+		})
+
+		When("the internal LoadBalancer Service has a custom endpointURL", func() {
+			BeforeEach(func() {
+				instance := GetBarbican(barbicanTest.Barbican)
+				endpointURL := "https://barbican-internal.example.com:9311"
+				setBarbicanLoadBalancer(instance, service.EndpointInternal, &endpointURL)
+				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+			})
+
+			It("keeps the in-cluster DNS name and renders the internal vhost alias", func() {
+				internalService := &corev1.Service{}
+				configSecret := &corev1.Secret{}
+				publicServiceAlias := fmt.Sprintf("barbican-public.%s.svc", namespace)
+				publicServiceFQDN := publicServiceAlias + "." + clusterdns.GetDNSClusterDomain()
+				internalServiceAlias := fmt.Sprintf("barbican-internal.%s.svc", namespace)
+				internalServiceFQDN := internalServiceAlias + "." + clusterdns.GetDNSClusterDomain()
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, barbicanTest.BarbicanServiceInternal, internalService)).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, barbicanTest.BarbicanConfigSecret, configSecret)).To(Succeed())
+					g.Expect(internalService.Name).To(Equal("barbican-internal"))
+					g.Expect(internalService.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
+					g.Expect(internalService.Spec.Ports).To(HaveLen(1))
+					g.Expect(internalService.Spec.Ports[0].Name).To(Equal("internal"))
+					g.Expect(internalService.Annotations).To(HaveKeyWithValue(
+						service.AnnotationHostnameKey, internalServiceAlias))
+
+					config := string(configSecret.Data["10-barbican_wsgi_main.conf"])
+					g.Expect(config).To(ContainSubstring(fmt.Sprintf("ServerName barbican-public.%s.svc", namespace)))
+					g.Expect(config).To(ContainSubstring("ServerAlias " + publicServiceFQDN))
+					g.Expect(config).To(ContainSubstring("ServerName barbican-internal.example.com"))
+					g.Expect(config).To(ContainSubstring(
+						fmt.Sprintf("ServerAlias %s\n  ServerAlias %s", internalServiceAlias, internalServiceFQDN)))
+					g.Expect(strings.Count(config, "ServerAlias ")).To(Equal(3))
+				}, timeout, interval).Should(Succeed())
+			})
+		})
 	})
 
 	When("An ApplicationCredential is created for Barbican", func() {
@@ -2808,6 +2917,18 @@ var _ = Describe("Barbican controller", func() {
 
 })
 
+func setBarbicanLoadBalancer(instance *barbicanv1beta1.Barbican, endpoint service.Endpoint, endpointURL *string) {
+	if instance.Spec.BarbicanAPI.Override.Service == nil {
+		instance.Spec.BarbicanAPI.Override.Service = make(map[service.Endpoint]service.RoutedOverrideSpec)
+	}
+	instance.Spec.BarbicanAPI.Override.Service[endpoint] = service.RoutedOverrideSpec{
+		OverrideSpec: service.OverrideSpec{
+			Spec: &service.OverrideServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+		},
+		EndpointURL: endpointURL,
+	}
+}
+
 var _ = Describe("Barbican Webhook", func() {
 
 	BeforeEach(func() {
@@ -2846,6 +2967,135 @@ var _ = Describe("Barbican Webhook", func() {
 					"Invalid value: \"wrooong\": invalid endpoint type: wrooong"),
 		)
 	})
+
+	DescribeTable("validates Service port names on",
+		func(endpoint service.Endpoint, update, valid bool) {
+			name := fmt.Sprintf("barbican-port-name-%s-%t-%t", endpoint, update, valid)
+			newResource := func(portName string, setEndpointURL bool) *unstructured.Unstructured {
+				serviceOverride := map[string]any{
+					"spec": map[string]any{
+						"ports": []any{map[string]any{"name": portName, "port": int64(9311)}},
+					},
+				}
+				if setEndpointURL {
+					serviceOverride["endpointURL"] = "https://port-name.example.com:9311"
+				}
+				apiSpec := GetDefaultBarbicanAPISpec()
+				apiSpec["override"] = map[string]any{
+					"service": map[string]any{string(endpoint): serviceOverride},
+				}
+				spec := GetDefaultBarbicanSpec()
+				spec["barbicanAPI"] = apiSpec
+				return &unstructured.Unstructured{Object: map[string]any{
+					"apiVersion": "barbican.openstack.org/v1beta1",
+					"kind":       "Barbican",
+					"metadata": map[string]any{
+						"name":      name,
+						"namespace": namespace,
+					},
+					"spec": spec,
+				}}
+			}
+			apply := func(obj *unstructured.Unstructured) error {
+				desiredSpec := obj.Object["spec"]
+				_, err := controllerutil.CreateOrPatch(ctx, k8sClient, obj, func() error {
+					obj.Object["spec"] = desiredSpec
+					return nil
+				})
+				return err
+			}
+
+			if update {
+				initial := newResource(string(endpoint), false)
+				Expect(apply(initial)).To(Succeed())
+				DeferCleanup(th.DeleteInstance, initial)
+			}
+
+			portName := string(endpoint)
+			if !valid {
+				portName += "-wrong"
+			}
+			resource := newResource(portName, update)
+			err := apply(resource)
+			if valid {
+				Expect(err).NotTo(HaveOccurred())
+				if !update {
+					DeferCleanup(th.DeleteInstance, resource)
+				}
+				return
+			}
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(
+				"spec.barbicanAPI.override.service[%s].spec.ports[0].name: Invalid value: %q: must be %q",
+				endpoint, portName, endpoint)))
+		},
+		Entry("accepts public on create", service.EndpointPublic, false, true),
+		Entry("accepts internal on create", service.EndpointInternal, false, true),
+		Entry("rejects public on create", service.EndpointPublic, false, false),
+		Entry("rejects internal on create", service.EndpointInternal, false, false),
+		Entry("accepts public on update", service.EndpointPublic, true, true),
+		Entry("accepts internal on update", service.EndpointInternal, true, true),
+		Entry("rejects public on update", service.EndpointPublic, true, false),
+		Entry("rejects internal on update", service.EndpointInternal, true, false),
+	)
+
+	DescribeTable("validates endpointURL on",
+		func(endpoint service.Endpoint, endpointURL string, port int64, errSubstring string) {
+			name := fmt.Sprintf("barbican-endpoint-url-%s-%d", endpoint, GinkgoRandomSeed()+int64(GinkgoParallelProcess()))
+			serviceOverride := map[string]any{"endpointURL": endpointURL}
+			if port != 0 {
+				serviceOverride["spec"] = map[string]any{
+					"ports": []any{map[string]any{"name": string(endpoint), "port": port}},
+				}
+			}
+			apiSpec := GetDefaultBarbicanAPISpec()
+			apiSpec["override"] = map[string]any{
+				"service": map[string]any{string(endpoint): serviceOverride},
+			}
+			spec := GetDefaultBarbicanSpec()
+			spec["barbicanAPI"] = apiSpec
+			obj := &unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "barbican.openstack.org/v1beta1",
+				"kind":       "Barbican",
+				"metadata":   map[string]any{"name": name, "namespace": namespace},
+				"spec":       spec,
+			}}
+			desiredSpec := obj.Object["spec"]
+			_, err := controllerutil.CreateOrPatch(ctx, k8sClient, obj, func() error {
+				obj.Object["spec"] = desiredSpec
+				return nil
+			})
+			if errSubstring == "" {
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(th.DeleteInstance, obj)
+				return
+			}
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(errSubstring))
+		},
+		Entry("accepts a public FQDN", service.EndpointPublic, "https://barbican.example.com:9311", int64(0), ""),
+		Entry("accepts an internal FQDN", service.EndpointInternal, "https://barbican-internal.example.com:9311", int64(0), ""),
+		Entry("accepts a matching public port", service.EndpointPublic, "https://barbican.example.com:8443", int64(8443), ""),
+		Entry("accepts a matching internal port", service.EndpointInternal, "https://barbican-internal.example.com:8443", int64(8443), ""),
+		Entry("rejects a public short name", service.EndpointPublic, "https://barbican", int64(0),
+			"spec.barbicanAPI.override.service[public].endpointURL: Invalid value"),
+		Entry("rejects an internal short name", service.EndpointInternal, "https://barbican", int64(0),
+			"spec.barbicanAPI.override.service[internal].endpointURL: Invalid value"),
+		Entry("rejects a public missing scheme", service.EndpointPublic, "barbican.example.com", int64(0),
+			"spec.barbicanAPI.override.service[public].endpointURL: Invalid value"),
+		Entry("rejects an internal missing scheme", service.EndpointInternal, "barbican.example.com", int64(0),
+			"spec.barbicanAPI.override.service[internal].endpointURL: Invalid value"),
+		Entry("rejects a public IP literal", service.EndpointPublic, "https://192.0.2.10:9311", int64(0),
+			"host must not be an IP literal"),
+		Entry("rejects an internal IP literal", service.EndpointInternal, "https://192.0.2.10:9311", int64(0),
+			"host must not be an IP literal"),
+		Entry("rejects a public port mismatch", service.EndpointPublic, "https://barbican.example.com:8443", int64(9311),
+			"must match the port in endpointURL"),
+		Entry("rejects an internal port mismatch", service.EndpointInternal, "https://barbican-internal.example.com:8443", int64(9311),
+			"must match the port in endpointURL"),
+	)
+
 	DescribeTable("rejects wrong topology for",
 		func(serviceNameFunc func() (string, string)) {
 
