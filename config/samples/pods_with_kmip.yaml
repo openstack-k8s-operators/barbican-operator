@@ -1,0 +1,54 @@
+apiVersion: barbican.openstack.org/v1beta1
+kind: Barbican
+metadata:
+  labels:
+    app.kubernetes.io/name: barbican
+    app.kubernetes.io/instance: barbican
+    app.kubernetes.io/part-of: barbican-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: barbican-operator
+  name: barbican
+spec:
+  serviceAccount: barbican
+  serviceUser: barbican
+  databaseInstance: openstack
+  databaseAccount: barbican
+  rabbitMqClusterName: rabbitmq
+  secret: osp-secret
+  passwordSelectors:
+    database: BarbicanDatabasePassword
+    service: BarbicanPassword
+    simplecryptokek: BarbicanSimpleCryptoKEK
+  preserveJobs: true
+  # The operator renders the [secretstore:kmip] section itself. Everything
+  # under [kmip_plugin] is supplied here, with the certificate paths pointing
+  # into the directory where clientDataSecret is mounted.
+  customServiceConfig: |
+    [DEFAULT]
+    debug = True
+
+    [kmip_plugin]
+    host = kmip.example.com
+    port = 5696
+    certfile = /etc/kmip-client/Client.pem
+    keyfile = /etc/kmip-client/Client.key
+    ca_certs = /etc/kmip-client/CACert.pem
+    pkcs1_only = false
+  globalDefaultSecretStore: kmip
+  enabledSecretStores:
+    - simple_crypto
+    - kmip
+  kmip:
+    clientDataSecret: my_kmip_data_secret
+    # Defaults to /etc/kmip-client. When pkcs11 is also enabled, this must
+    # differ from spec.pkcs11.clientDataPath.
+    clientDataPath: /etc/kmip-client
+  barbicanAPI:
+    containerImage: my_custom_barbican_api_image
+    replicas: 1
+  barbicanWorker:
+    containerImage: my_custom_barbican_worker_image
+    replicas: 1
+  barbicanKeystoneListener:
+    containerImage: quay.io/podified-antelope-centos9/openstack-barbican-keystone-listener@sha256:9a5deaf4a7db671dab48aface9d426b8fc1ae7cb20d3be64c9c7bf90241fb65c
+    replicas: 1

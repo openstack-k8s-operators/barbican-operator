@@ -5,7 +5,8 @@ This doc briefly describes which secrets are mounted and where.
 
 ## Relevant Spec Fields
 
-- Barbican.Spec.PKCS11.ClientDataSecret []string
+- Barbican.Spec.PKCS11.ClientDataSecret (string)
+- Barbican.Spec.KMIP.ClientDataSecret (string)
 - Barbican.Spec.BarbicanAPI.CustomServiceConfig (string)
 - Barbican.Spec.BarbicanAPI.DefaultConfigOverwrite map[string]string
 - Barbican.Spec.BarbicanAPI.CustomServiceConfigSecrets []string
@@ -63,9 +64,25 @@ This doc briefly describes which secrets are mounted and where.
 - same as above for barbican-api-config-data just for barbican-keystone-listener.
 
 ### secret: Barbican.Spec.PKCS11.ClientDataSecret
-- contains pkcs11 secret material
-- mounted to /var/lib/config-data/hsm
-- copied by kolla to Barbican.Spec.PKCS11.ClientDataPath
+- contains the HSM vendor client material (client config, certificates, keys)
+- mounted read-only directly at Barbican.Spec.PKCS11.ClientDataPath, which defaults
+  to /etc/hsm-client.  This is the final location the vendor client library expects,
+  rather than a staging path kolla used to copy from.
+- only mounted when pkcs11 is in Barbican.Spec.EnabledSecretStores.  It is mounted in
+  the barbican-api and barbican-worker pods and in the pkcs11-prep job, but not in
+  barbican-keystone-listener.
+
+### secret: Barbican.Spec.KMIP.ClientDataSecret
+- contains the client certificate, key and CA bundle used to authenticate against the
+  KMIP appliance
+- mounted read-only directly at Barbican.Spec.KMIP.ClientDataPath, which defaults to
+  /etc/kmip-client.  The [kmip_plugin] certfile/keyfile/ca_certs settings must point
+  into this directory and are supplied through CustomServiceConfig -- the operator only
+  renders the [secretstore:kmip] section itself.
+- only mounted when kmip is in Barbican.Spec.EnabledSecretStores.  It is mounted in the
+  barbican-api and barbican-worker pods, but not in barbican-keystone-listener.
+- when both pkcs11 and kmip are enabled their ClientDataPath values must differ; the
+  Barbican webhook rejects the CR otherwise.
 
 ### secrets: Barbican.Spec.BarbicanAPI.CustomServiceConfigSecrets
 - This is a list of secrets that contain oslo.config style config snippets.
