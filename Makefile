@@ -380,7 +380,7 @@ run-with-webhook: manifests generate fmt vet ## Run a controller from your host.
 
 CRD_SCHEMA_CHECKER_VERSION ?= release-4.18
 
-BRANCH ?= main
+BRANCH ?= 19.0-beta
 
 .PHONY: force-bump
 force-bump: ## Force bump operator and lib-common dependencies
