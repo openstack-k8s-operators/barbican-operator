@@ -66,8 +66,11 @@ type BarbicanTemplate struct {
 	PKCS11 *BarbicanPKCS11Template `json:"pkcs11,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	KMIP *BarbicanKMIPTemplate `json:"kmip,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=2
+	// +kubebuilder:validation:MaxItems=3
 	// +listType:=set
 	EnabledSecretStores []SecretStore `json:"enabledSecretStores,omitempty"`
 
@@ -129,7 +132,7 @@ type BarbicanComponentTemplate struct {
 }
 
 // SecretStore type is used by the EnabledSecretStores variable inside the specification.
-// +kubebuilder:validation:Enum=simple_crypto;pkcs11
+// +kubebuilder:validation:Enum=simple_crypto;pkcs11;kmip
 type SecretStore string
 
 const (
@@ -139,26 +142,66 @@ const (
 	// SecretStorePKCS11 -
 	SecretStorePKCS11 SecretStore = "pkcs11"
 
+	// SecretStoreKMIP -
+	SecretStoreKMIP SecretStore = "kmip"
+
 	// DefaultPKCS11ClientDataPath is the default path for PKCS11 client data
 	DefaultPKCS11ClientDataPath = "/etc/hsm-client"
+
+	// DefaultKMIPClientDataPath is the default path for KMIP client data
+	DefaultKMIPClientDataPath = "/etc/kmip-client"
 )
+
+// ClientDataSpec - a Secret of client files that a secret store backend needs
+// on the pod filesystem, and the path the backend's client library expects to
+// find them at. Shared by the secret stores that talk to an external backend.
+type ClientDataSpec struct {
+	// +kubebuilder:validation:Optional
+	// The OpenShift secret that stores the backend client data.
+	// These will be mounted directly at ClientDataPath.
+	// Required when the owning secret store is enabled; this is enforced by
+	// the Barbican webhook rather than by the schema, because the schema
+	// cannot make it conditional on EnabledSecretStores.
+	ClientDataSecret string `json:"clientDataSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Location at which ClientDataSecret is mounted, i.e. where the backend
+	// client library expects to find it. Defaulted per secret store by the
+	// Barbican webhook (DefaultPKCS11ClientDataPath, DefaultKMIPClientDataPath).
+	ClientDataPath string `json:"clientDataPath,omitempty"`
+}
+
+// PathOrDefault returns the configured ClientDataPath, falling back to
+// defaultPath when it is unset. Only the Barbican CR passes through the
+// defaulting webhook, so this keeps the mount valid for a sub-CR that was
+// created directly.
+func (spec *ClientDataSpec) PathOrDefault(defaultPath string) string {
+	if spec.ClientDataPath == "" {
+		return defaultPath
+	}
+	return spec.ClientDataPath
+}
 
 // BarbicanPKCS11Template - Includes common HSM properties
 type BarbicanPKCS11Template struct {
-        // +kubebuilder:validation:Required
-        // OpenShift secret that stores the password to login to the PKCS11 session
-        LoginSecret string `json:"loginSecret"`
+	// +kubebuilder:validation:Required
+	// OpenShift secret that stores the password to login to the PKCS11 session
+	LoginSecret string `json:"loginSecret"`
 
-        // +kubebuilder:validation:Required
-        // The OpenShift secret that stores the HSM client data.
-        // These will be mounted directly at ClientDataPath.
-        ClientDataSecret string `json:"clientDataSecret"`
+	// Secret holding the HSM vendor client data, mounted where the vendor
+	// client library expects it. Defaults to DefaultPKCS11ClientDataPath.
+	ClientDataSpec `json:",inline"`
+}
 
-        // +kubebuilder:validation:Optional
-	// +kubebuilder:default="/etc/hsm-client"
-        // Location at which ClientDataSecret is mounted, i.e. where the HSM
-        // vendor client library expects to find it.
-        ClientDataPath string `json:"clientDataPath"`
+// BarbicanKMIPTemplate - Includes the KMIP secret store properties
+type BarbicanKMIPTemplate struct {
+	// Secret holding the client certificate, key and CA bundle used to
+	// authenticate against the KMIP appliance, mounted where the
+	// [kmip_plugin] certfile/keyfile/ca_certs settings point. Defaults to
+	// DefaultKMIPClientDataPath. The [kmip_plugin] settings themselves
+	// (host, port, credentials, file names) are supplied through
+	// CustomServiceConfig.
+	ClientDataSpec `json:",inline"`
 }
 
 // AuthSpec defines authentication parameters

@@ -390,6 +390,15 @@ func (r *BarbicanReconciler) reconcileNormal(ctx context.Context, instance *barb
 		}
 	}
 
+	// check KMIP secrets
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreKMIP) && instance.Spec.KMIP != nil {
+		// check for the secret holding the KMIP Client Data
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.KMIP.ClientDataSecret, []string{}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+	}
+
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// Setting this here at the top level
 	instance.Spec.ServiceAccount = instance.RbacResourceName()
@@ -860,6 +869,7 @@ const (
 	tlsAPIPublicField                   = ".spec.tls.api.public.secretName"
 	pkcs11LoginSecretField              = ".spec.pkcs11.loginSecret"      // #nosec G101
 	pkcs11ClientDataSecretField         = ".spec.pkcs11.clientDataSecret" // #nosec G101
+	kmipClientDataSecretField           = ".spec.kmip.clientDataSecret"   // #nosec G101
 	topologyField                       = ".spec.topologyRef.Name"
 	customServiceConfigSecretsField     = ".spec.customServiceConfigSecrets" // #nosec G101
 	parentBarbicanConfigDataSecretField = ".status.parentBarbicanConfigDataSecret"
@@ -873,6 +883,7 @@ var (
 		caBundleSecretNameField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
+		kmipClientDataSecretField,
 		topologyField,
 		customServiceConfigSecretsField,
 		parentBarbicanConfigDataSecretField,
@@ -885,6 +896,7 @@ var (
 		tlsAPIPublicField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
+		kmipClientDataSecretField,
 		topologyField,
 		customServiceConfigSecretsField,
 		parentBarbicanConfigDataSecretField,
@@ -957,6 +969,17 @@ func (r *BarbicanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Index kmipClientDataSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.Barbican{}, kmipClientDataSecretField, func(rawObj client.Object) []string {
+		cr := rawObj.(*barbicanv1beta1.Barbican)
+		if cr.Spec.KMIP == nil || cr.Spec.KMIP.ClientDataSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.KMIP.ClientDataSecret}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&barbicanv1beta1.Barbican{}).
 		Owns(&barbicanv1beta1.BarbicanAPI{}).
@@ -1022,6 +1045,7 @@ func (r *BarbicanReconciler) findObjectsForSrc(ctx context.Context, src client.O
 		simpleCryptoBackendSecretField,
 		pkcs11LoginSecretField,
 		pkcs11ClientDataSecretField,
+		kmipClientDataSecretField,
 		authAppCredSecretField,
 	} {
 		crList := &barbicanv1beta1.BarbicanList{}

@@ -52,7 +52,7 @@ spec:
   pkcs11:
     loginSecret: my_luna_login_secret
     clientDataSecret: my_luna_data_secret
-    clientDataPatth: /usr/local/luna
+    clientDataPath: /usr/local/luna
   barbicanAPI:
     containerImage: my_custom_barbican_api_image
     replicas: 1
