@@ -35,9 +35,12 @@ func PKCS11PrepJob(instance *barbicanv1beta1.Barbican, labels map[string]string,
 		pkcs11Mounts = append(pkcs11Mounts, instance.Spec.BarbicanAPI.TLS.CreateVolumeMounts(nil)...)
 	}
 
-	// add any HSM volumes
-	pkcs11Volumes = append(pkcs11Volumes, GetHSMVolumes(*instance.Spec.PKCS11)...)
-	pkcs11Mounts = append(pkcs11Mounts, GetHSMVolumeMounts()...)
+	// add the HSM vendor client data. This job only ever runs for the pkcs11
+	// secret store, so no other store's client data is mounted here.
+	pkcs11Volumes = append(pkcs11Volumes,
+		getClientDataVolume(PKCS11ClientDataVolume, instance.Spec.PKCS11.ClientDataSpec))
+	pkcs11Mounts = append(pkcs11Mounts,
+		getClientDataVolumeMount(PKCS11ClientDataVolume, PKCS11ClientDataMountPoint))
 
 	// add luna specific config files
 

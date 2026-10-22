@@ -69,6 +69,10 @@ const (
 	PKCS11ClientDataVolume = "pkcs11-client-data"
 	// PKCS11ClientDataMountPoint is the mount point used for PKCS11 client Data
 	PKCS11ClientDataMountPoint = "/var/lib/config-data/hsm"
+	// KMIPClientDataVolume is the volume used to mount KMIP client Data
+	KMIPClientDataVolume = "kmip-client-data"
+	// KMIPClientDataMountPoint is the mount point used for KMIP client Data
+	KMIPClientDataMountPoint = "/var/lib/config-data/kmip"
 	// BarbicanUID - based on https://github.com/openstack-k8s-operators/tcib/blob/main/container-images/kolla/base/uid_gid_manage.sh
 	BarbicanUID int64 = 42403
 	// BarbicanGID - based on https://github.com/openstack-k8s-operators/tcib/blob/main/container-images/kolla/base/uid_gid_manage.sh

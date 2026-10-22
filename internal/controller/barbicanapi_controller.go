@@ -364,9 +364,10 @@ func (r *BarbicanAPIReconciler) generateServiceConfigs(
 		}
 	}
 
-	// To avoid a json parsing error in kolla files, we always need to set PKCS11ClientDataPath
-	// This gets overridden in the PKCS11 section below if needed.
+	// To avoid a json parsing error in kolla files, we always need to set the
+	// client data paths.
 	templateParameters["PKCS11ClientDataPath"] = barbicanv1beta1.DefaultPKCS11ClientDataPath
+	templateParameters["KMIPClientDataPath"] = barbicanv1beta1.DefaultKMIPClientDataPath
 
 	return parentOverwrite, GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false, []string{})
 }
@@ -652,6 +653,16 @@ func (r *BarbicanAPIReconciler) reconcileNormal(ctx context.Context, instance *b
 		// check for PKCS11 secret holding the PKCS11 Client Data
 		Log.Info(fmt.Sprintf("[API] Verify secret '%s'", instance.Spec.PKCS11.ClientDataSecret))
 		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.PKCS11.ClientDataSecret, []string{}, &configVars)
+		if err != nil {
+			return ctrlResult, err
+		}
+	}
+
+	// check KMIP secrets
+	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStoreKMIP) && instance.Spec.KMIP != nil {
+		// check for the secret holding the KMIP Client Data
+		Log.Info(fmt.Sprintf("[API] Verify secret '%s'", instance.Spec.KMIP.ClientDataSecret))
+		ctrlResult, err = r.verifySecret(ctx, helper, instance, instance.Spec.KMIP.ClientDataSecret, []string{}, &configVars)
 		if err != nil {
 			return ctrlResult, err
 		}
@@ -1049,6 +1060,18 @@ func (r *BarbicanAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 		return []string{cr.Spec.PKCS11.ClientDataSecret}
+	}); err != nil {
+		return err
+	}
+
+	// index kmipClientDataSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &barbicanv1beta1.BarbicanAPI{}, kmipClientDataSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*barbicanv1beta1.BarbicanAPI)
+		if cr.Spec.KMIP == nil || cr.Spec.KMIP.ClientDataSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.KMIP.ClientDataSecret}
 	}); err != nil {
 		return err
 	}

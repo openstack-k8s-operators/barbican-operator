@@ -99,30 +99,51 @@ func GetKollaConfigVolumeMount(serviceName string) corev1.VolumeMount {
 	}
 }
 
-// GetHSMVolumes returns Volumes for HSM secrets
-func GetHSMVolumes(pkcs11 barbicanv1beta1.BarbicanPKCS11Template) []corev1.Volume {
-	return []corev1.Volume{
-		{
-			Name: PKCS11ClientDataVolume,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &configMode,
-					SecretName:  pkcs11.ClientDataSecret,
-				},
+// getClientDataVolume returns the Volume exposing a secret store's client data
+// Secret (HSM vendor client files, KMIP certificates, ...).
+func getClientDataVolume(volumeName string, clientData barbicanv1beta1.ClientDataSpec) corev1.Volume {
+	return corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				DefaultMode: &configMode,
+				SecretName:  clientData.ClientDataSecret,
 			},
 		},
 	}
 }
 
-// GetHSMVolumeMounts returns Volume Mounts for HSM secrets
-func GetHSMVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
-			Name:      PKCS11ClientDataVolume,
-			MountPath: PKCS11ClientDataMountPoint,
-			ReadOnly:  true,
-		},
+// getClientDataVolumeMount returns the VolumeMount for a secret store's client
+// data. The Secret is mounted at the store's staging path; kolla copies it from
+// there to ClientDataPath, the final location the backend client library
+// expects.
+func getClientDataVolumeMount(volumeName string, mountPoint string) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: mountPoint,
+		ReadOnly:  true,
 	}
+}
+
+// GetClientDataVolumes returns the client data Volumes and VolumeMounts for
+// every enabled secret store that mounts files from a Secret. Each store gets
+// its own volume name and mount path, so stores enabled together do not
+// collide.
+func GetClientDataVolumes(template *barbicanv1beta1.BarbicanTemplate) ([]corev1.Volume, []corev1.VolumeMount) {
+	var volumes []corev1.Volume
+	var mounts []corev1.VolumeMount
+
+	if slices.Contains(template.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && template.PKCS11 != nil {
+		volumes = append(volumes, getClientDataVolume(PKCS11ClientDataVolume, template.PKCS11.ClientDataSpec))
+		mounts = append(mounts, getClientDataVolumeMount(PKCS11ClientDataVolume, PKCS11ClientDataMountPoint))
+	}
+
+	if slices.Contains(template.EnabledSecretStores, barbicanv1beta1.SecretStoreKMIP) && template.KMIP != nil {
+		volumes = append(volumes, getClientDataVolume(KMIPClientDataVolume, template.KMIP.ClientDataSpec))
+		mounts = append(mounts, getClientDataVolumeMount(KMIPClientDataVolume, KMIPClientDataMountPoint))
+	}
+
+	return volumes, mounts
 }
 
 // GetCustomConfigVolume - service custom config volume
