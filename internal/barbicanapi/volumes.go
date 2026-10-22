@@ -1,8 +1,6 @@
 package barbicanapi
 
 import (
-	"slices"
-
 	barbicanv1beta1 "github.com/openstack-k8s-operators/barbican-operator/api/v1beta1"
 	barbican "github.com/openstack-k8s-operators/barbican-operator/internal/barbican"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
@@ -56,11 +54,10 @@ func GetAPIVolumesAndMounts(instance *barbicanv1beta1.BarbicanAPI, overwriteKeys
 		}
 	}
 
-	// Add PKCS11 volumes
-	if slices.Contains(instance.Spec.EnabledSecretStores, barbicanv1beta1.SecretStorePKCS11) && instance.Spec.PKCS11 != nil {
-		apiVolumes = append(apiVolumes, barbican.GetHSMVolumes(*instance.Spec.PKCS11)...)
-		apiVolumeMounts = append(apiVolumeMounts, barbican.GetHSMVolumeMounts()...)
-	}
+	// Add the client data volumes of the enabled secret stores
+	clientDataVols, clientDataMounts := barbican.GetClientDataVolumes(&instance.Spec.BarbicanTemplate)
+	apiVolumes = append(apiVolumes, clientDataVols...)
+	apiVolumeMounts = append(apiVolumeMounts, clientDataMounts...)
 
 	// ExtraMounts
 	extraVols, extraMounts := barbican.GetExtraVolumes(

@@ -15,6 +15,14 @@
         "perm": "0550",
         "optional": true,
         "merge": true
+      },
+      {
+        "source": "/var/lib/config-data/kmip",
+        "dest": "{{ .KMIPClientDataPath }}",
+        "owner": "barbican",
+        "perm": "0550",
+        "optional": true,
+        "merge": true
       }
     ],
     "permissions": [
