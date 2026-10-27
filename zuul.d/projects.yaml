@@ -22,7 +22,7 @@
     name: barbican-operator-s2i-component-jobs
     github-check:
       jobs:
-        - barbican-s2i-test:
+        - barbican-s2i-test: &barbican_s2i_component_overrides
             vars:
               content_provider_registry_ip: "{{ s2i_content_provider_registry_ip }}"
             files:
@@ -31,6 +31,7 @@
             dependencies:
               - s2i-openstack-container-content-provider
               - s2i-openstack-container-consumer-smoke
+        - barbican-s2i-test-ceph: *barbican_s2i_component_overrides
 
 - project:
     name: openstack-k8s-operators/barbican-operator
