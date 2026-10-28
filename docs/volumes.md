@@ -68,6 +68,7 @@ This doc briefly describes which secrets are mounted and where.
 - mounted read-only directly at Barbican.Spec.PKCS11.ClientDataPath, which defaults
   to /etc/hsm-client.  This is the final location the vendor client library expects,
   rather than a staging path kolla used to copy from.
+- Secret volume DefaultMode is 0400 (shared client-data mount helper with KMIP).
 - only mounted when pkcs11 is in Barbican.Spec.EnabledSecretStores.  It is mounted in
   the barbican-api and barbican-worker pods and in the pkcs11-prep job, but not in
   barbican-keystone-listener.
@@ -79,6 +80,9 @@ This doc briefly describes which secrets are mounted and where.
   /etc/kmip-client.  The [kmip_plugin] certfile/keyfile/ca_certs settings must point
   into this directory and are supplied through CustomServiceConfig -- the operator only
   renders the [secretstore:kmip] section itself.
+- Secret volume DefaultMode is 0400 (same as lib-common TLS private-key mounts).
+  Barbican's KMIP plugin requires exact mode 0400 on the keyfile
+  (`_validate_keyfile_permissions`); 0440/0640 both fail that check.
 - only mounted when kmip is in Barbican.Spec.EnabledSecretStores.  It is mounted in the
   barbican-api and barbican-worker pods, but not in barbican-keystone-listener.
 - when both pkcs11 and kmip are enabled their ClientDataPath values must differ; the
