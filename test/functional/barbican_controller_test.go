@@ -598,6 +598,66 @@ var _ = Describe("Barbican controller", func() {
 		})
 	})
 
+	When("Barbican secure RBAC configuration", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanMessageBusSecret(barbicanTest.Instance.Namespace, barbicanTest.RabbitmqSecretName))
+			DeferCleanup(k8sClient.Delete, ctx, CreateBarbicanSecret(barbicanTest.Instance.Namespace, SecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					barbicanTest.Instance.Namespace,
+					"openstack",
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(barbicanTest.Instance.Namespace))
+		})
+
+		It("emits the [oslo_policy] section with secure RBAC disabled in 00-default.conf", func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["barbicanAPI"] = map[string]any{
+				"enableSecureRBAC": false,
+			}
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := string(cf.Data["00-default.conf"])
+			Expect(conf).To(ContainSubstring("[oslo_policy]"))
+			Expect(conf).To(ContainSubstring("enforce_new_defaults = false"))
+			Expect(conf).To(ContainSubstring("enforce_scope = false"))
+		})
+
+		It("emits the [oslo_policy] section with secure RBAC enabled in 00-default.conf", func() {
+			spec := GetDefaultBarbicanSpec()
+			spec["barbicanAPI"] = map[string]any{
+				"enableSecureRBAC": true,
+			}
+			DeferCleanup(th.DeleteInstance, CreateBarbican(barbicanTest.Instance, spec))
+
+			infra.SimulateTransportURLReady(barbicanTest.BarbicanTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(barbicanTest.BarbicanDatabaseAccount)
+			mariadb.SimulateMariaDBDatabaseCompleted(barbicanTest.BarbicanDatabaseName)
+			th.SimulateJobSuccess(barbicanTest.BarbicanDBSync)
+			keystone.SimulateKeystoneEndpointReady(barbicanTest.BarbicanKeystoneEndpoint)
+
+			cf := th.GetSecret(barbicanTest.BarbicanAPIConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := string(cf.Data["00-default.conf"])
+			Expect(conf).To(ContainSubstring("[oslo_policy]"))
+			Expect(conf).To(ContainSubstring("enforce_new_defaults = true"))
+			Expect(conf).To(ContainSubstring("enforce_scope = true"))
+		})
+	})
+
 	When("Barbican is created with topologyRef", func() {
 		var topologyRef, topologyRefAlt *topologyv1.TopoRef
 		BeforeEach(func() {
