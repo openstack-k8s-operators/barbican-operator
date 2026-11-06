@@ -1485,6 +1485,19 @@ var _ = Describe("Barbican controller", func() {
 			Expect(foundMount).To(BeTrue())
 			Expect(container.VolumeMounts[indexMount].MountPath).To(Equal(KMIPClientDataPath))
 
+			// Barbican KMIP plugin requires exact mode 0400 on Client.key
+			foundVol := false
+			for _, volume := range d.Spec.Template.Spec.Volumes {
+				if volume.Name == barbican.KMIPClientDataVolume {
+					foundVol = true
+					Expect(volume.Secret).ShouldNot(BeNil())
+					Expect(volume.Secret.DefaultMode).ShouldNot(BeNil())
+					Expect(*volume.Secret.DefaultMode).To(Equal(int32(0400)))
+					break
+				}
+			}
+			Expect(foundVol).To(BeTrue())
+
 			// kmip must not drag in the pkcs11 client data mount
 			for _, volumeMount := range container.VolumeMounts {
 				Expect(volumeMount.Name).ShouldNot(Equal(barbican.PKCS11ClientDataVolume))

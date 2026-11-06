@@ -13,6 +13,11 @@ import (
 var (
 	configMode int32 = 0440
 	scriptMode int32 = 0740
+	// clientDataMode matches lib-common TLS private-key mounts (0400).
+	// Barbican's KMIP plugin rejects keyfiles that are group/world-readable
+	// (_validate_keyfile_permissions requires exact mode 0400). PKCS11
+	// vendor client material is fine at the same mode.
+	clientDataMode int32 = 0400
 )
 
 // GetVolumes - service volumes
@@ -132,7 +137,7 @@ func getClientDataVolume(volumeName string, clientData barbicanv1beta1.ClientDat
 		Name: volumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				DefaultMode: &configMode,
+				DefaultMode: &clientDataMode,
 				SecretName:  clientData.ClientDataSecret,
 			},
 		},
