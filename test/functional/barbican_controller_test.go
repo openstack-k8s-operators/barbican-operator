@@ -1975,9 +1975,11 @@ var _ = Describe("Barbican controller", func() {
 
 		When("the public Service is a LoadBalancer without an endpointURL", func() {
 			BeforeEach(func() {
-				instance := GetBarbican(barbicanTest.Barbican)
-				setBarbicanLoadBalancer(instance, service.EndpointPublic, nil)
-				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				Eventually(func(g Gomega) {
+					instance := GetBarbican(barbicanTest.Barbican)
+					setBarbicanLoadBalancer(instance, service.EndpointPublic, nil)
+					g.Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				}, timeout, interval).Should(Succeed())
 			})
 
 			It("keeps endpoint port names and does not register the public LoadBalancer in dnsmasq", func() {
@@ -2029,10 +2031,12 @@ var _ = Describe("Barbican controller", func() {
 
 		When("the public LoadBalancer Service has a custom endpointURL", func() {
 			BeforeEach(func() {
-				instance := GetBarbican(barbicanTest.Barbican)
-				endpointURL := "https://barbican.example.com:9311"
-				setBarbicanLoadBalancer(instance, service.EndpointPublic, &endpointURL)
-				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				Eventually(func(g Gomega) {
+					instance := GetBarbican(barbicanTest.Barbican)
+					endpointURL := "https://barbican.example.com:9311"
+					setBarbicanLoadBalancer(instance, service.EndpointPublic, &endpointURL)
+					g.Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				}, timeout, interval).Should(Succeed())
 			})
 
 			It("renders the public vhost alias and keeps the in-cluster DNS name", func() {
@@ -2072,14 +2076,16 @@ var _ = Describe("Barbican controller", func() {
 
 		When("the public endpointURL is set without a LoadBalancer (Route)", func() {
 			BeforeEach(func() {
-				instance := GetBarbican(barbicanTest.Barbican)
-				if instance.Spec.BarbicanAPI.Override.Service == nil {
-					instance.Spec.BarbicanAPI.Override.Service = make(map[service.Endpoint]service.RoutedOverrideSpec)
-				}
-				instance.Spec.BarbicanAPI.Override.Service[service.EndpointPublic] = service.RoutedOverrideSpec{
-					EndpointURL: ptr.To("https://barbican-route.example.com:9311"),
-				}
-				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				Eventually(func(g Gomega) {
+					instance := GetBarbican(barbicanTest.Barbican)
+					if instance.Spec.BarbicanAPI.Override.Service == nil {
+						instance.Spec.BarbicanAPI.Override.Service = make(map[service.Endpoint]service.RoutedOverrideSpec)
+					}
+					instance.Spec.BarbicanAPI.Override.Service[service.EndpointPublic] = service.RoutedOverrideSpec{
+						EndpointURL: ptr.To("https://barbican-route.example.com:9311"),
+					}
+					g.Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				}, timeout, interval).Should(Succeed())
 			})
 
 			It("keeps the default vhost ServerName", func() {
@@ -2097,9 +2103,11 @@ var _ = Describe("Barbican controller", func() {
 
 		When("the internal Service is a LoadBalancer that is then switched to ClusterIP", func() {
 			BeforeEach(func() {
-				instance := GetBarbican(barbicanTest.Barbican)
-				setBarbicanLoadBalancer(instance, service.EndpointInternal, nil)
-				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				Eventually(func(g Gomega) {
+					instance := GetBarbican(barbicanTest.Barbican)
+					setBarbicanLoadBalancer(instance, service.EndpointInternal, nil)
+					g.Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				}, timeout, interval).Should(Succeed())
 				th.SimulateLoadBalancerServiceIP(barbicanTest.BarbicanServiceInternal)
 			})
 
@@ -2127,10 +2135,12 @@ var _ = Describe("Barbican controller", func() {
 
 		When("the internal LoadBalancer Service has a custom endpointURL", func() {
 			BeforeEach(func() {
-				instance := GetBarbican(barbicanTest.Barbican)
-				endpointURL := "https://barbican-internal.example.com:9311"
-				setBarbicanLoadBalancer(instance, service.EndpointInternal, &endpointURL)
-				Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				Eventually(func(g Gomega) {
+					instance := GetBarbican(barbicanTest.Barbican)
+					endpointURL := "https://barbican-internal.example.com:9311"
+					setBarbicanLoadBalancer(instance, service.EndpointInternal, &endpointURL)
+					g.Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+				}, timeout, interval).Should(Succeed())
 			})
 
 			It("keeps the in-cluster DNS name and renders the internal vhost alias", func() {
